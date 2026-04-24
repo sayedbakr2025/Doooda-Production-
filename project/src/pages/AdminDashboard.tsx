@@ -29,13 +29,15 @@ import AdminGenresTones from '../components/admin/AdminGenresTones';
 import AdminInstitutions from '../components/admin/institutions/AdminInstitutions';
 import AdminReferrals from '../components/admin/AdminReferrals';
 import AdminAffiliates from '../components/admin/AdminAffiliates';
+import AdminSupportTickets from '../components/admin/AdminSupportTickets';
+import AdminBroadcast from '../components/admin/AdminBroadcast';
 
 type Section =
   | 'overview' | 'users' | 'plans' | 'messages' | 'notifications'
   | 'publishers' | 'publishing-directory' | 'doooda' | 'plot-templates' | 'homepage' | 'project-types'
   | 'platform-settings' | 'branding' | 'tracking' | 'error-monitor'
   | 'security' | 'backup' | 'roles' | 'analytics' | 'academy' | 'academy-intelligence' | 'community' | 'promo-popups'
-  | 'competitions' | 'genres-tones' | 'institutions' | 'referrals' | 'affiliates';
+  | 'competitions' | 'genres-tones' | 'institutions' | 'referrals' | 'affiliates' | 'support-tickets' | 'broadcast';
 
 interface MenuItem {
   id: Section;
@@ -67,6 +69,8 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'institutions', label: 'Institutional Accounts', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', group: 'content' },
   { id: 'referrals', label: 'Referral Program', icon: 'M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7', group: 'main' },
   { id: 'affiliates', label: 'Affiliate Program', icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1', group: 'main' },
+  { id: 'support-tickets', label: 'Support Tickets', icon: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z', group: 'main' },
+  { id: 'broadcast', label: 'Broadcast', icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z', group: 'main' },
   { id: 'genres-tones', label: 'Genres & Tones', icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z', group: 'content' },
   { id: 'publishers', label: 'Publishers (Legacy)', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', group: 'content' },
   { id: 'doooda', label: 'Ask Doooda AI', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z', group: 'content' },
@@ -206,6 +210,8 @@ export default function AdminDashboard() {
         {activeSection === 'institutions' && <AdminInstitutions />}
         {activeSection === 'referrals' && <AdminReferrals />}
         {activeSection === 'affiliates' && <AdminAffiliates />}
+        {activeSection === 'support-tickets' && <AdminSupportTickets />}
+        {activeSection === 'broadcast' && <AdminBroadcast />}
       </main>
     </div>
   );

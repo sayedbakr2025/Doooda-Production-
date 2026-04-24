@@ -5,8 +5,55 @@ import { t } from '../../utils/translations';
 import { useDooodaAccess } from './useDooodaAccess';
 import { supabase, invokeWithAuth } from '../../lib/supabaseClient';
 import { askDoooda } from '../../api/askDoooda';
-import { type WritingModeId, DEFAULT_MODE, MODE_ORDER, inferWritingMode } from './writingModes';
+import { type WritingModeId, inferWritingMode } from './writingModes';
 import { checkAbuse, resetAbuseTracker } from './abuseProtection';
+
+function playReplySound() {
+  try {
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+
+    // metallic click
+    const click = ctx.createOscillator();
+    const clickGain = ctx.createGain();
+    click.connect(clickGain);
+    clickGain.connect(ctx.destination);
+    click.type = 'square';
+    click.frequency.setValueAtTime(1800, now);
+    click.frequency.exponentialRampToValueAtTime(60, now + 0.04);
+    clickGain.gain.setValueAtTime(0.08, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    click.start(now);
+    click.stop(now + 0.04);
+
+    // carriage ding (bell)
+    const bell = ctx.createOscillator();
+    const bellGain = ctx.createGain();
+    bell.connect(bellGain);
+    bellGain.connect(ctx.destination);
+    bell.type = 'sine';
+    bell.frequency.setValueAtTime(2400, now + 0.06);
+    bell.frequency.exponentialRampToValueAtTime(2800, now + 0.09);
+    bellGain.gain.setValueAtTime(0, now + 0.05);
+    bellGain.gain.linearRampToValueAtTime(0.1, now + 0.06);
+    bellGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    bell.start(now + 0.05);
+    bell.stop(now + 0.2);
+
+    // subtle strike thud
+    const noise = ctx.createOscillator();
+    const noiseGain = ctx.createGain();
+    noise.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.type = 'triangle';
+    noise.frequency.setValueAtTime(150, now + 0.01);
+    noise.frequency.exponentialRampToValueAtTime(40, now + 0.05);
+    noiseGain.gain.setValueAtTime(0.06, now + 0.01);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    noise.start(now + 0.01);
+    noise.stop(now + 0.05);
+  } catch {}
+}
 import {
   type SessionLang,
   detectTextLanguage,
@@ -20,6 +67,14 @@ import {
   resolveContextLevel,
 } from './dooodaContext';
 import { buildCharacterContext } from './characterAwareMode';
+import {
+  createSupportTicket,
+  addSupportMessage,
+  getSupportMessages,
+  getUserTickets,
+  markSupportMessagesRead,
+} from '../../services/api';
+import type { SupportTicket } from '../../types';
 
 interface UserTokenData {
   id: string;
@@ -65,30 +120,7 @@ interface OpenDooodaDetail {
   writingContext?: WritingContext;
 }
 
-function ModeIcon({ mode, size = 14 }: { mode: WritingModeId; size?: number }) {
-  if (mode === 'explain') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      </svg>
-    );
-  }
-  if (mode === 'review') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-      </svg>
-    );
-  }
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="9" y1="18" x2="15" y2="18" />
-      <line x1="10" y1="22" x2="14" y2="22" />
-      <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
-    </svg>
-  );
-}
+type ChatMode = 'ask_doooda' | 'support';
 
 export default function DooodaChatPanel() {
   const [isOpen, setIsOpen] = useState(false);
@@ -97,11 +129,14 @@ export default function DooodaChatPanel() {
   const [input, setInput] = useState('');
   const [contextText, setContextText] = useState<string | null>(null);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const [activeMode, setActiveMode] = useState<WritingModeId>(DEFAULT_MODE);
-  const [modeAutoInferred, setModeAutoInferred] = useState(false);
+  const [activeMode, setActiveMode] = useState<WritingModeId>('explain');
   const [sessionLang, setSessionLang] = useState<SessionLang | null>(null);
   const [writingCtx, setWritingCtx] = useState<WritingContext | null>(null);
   const [tokensBalance, setTokensBalance] = useState<number | null>(null);
+  const [chatMode, setChatMode] = useState<ChatMode>('ask_doooda');
+  const [supportTicket, setSupportTicket] = useState<SupportTicket | null>(null);
+  const [ticketList, setTicketList] = useState<SupportTicket[]>([]);
+  const [showTicketList, setShowTicketList] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { language } = useLanguage();
@@ -145,11 +180,43 @@ export default function DooodaChatPanel() {
     setTimeout(() => {
       setIsClosing(false);
       setIsOpen(false);
+      setChatMode('ask_doooda');
+      setSupportTicket(null);
+      setTicketList([]);
+      setShowTicketList(false);
       resetAbuseTracker();
       setSessionLang(null);
       setWritingCtx(null);
     }, 200);
   }, []);
+
+  const switchToAskDoooda = useCallback(() => {
+    if (chatMode === 'ask_doooda') return;
+    setChatMode('ask_doooda');
+    setSupportTicket(null);
+    setMessages([{
+      id: crypto.randomUUID(),
+      text: t('doooda.greeting.neutral', language),
+      isUser: false,
+      timestamp: new Date(),
+    }]);
+  }, [chatMode, language]);
+
+  const switchToSupport = useCallback(async () => {
+    if (chatMode === 'support') return;
+    setChatMode('support');
+    setSupportTicket(null);
+    setShowTicketList(true);
+    setMessages([]);
+    if (user) {
+      try {
+        const tickets = await getUserTickets(user.id);
+        setTicketList(tickets);
+      } catch (err) {
+        console.error('[DooodaChatPanel] load tickets:', err);
+      }
+    }
+  }, [chatMode, user]);
 
   const openPanel = useCallback(async (detail?: OpenDooodaDetail) => {
     if (detail?.writingContext) {
@@ -225,10 +292,36 @@ export default function DooodaChatPanel() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, handleClose]);
 
+  useEffect(() => {
+    if (isOpen && chatMode === 'support' && user && supportTicket) {
+      (async () => {
+        try {
+          const msgs = await getSupportMessages(supportTicket.id);
+          setMessages(msgs.map((m) => ({
+            id: m.id,
+            text: m.message,
+            isUser: m.sender_type === 'user',
+            timestamp: new Date(m.created_at),
+          })));
+          await markSupportMessagesRead(supportTicket.id, 'admin');
+          const tickets = await getUserTickets(user.id);
+          setTicketList(tickets);
+        } catch (err) {
+          console.error('[DooodaChatPanel] loadSupportMessages:', err);
+        }
+      })();
+    }
+  }, [isOpen, chatMode, user, supportTicket?.id]);
+
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || inputDisabled) return;
+
+    if (chatMode === 'support') {
+      await handleSupportSend(trimmed);
+      return;
+    }
 
     const { data: { session } } = await supabase.auth.getSession();
 
@@ -353,8 +446,6 @@ export default function DooodaChatPanel() {
     const resolvedMode = inferred ?? activeMode;
     if (inferred && inferred !== activeMode) {
       setActiveMode(inferred);
-      setModeAutoInferred(true);
-      setTimeout(() => setModeAutoInferred(false), 2000);
     }
 
     const userMsg: ChatMessage = {
@@ -429,6 +520,8 @@ export default function DooodaChatPanel() {
         prev.filter((m) => m.id !== pendingId).concat(dooodaMsg)
       );
 
+      playReplySound();
+
       if (typeof response.tokens_left === 'number') {
         setTokensBalance(response.tokens_left);
       } else {
@@ -464,15 +557,92 @@ export default function DooodaChatPanel() {
     access.invalidateCache();
   };
 
+  const handleSupportSend = async (text: string) => {
+    if (!user) return;
+    setInputDisabled(true);
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      text,
+      isUser: true,
+      timestamp: new Date(),
+    };
+    const confirmId = crypto.randomUUID();
+    const confirmMsg: ChatMessage = {
+      id: confirmId,
+      text: language === 'ar'
+        ? '✅ تم استلام رسالتك وسيتم الرد في أسرع وقت ممكن.'
+        : '✅ Your message has been received. We will respond as soon as possible.',
+      isUser: false,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg, confirmMsg]);
+    setInput('');
+
+    try {
+      if (!supportTicket) {
+        const result = await createSupportTicket(user.id, text);
+        setSupportTicket(result as SupportTicket);
+        setShowTicketList(false);
+        const tickets = await getUserTickets(user.id);
+        setTicketList(tickets);
+      } else {
+        await addSupportMessage(supportTicket.id, text, 'user');
+      }
+    } catch (err) {
+      console.error('[DooodaChatPanel] Support send error:', err);
+      const errorMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        text: language === 'ar'
+          ? 'حدث خطأ في إرسال الرسالة. حاول مرة أخرى.'
+          : 'Error sending message. Please try again.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setInputDisabled(false);
+    }
+  };
+
+  const selectTicket = useCallback(async (ticket: SupportTicket) => {
+    setSupportTicket(ticket);
+    setShowTicketList(false);
+    setInputDisabled(true);
+    try {
+      const msgs = await getSupportMessages(ticket.id);
+      setMessages(msgs.map((m) => ({
+        id: m.id,
+        text: m.message,
+        isUser: m.sender_type === 'user',
+        timestamp: new Date(m.created_at),
+      })));
+      await markSupportMessagesRead(ticket.id, 'admin');
+    } catch (err) {
+      console.error('[DooodaChatPanel] selectTicket error:', err);
+    } finally {
+      setInputDisabled(false);
+    }
+  }, []);
+
+  const startNewTicket = useCallback(() => {
+    setSupportTicket(null);
+    setShowTicketList(false);
+    setMessages([{
+      id: crypto.randomUUID(),
+      text: language === 'ar'
+        ? 'أهلاً بك في الدعم الفني! كيف نقدر نساعدك؟'
+        : 'Welcome to support! How can we help you?',
+      isUser: false,
+      timestamp: new Date(),
+    }]);
+  }, [language]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend(e);
     }
-  };
-
-  const handleModeSelect = (mode: WritingModeId) => {
-    setActiveMode(mode);
   };
 
   if (!isOpen && !isClosing) return null;
@@ -547,7 +717,9 @@ export default function DooodaChatPanel() {
                 className="text-xs"
                 style={{ color: 'var(--color-text-tertiary)' }}
               >
-                {t('doooda.subtitle', language)}
+                {chatMode === 'support'
+                  ? (language === 'ar' ? 'الدعم الفني' : 'Technical Support')
+                  : t('doooda.subtitle', language)}
               </span>
             </div>
           </div>
@@ -579,54 +751,68 @@ export default function DooodaChatPanel() {
           }}
         >
           <div className="flex items-center gap-1">
-          {MODE_ORDER.map((modeId) => {
-            const isActive = activeMode === modeId;
-            return (
-              <button
-                key={modeId}
-                onClick={() => handleModeSelect(modeId)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{
-                  backgroundColor: isActive
-                    ? 'var(--color-accent)'
-                    : 'transparent',
-                  color: isActive
-                    ? '#fff'
-                    : 'var(--color-text-secondary)',
-                  border: isActive
-                    ? 'none'
-                    : '1px solid transparent',
-                  transform: modeAutoInferred && isActive ? 'scale(1.05)' : 'scale(1)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
-              >
-                <ModeIcon mode={modeId} size={13} />
-                {t(`doooda.mode.${modeId}`, language)}
-              </button>
-            );
-          })}
+            <button
+              onClick={switchToAskDoooda}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                backgroundColor: chatMode === 'ask_doooda' ? 'var(--color-accent)' : 'transparent',
+                color: chatMode === 'ask_doooda' ? '#fff' : 'var(--color-text-secondary)',
+                border: chatMode === 'ask_doooda' ? 'none' : '1px solid transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (chatMode !== 'ask_doooda') {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (chatMode !== 'ask_doooda') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+              {language === 'ar' ? 'اسأل دووودة' : 'Ask Doooda'}
+            </button>
+            <button
+              onClick={switchToSupport}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                backgroundColor: chatMode === 'support' ? 'var(--color-accent)' : 'transparent',
+                color: chatMode === 'support' ? '#fff' : 'var(--color-text-secondary)',
+                border: chatMode === 'support' ? 'none' : '1px solid transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (chatMode !== 'support') {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (chatMode !== 'support') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              {language === 'ar' ? 'الدعم' : 'Support'}
+            </button>
           </div>
 
-          <div
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{
-              backgroundColor: 'var(--color-bg-tertiary)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            <span>🪙</span>
-            <span>{tokensBalance !== null ? tokensBalance.toLocaleString() : '...'}</span>
-          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                <span>🪙</span>
+                <span>{tokensBalance !== null ? tokensBalance.toLocaleString() : '...'}</span>
+              </div>
         </div>
 
         {/* Messages */}
@@ -634,7 +820,63 @@ export default function DooodaChatPanel() {
           className="flex-1 overflow-y-auto px-5 py-4 space-y-3"
           style={{ backgroundColor: 'var(--color-bg-secondary)' }}
         >
-          {(contextText || (writingCtx && contextLevel && contextLevel !== 'project')) && (
+          {chatMode === 'support' && showTicketList && (
+            <div className="space-y-2">
+              <button
+                onClick={startNewTicket}
+                className="w-full text-left rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-accent)',
+                  color: '#fff',
+                }}
+              >
+                {language === 'ar' ? '➕ تذكرة جديدة' : '➕ New Ticket'}
+              </button>
+              {ticketList.length > 0 && (
+                <>
+                  <div className="text-xs font-medium pt-2" style={{ color: 'var(--color-text-tertiary)' }}>
+                    {language === 'ar' ? 'تذاكرك النشطة:' : 'Your active tickets:'}
+                  </div>
+                  {ticketList.map((ticket) => (
+                    <button
+                      key={ticket.id}
+                      onClick={() => selectTicket(ticket)}
+                      className="w-full text-left rounded-xl px-4 py-3 text-sm transition-colors"
+                      style={{
+                        backgroundColor: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-surface)';
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium" style={{ maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ticket.title || (language === 'ar' ? 'بدون عنوان' : 'No title')}
+                        </span>
+                        <span className="text-xs" style={{
+                          color: ticket.status === 'open' ? '#22c55e' : ticket.status === 'answered' ? '#3b82f6' : '#f59e0b',
+                        }}>
+                          {language === 'ar'
+                            ? ({ open: 'مفتوح', answered: 'تم الرد', pending: 'قيد الانتظار' } as Record<string, string>)[ticket.status] || ticket.status
+                            : ticket.status}
+                        </span>
+                      </div>
+                      <div className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                        #{ticket.id.slice(0, 8)} · {new Date(ticket.created_at).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
+          {!(chatMode === 'support' && showTicketList) && (chatMode === 'ask_doooda' && (contextText || (writingCtx && contextLevel && contextLevel !== 'project'))) && (
             <div
               className="rounded-lg px-3 py-2 text-xs mb-2"
               style={{
@@ -699,6 +941,44 @@ export default function DooodaChatPanel() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Support ticket status & nav */}
+        {chatMode === 'support' && supportTicket && !showTicketList && (
+          <div
+            className="flex items-center justify-between px-4 py-1.5 text-xs"
+            style={{
+              borderTop: '1px solid var(--color-border)',
+              backgroundColor: 'var(--color-bg-tertiary)',
+              color: 'var(--color-text-tertiary)',
+            }}
+          >
+            <button
+              onClick={() => { setShowTicketList(true); setSupportTicket(null); setMessages([]); }}
+              className="text-xs font-medium"
+              style={{ color: 'var(--color-accent)', cursor: 'pointer' }}
+            >
+              {language === 'ar' ? '← رجوع للتذاكر' : '← Back to tickets'}
+            </button>
+            <div className="flex items-center gap-3">
+              <span>
+                {language === 'ar' ? `تذكرة #${supportTicket.id.slice(0, 8)}` : `Ticket #${supportTicket.id.slice(0, 8)}`}
+              </span>
+              <span style={{
+                color: supportTicket.status === 'open'
+                  ? '#22c55e'
+                  : supportTicket.status === 'answered'
+                    ? '#3b82f6'
+                    : supportTicket.status === 'pending'
+                      ? '#f59e0b'
+                      : '#6b7280',
+              }}>
+                {language === 'ar'
+                  ? ({ open: 'مفتوح', answered: 'تم الرد', pending: 'قيد الانتظار', closed: 'مغلق' } as Record<string, string>)[supportTicket.status] || supportTicket.status
+                  : supportTicket.status}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Input */}
         <form
           onSubmit={handleSend}
@@ -715,7 +995,9 @@ export default function DooodaChatPanel() {
             onKeyDown={handleKeyDown}
             rows={1}
             disabled={inputDisabled}
-            placeholder={t('doooda.inputPlaceholder', language)}
+            placeholder={chatMode === 'support'
+              ? (language === 'ar' ? 'اكتب رسالتك للدعم...' : 'Type your support message...')
+              : t('doooda.inputPlaceholder', language)}
             className="flex-1 resize-none text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 disabled:opacity-50"
             style={{
               backgroundColor: 'var(--color-bg-tertiary)',

@@ -428,16 +428,19 @@ Deno.serve(async (req: Request) => {
       content: m.content,
     }));
 
-    if (!config?.session_memory_enabled) {
-      const lastUserMsg = chatMessages.filter(m => m.role === "user").pop();
-      if (lastUserMsg) {
-        finalMessages.push(lastUserMsg);
-      }
-    } else {
-      const maxHistoryMessages = userPlan === 'free' ? 4 : 8;
-      const recentMessages = chatMessages.slice(-maxHistoryMessages);
-      finalMessages = finalMessages.concat(recentMessages);
+    const tokenBudget = userPlan === 'free' ? 800 : 2000;
+    const selectedMessages: Array<{ role: string; content: string }> = [];
+    let tokensUsed = 0;
+
+    for (let i = chatMessages.length - 1; i >= 0; i--) {
+      const msg = chatMessages[i];
+      const msgTokens = estimateTokens(msg.content);
+      if (tokensUsed + msgTokens > tokenBudget) break;
+      selectedMessages.unshift(msg);
+      tokensUsed += msgTokens;
     }
+
+    finalMessages = finalMessages.concat(selectedMessages);
 
     const lastUserMessage = chatMessages.filter(m => m.role === "user").pop()?.content || "";
     const hasContext = !!(body.selectedText || body.context || body.characterContext);

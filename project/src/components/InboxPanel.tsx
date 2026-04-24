@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   getNotifications,
@@ -12,7 +13,7 @@ import {
 import type { Notification } from '../services/api';
 import { supabase } from '../lib/supabaseClient';
 
-type Tab = 'all' | 'invitations' | 'requests' | 'system';
+type Tab = 'all' | 'invitations' | 'news' | 'important';
 
 interface Props {
   onClose: () => void;
@@ -22,6 +23,7 @@ interface Props {
 export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
   const { language } = useLanguage();
   const isRtl = language === 'ar';
+  const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,19 +151,45 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
   const tabs: { id: Tab; labelAr: string; labelEn: string }[] = [
     { id: 'all', labelAr: 'الكل', labelEn: 'All' },
     { id: 'invitations', labelAr: 'الدعوات', labelEn: 'Invitations' },
-    { id: 'requests', labelAr: 'الطلبات', labelEn: 'Requests' },
-    { id: 'system', labelAr: 'النظام', labelEn: 'System' },
+    { id: 'news', labelAr: 'أخبار', labelEn: 'News' },
+    { id: 'important', labelAr: 'هام', labelEn: 'Important' },
   ];
 
   const filtered = notifications.filter(n => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'invitations') return n.type === 'project_invite' || n.type === 'invitation';
-    if (activeTab === 'requests') return n.type === 'deletion_request' || n.type === 'request';
-    if (activeTab === 'system') return n.type === 'system' || n.type === 'info';
+    if (activeTab === 'invitations') return n.category === 'invites' || n.type === 'project_invite' || n.type === 'invitation';
+    if (activeTab === 'news') return n.category === 'news';
+    if (activeTab === 'important') return n.category === 'important';
     return true;
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  const tabUnread = (tabId: Tab) => {
+    const tabNotifs = notifications.filter(n => {
+      if (tabId === 'all') return true;
+      if (tabId === 'invitations') return n.category === 'invites' || n.type === 'project_invite' || n.type === 'invitation';
+      if (tabId === 'news') return n.category === 'news';
+      if (tabId === 'important') return n.category === 'important';
+      return true;
+    });
+    return tabNotifs.filter(n => !n.read).length;
+  };
+
+  const displayTitle = (n: Notification) => {
+    if (isRtl && n.title_ar) return n.title_ar;
+    return n.title;
+  };
+
+  const displayMessage = (n: Notification) => {
+    if (isRtl && n.message_ar) return n.message_ar;
+    return n.message;
+  };
+
+  const displayCtaLabel = (n: Notification) => {
+    if (isRtl && n.cta_label_ar) return n.cta_label_ar;
+    return n.cta_label;
+  };
 
   const typeIcon = (type: Notification['type']) => {
     if (type === 'invitation' || type === 'project_invite') return (
@@ -271,19 +299,30 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
         className="flex shrink-0"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="flex-1 py-2.5 text-xs font-medium transition-colors"
-            style={{
-              color: activeTab === tab.id ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
-              borderBottom: activeTab === tab.id ? '2px solid var(--color-accent)' : '2px solid transparent',
-            }}
-          >
-            {isRtl ? tab.labelAr : tab.labelEn}
-          </button>
-        ))}
+        {tabs.map(tab => {
+            const count = tabUnread(tab.id);
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="flex-1 py-2.5 text-xs font-medium transition-colors relative"
+                style={{
+                  color: activeTab === tab.id ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+                  borderBottom: activeTab === tab.id ? '2px solid var(--color-accent)' : '2px solid transparent',
+                }}
+              >
+                {isRtl ? tab.labelAr : tab.labelEn}
+                {count > 0 && (
+                  <span
+                    className="ml-1 text-[10px] font-bold px-1 rounded-full text-white"
+                    style={{ backgroundColor: 'var(--color-accent)' }}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
       </div>
 
       <div className="overflow-y-auto flex-1">
@@ -338,7 +377,7 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <p className="text-sm font-semibold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
-                          {n.title || (n.type === 'invitation'
+                          {displayTitle(n) || (n.type === 'invitation'
                             ? (isRtl ? 'دعوة للتعاون' : 'Collaboration Invitation')
                             : (isRtl ? 'إشعار' : 'Notification'))}
                         </p>
@@ -458,8 +497,28 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                         </div>
                       ) : (
                         <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                          {n.message || n.title}
+                          {displayMessage(n) || displayTitle(n)}
                         </p>
+                      )}
+
+                      {n.cta_label && n.cta_link && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkRead(n);
+                            onClose();
+                            const link = n.cta_link!;
+                            if (link.startsWith('/')) {
+                              navigate(link);
+                            } else {
+                              window.open(link, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
+                          style={{ backgroundColor: 'var(--color-accent)' }}
+                        >
+                          {displayCtaLabel(n)}
+                        </button>
                       )}
                     </div>
                   </div>

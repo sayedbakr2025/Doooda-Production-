@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment } from '../types';
+import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, SupportTicket, SupportMessage, TicketStatus } from '../types';
 
 export { supabase };
 
@@ -1393,6 +1393,12 @@ export interface Notification {
   title: string | null;
   message: string | null;
   data: Record<string, any> | null;
+  category: string;
+  cta_label: string | null;
+  cta_link: string | null;
+  title_ar: string | null;
+  message_ar: string | null;
+  cta_label_ar: string | null;
   read: boolean;
   created_at: string;
 }
@@ -1853,4 +1859,198 @@ export async function deleteComment(commentId: string): Promise<void> {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', commentId);
   if (error) throw error;
+}
+
+// =============================================
+// SUPPORT TICKETS
+// =============================================
+
+export async function createSupportTicket(
+  userId: string,
+  firstMessage: string
+): Promise<SupportTicket & { firstMessageId: string }> {
+  const { data: ticket, error: ticketError } = await supabase
+    .from('support_tickets')
+    .insert({
+      user_id: userId,
+      title: firstMessage.slice(0, 80),
+      status: 'open',
+    })
+    .select()
+    .single();
+
+  if (ticketError) throw ticketError;
+
+  const { data: msg, error: msgError } = await supabase
+    .from('support_messages')
+    .insert({
+      ticket_id: ticket.id,
+      sender_type: 'user',
+      message: firstMessage,
+    })
+    .select()
+    .single();
+
+  if (msgError) throw msgError;
+
+  return { ...ticket, firstMessageId: msg.id };
+}
+
+export async function addSupportMessage(
+  ticketId: string,
+  message: string,
+  senderType: 'user' | 'admin'
+): Promise<SupportMessage> {
+  const { data, error } = await supabase
+    .from('support_messages')
+    .insert({
+      ticket_id: ticketId,
+      sender_type: senderType,
+      message,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as SupportMessage;
+}
+
+export async function getSupportMessages(
+  ticketId: string
+): Promise<SupportMessage[]> {
+  const { data, error } = await supabase
+    .from('support_messages')
+    .select('*')
+    .eq('ticket_id', ticketId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as SupportMessage[];
+}
+
+export async function getUserActiveTicket(
+  userId: string
+): Promise<SupportTicket | null> {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('*')
+    .eq('user_id', userId)
+    .in('status', ['open', 'answered', 'pending'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as SupportTicket | null;
+}
+
+export async function getUserTickets(
+  userId: string
+): Promise<SupportTicket[]> {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('*')
+    .eq('user_id', userId)
+    .neq('status', 'closed')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as SupportTicket[];
+}
+
+export async function closeSupportTicket(ticketId: string): Promise<void> {
+  const { error } = await supabase
+    .from('support_tickets')
+    .update({ status: 'closed', updated_at: new Date().toISOString() })
+    .eq('id', ticketId);
+  if (error) throw error;
+}
+
+export async function getAllSupportTickets(
+  statusFilter?: TicketStatus
+): Promise<(SupportTicket & { user_email?: string })[]> {
+  let query = supabase
+    .from('support_tickets')
+    .select('*')
+    .order('updated_at', { ascending: false });
+
+  if (statusFilter) {
+    query = query.eq('status', statusFilter);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const tickets = (data || []) as SupportTicket[];
+
+  if (tickets.length === 0) return [];
+
+  const userIds = [...new Set(tickets.map((t) => t.user_id))];
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, email, pen_name')
+    .in('id', userIds);
+
+  const userMap = new Map((users || []).map((u: any) => [u.id, u]));
+
+  return tickets.map((ticket) => ({
+    ...ticket,
+    user_email: userMap.get(ticket.user_id)?.email || '',
+    user_pen_name: userMap.get(ticket.user_id)?.pen_name || '',
+  })) as any;
+}
+
+export async function adminReplyToTicket(
+  ticketId: string,
+  message: string
+): Promise<SupportMessage> {
+  const msg = await addSupportMessage(ticketId, message, 'admin');
+
+  await supabase
+    .from('support_tickets')
+    .update({ status: 'answered', updated_at: new Date().toISOString() })
+    .eq('id', ticketId);
+
+  const { data: ticket } = await supabase
+    .from('support_tickets')
+    .select('user_id, title')
+    .eq('id', ticketId)
+    .maybeSingle();
+
+  if (ticket) {
+    await supabase.from('notifications').insert({
+      user_id: ticket.user_id,
+      type: 'support_reply',
+      title: 'تم الرد على تذكرتك من دعم دووودة',
+      message: message.length > 100 ? message.slice(0, 100) + '...' : message,
+      category: 'important',
+      read: false,
+    });
+  }
+
+  return msg;
+}
+
+export async function adminUpdateTicketStatus(
+  ticketId: string,
+  status: TicketStatus
+): Promise<void> {
+  const { error } = await supabase
+    .from('support_tickets')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', ticketId);
+  if (error) throw error;
+}
+
+export async function markSupportMessagesRead(
+  ticketId: string,
+  senderType: 'user' | 'admin'
+): Promise<void> {
+  const { error } = await supabase
+    .from('support_messages')
+    .update({ read: true })
+    .eq('ticket_id', ticketId)
+    .eq('sender_type', senderType)
+    .eq('read', false);
+  if (error) console.error('[markSupportMessagesRead]', error);
 }

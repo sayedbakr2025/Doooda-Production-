@@ -232,7 +232,7 @@ export function useDailyGoal(userId: string | undefined) {
           }).eq('id', existing.id);
         }
       } else {
-        await supabase.from('daily_writing_sessions').insert({
+        const { error: insertError } = await supabase.from('daily_writing_sessions').insert({
           user_id: userId,
           session_date: today,
           today_scene_words: wordsToWrite,
@@ -240,6 +240,9 @@ export function useDailyGoal(userId: string | undefined) {
           goal_reached: nowReached,
           goal_reached_at: nowReached ? new Date().toISOString() : null,
         });
+        if (insertError) {
+          console.error('[useDailyGoal] insert error:', insertError.message, insertError.details, insertError.hint);
+        }
       }
 
       setCachedTodayWords(userId, wordsToWrite);

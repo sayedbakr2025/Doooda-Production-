@@ -220,6 +220,26 @@ export interface ActivityLog {
   user_display_name?: string;
 }
 
+export type TicketStatus = 'open' | 'answered' | 'pending' | 'closed';
+
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  title: string;
+  status: TicketStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: 'user' | 'admin';
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
 export interface Comment {
   id: string;
   project_id: string;
