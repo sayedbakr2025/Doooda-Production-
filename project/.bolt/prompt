@@ -1,0 +1,28 @@
+Project Name: Doooda
+
+Doooda is a secure SaaS web application for writers.
+The system is built around a single shared backend that serves:
+- Web application (primary writing experience)
+- Mobile applications (Android & iOS companion apps)
+
+Core principles (non-negotiable):
+- One source of truth for all data (users, projects, chapters, scenes)
+- Web and mobile must share the same authentication system
+- No duplicate business logic across platforms
+- All user-generated content must be persistent and never auto-modified
+
+Technical constraints:
+- Supabase is used for authentication, database, and storage
+- Row Level Security (RLS) is enforced on all user-owned data
+- Backend functions must be secure and deterministic
+- Sensitive data and tokens must never be exposed to the client
+
+Product philosophy:
+- Doooda empowers writers to stay in control
+- The system assists but never overrides creative decisions
+- Simplicity, clarity, and trust are more important than feature volume
+
+Important:
+- New features must not break existing user data
+- Backward compatibility is required
+- Stability and data safety are higher priority than speed of development

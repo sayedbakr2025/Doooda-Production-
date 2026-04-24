@@ -1,0 +1,3 @@
+drop policy if exists "user can insert notifications" on notifications;
+drop policy if exists "user can read own notifications" on notifications;
+drop table if exists notifications;

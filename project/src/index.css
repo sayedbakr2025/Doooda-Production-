@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F9FAFB;
+  --color-bg-tertiary: #F3F4F6;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+  --color-border: #E5E7EB;
+  --color-border-light: #F3F4F6;
+  --color-accent: #d62828;
+  --color-accent-hover: #b91c1c;
+  --color-muted: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F9FAFB;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  --logo-main: #000000;
+  --logo-accent: #d62828;
+  --editor-bg: #FFFFFF;
+  --editor-text: #111827;
+  --editor-border: #E5E7EB;
+  --editor-toolbar-bg: #FFFFFF;
+  --editor-toolbar-border: #E5E7EB;
+  --editor-toolbar-text: #111827;
+  --editor-toolbar-hover: #F9FAFB;
+  --editor-toolbar-active: #E5E7EB;
+}
+
+[data-theme="dark"] {
+  --color-bg-primary: #1F2937;
+  --color-bg-secondary: #111827;
+  --color-bg-tertiary: #0F172A;
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #D1D5DB;
+  --color-text-tertiary: #9CA3AF;
+  --color-border: #374151;
+  --color-border-light: #4B5563;
+  --color-accent: #d62828;
+  --color-accent-hover: #ef4444;
+  --color-muted: #374151;
+  --color-surface: #1F2937;
+  --color-surface-hover: #374151;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  --logo-main: #F5F5F5;
+  --logo-accent: #d62828;
+  --editor-bg: #1F2937;
+  --editor-text: #F5F5F5;
+  --editor-border: #374151;
+  --editor-toolbar-bg: #1F2937;
+  --editor-toolbar-border: #374151;
+  --editor-toolbar-text: #F5F5F5;
+  --editor-toolbar-hover: #374151;
+  --editor-toolbar-active: #4B5563;
+}
+
+@layer base {
+  html {
+    font-family: 'Roboto', system-ui, sans-serif;
+  }
+
+  html[lang="ar"] {
+    font-family: 'Tajawal', sans-serif;
+  }
+
+  body {
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+  }
+
+  * {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 rounded-lg font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--color-accent);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-accent-hover);
+  }
+
+  .btn-primary:focus {
+    ring-color: var(--color-accent);
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 rounded-lg font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-surface-hover);
+  }
+
+  .btn-outline {
+    @apply px-6 py-3 rounded-lg font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    border: 2px solid var(--color-accent);
+    color: var(--color-accent);
+    background-color: transparent;
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    background-color: var(--color-muted);
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2;
+    background-color: var(--color-surface);
+    border: 2px solid var(--color-border);
+    color: var(--color-text-primary);
+  }
+
+  .input-field:focus {
+    border-color: var(--color-accent);
+  }
+
+  .input-field::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  .card {
+    @apply rounded-xl shadow-sm p-6 hover:shadow-md;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+  }
+}
+
+.dooooda-logo {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.dooooda-logo .black {
+  color: var(--logo-main);
+}
+
+.dooooda-logo .red {
+  color: var(--logo-accent);
+}
+
+.dooooda-logo .ooo {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.dooooda-logo .o {
+  width: 18px;
+  height: 18px;
+  animation-duration: 0.5s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 6;
+  animation-direction: alternate;
+  animation-fill-mode: forwards;
+}
+
+.dooooda-logo .o circle {
+  fill: currentColor;
+}
+
+.dooooda-logo .o.middle {
+  animation-name: doooda-rise;
+}
+
+.dooooda-logo .o.left {
+  animation-name: doooda-left;
+}
+
+.dooooda-logo .o.right {
+  animation-name: doooda-right;
+}
+
+@keyframes doooda-rise {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes doooda-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes doooda-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-6px);
+  }
+}
+
+.dooooda-logo .letter-a {
+  width: 22px;
+  height: auto;
+  display: block;
+  transform: scale(1.05);
+  transform-origin: center bottom;
+  margin-bottom: -2px;
+}
+
+.character-dialogue-block {
+  display: block;
+  margin: 0.5em 0;
+  padding-inline-start: 2.5em;
+  line-height: 1.6;
+}
+
+.character-dialogue-name {
+  font-weight: bold;
+  margin-inline-end: 0.4em;
+}
+
+.character-dialogue-text {
+  display: inline;
+}
+

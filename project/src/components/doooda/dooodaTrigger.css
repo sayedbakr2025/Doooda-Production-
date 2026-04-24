@@ -1,0 +1,128 @@
+:root {
+  --dooooda-red: #d62828;
+}
+
+.dooooda-trigger {
+  position: fixed;
+  bottom: 28px;
+  left: 28px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9999;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+[data-theme='dark'] .dooooda-trigger {
+  box-shadow:
+    0 8px 24px rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+[data-theme='light'] .dooooda-trigger {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.dooooda-trigger:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: scale(1.03);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(214, 40, 40, 0.45);
+}
+
+.dooooda-trigger.pulse {
+  transform: scale(1.06);
+}
+
+.dooooda-trigger .ooo {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dooooda-trigger .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+.dooooda-trigger .dot.side {
+  background: #ffffff;
+}
+
+.dooooda-trigger .dot.middle {
+  background: var(--dooooda-red);
+}
+
+.dooooda-trigger:hover .dot.middle {
+  animation: dooooda-rise 0.5s ease-in-out infinite alternate;
+}
+
+.dooooda-trigger:hover .dot.side:first-child {
+  animation: dooooda-left 0.5s ease-in-out infinite alternate;
+}
+
+.dooooda-trigger:hover .dot.side:last-child {
+  animation: dooooda-right 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes dooooda-rise {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-6px); }
+}
+
+@keyframes dooooda-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-5px); }
+}
+
+@keyframes dooooda-right {
+  from { transform: translateX(0); }
+  to   { transform: translateX(5px); }
+}
+
+@keyframes dooodaPanelIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dooodaPanelOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85) translateY(12px);
+  }
+}
+
+@keyframes dooodaOverlayIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes dooodaOverlayOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}

@@ -1,0 +1,65 @@
+[functions.me]
+verify_jwt = false
+
+[functions.ask-doooda]
+verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false
+
+[functions.analyze-plot]
+verify_jwt = false
+
+[functions.create-admin]
+verify_jwt = false
+
+[functions.health-check]
+verify_jwt = false
+
+[functions.execute-plot]
+verify_jwt = false
+
+[functions.affiliate-auth]
+verify_jwt = false
+
+[functions.diacritize-text]
+verify_jwt = false
+
+[functions.institution-auth]
+verify_jwt = false
+
+[functions.institution-data]
+verify_jwt = false
+
+[functions.moderate-content]
+verify_jwt = false
+
+[functions.complete-referral]
+verify_jwt = false
+
+[functions.delete-ai-provider]
+verify_jwt = false
+
+[functions.generate-kdp-blurb]
+verify_jwt = false
+
+[functions.activate-ai-provider]
+verify_jwt = false
+
+[functions.track-referral-click]
+verify_jwt = false
+
+[functions.expand-academic-report]
+verify_jwt = false
+
+[functions.deactivate-ai-provider]
+verify_jwt = false
+
+[functions.upload-institution-work]
+verify_jwt = false
+
+[functions.evaluate-competition-work]
+verify_jwt = false
+
+[functions.create-institution-competition]
+verify_jwt = false
