@@ -1425,6 +1425,14 @@ export async function markNotificationRead(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteNotification(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function markAllNotificationsRead(): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;

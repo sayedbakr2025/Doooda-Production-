@@ -5,6 +5,7 @@ import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  deleteNotification,
   acceptCollaborationInvitation,
   rejectCollaborationInvitation,
   approveDeletionRequest,
@@ -85,6 +86,12 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
     await markAllNotificationsRead();
     setNotifications(prev => prev.map(x => ({ ...x, read: true })));
     onUnreadCountChange(0);
+  };
+
+  const handleDelete = async (n: Notification) => {
+    await deleteNotification(n.id);
+    setNotifications(prev => prev.filter(x => x.id !== n.id));
+    onUnreadCountChange(notifications.filter(x => !x.read && x.id !== n.id).length);
   };
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -391,6 +398,16 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                           <span className="text-xs whitespace-nowrap" style={{ color: 'var(--color-text-tertiary)' }}>
                             {formatTime(n.created_at)}
                           </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(n); }}
+                            className="p-1 rounded transition-colors hover:bg-red-500/10"
+                            style={{ color: 'var(--color-text-tertiary)' }}
+                            title={isRtl ? 'حذف' : 'Delete'}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
 
