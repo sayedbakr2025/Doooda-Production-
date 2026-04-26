@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,15 +37,16 @@ const LANG_LABELS: Record<CourseLanguage, { ar: string; en: string; color: strin
   both: { ar: 'ثنائي', en: 'AR+EN', color: '#8b5cf6' },
 };
 
+const PRICING_OPTIONS = {
+  free: { ar: 'مجاني', en: 'Free' },
+  paid: { ar: 'مدفوع', en: 'Paid' },
+};
+
 const PEXELS_COVERS: Record<CourseLevel, string> = {
   beginner:     'https://images.pexels.com/photos/159866/books-book-pages-read-literature-159866.jpeg?auto=compress&cs=tinysrgb&w=800',
   intermediate: 'https://images.pexels.com/photos/261763/pexels-photo-261763.jpeg?auto=compress&cs=tinysrgb&w=800',
   advanced:     'https://images.pexels.com/photos/3747139/pexels-photo-3747139.jpeg?auto=compress&cs=tinysrgb&w=800',
 };
-
-type LevelFilter = 'all' | CourseLevel;
-type PricingFilter = 'all' | 'free' | 'paid';
-type LanguageFilter = 'all' | CourseLanguage;
 
 export default function Academy() {
   const { language } = useLanguage();
@@ -59,9 +60,21 @@ export default function Academy() {
   const [skillLevels, setSkillLevels] = useState<AcademySkillLevel[]>([]);
   const [courseScores, setCourseScores] = useState<AcademyCourseScore[]>([]);
   const [loading, setLoading] = useState(true);
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
-  const [pricingFilter, setPricingFilter] = useState<PricingFilter>('all');
-  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>('all');
+  const [levelFilter, setLevelFilter] = useState<CourseLevel[]>([]);
+  const [pricingFilter, setPricingFilter] = useState<('free' | 'paid')[]>([]);
+  const [languageFilter, setLanguageFilter] = useState<CourseLanguage[]>([]);
+  const [openFilter, setOpenFilter] = useState<'level' | 'pricing' | 'language' | null>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setOpenFilter(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -100,10 +113,14 @@ export default function Academy() {
   );
 
   const filtered = courses.filter((c) => {
-    if (levelFilter !== 'all' && c.level !== levelFilter) return false;
-    if (pricingFilter === 'free' && c.is_paid) return false;
-    if (pricingFilter === 'paid' && !c.is_paid) return false;
-    if (languageFilter !== 'all' && c.language !== languageFilter) return false;
+    if (levelFilter.length > 0 && !levelFilter.includes(c.level)) return false;
+    if (pricingFilter.length > 0) {
+      if (pricingFilter.includes('free') && pricingFilter.includes('paid')) {
+        // show both
+      } else if (pricingFilter.includes('free') && c.is_paid) return false;
+      else if (pricingFilter.includes('paid') && !c.is_paid) return false;
+    }
+    if (languageFilter.length > 0 && !languageFilter.includes(c.language || 'ar')) return false;
     return true;
   });
 
@@ -197,69 +214,240 @@ export default function Academy() {
           />
         )}
 
-        <div className={`flex flex-wrap gap-3 mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((lvl) => {
-            const isActive = levelFilter === lvl;
-            const label = lvl === 'all'
-              ? (isRTL ? 'الكل' : 'All')
-              : (isRTL ? LEVEL_LABELS[lvl].ar : LEVEL_LABELS[lvl].en);
-            return (
-              <button
-                key={lvl}
-                onClick={() => setLevelFilter(lvl)}
-                className="px-5 py-2 rounded-full text-sm font-semibold transition-all"
-                style={{
-                  backgroundColor: isActive ? 'var(--color-accent)' : 'var(--color-surface)',
-                  color: isActive ? '#fff' : 'var(--color-text-secondary)',
-                  border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                }}
+        <div ref={filterRef} className={`flex flex-wrap gap-3 mb-8 items-start ${isRTL ? 'flex-row-reverse' : ''}`}>
+          {/* Level Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setOpenFilter(openFilter === 'level' ? null : 'level')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: levelFilter.length > 0 ? 'var(--color-accent)' : 'var(--color-surface)',
+                color: levelFilter.length > 0 ? '#fff' : 'var(--color-text-secondary)',
+                border: `1px solid ${levelFilter.length > 0 ? 'var(--color-accent)' : 'var(--color-border)'}`,
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M3 8h6m0 0l-1.5-1.5M9 8l1.5 1.5M3 12h12m0 0l-1.5-1.5M15 12l1.5 1.5M3 16h18" />
+              </svg>
+              {isRTL ? 'المستوى' : 'Level'}
+              {levelFilter.length > 0 && (
+                <span className="w-5 h-5 rounded-full text-xs flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}>
+                  {levelFilter.length}
+                </span>
+              )}
+              <svg className={`w-3 h-3 transition-transform ${openFilter === 'level' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {openFilter === 'level' && (
+              <div
+                className={`absolute top-full mt-1 ${isRTL ? 'right-0' : 'left-0'} z-20 rounded-xl shadow-lg py-1 min-w-[180px]`}
+                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
               >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+                {(['beginner', 'intermediate', 'advanced'] as CourseLevel[]).map((lvl) => {
+                  const selected = levelFilter.includes(lvl);
+                  return (
+                    <button
+                      key={lvl}
+                      onClick={() => {
+                        setLevelFilter(selected
+                          ? levelFilter.filter(l => l !== lvl)
+                          : [...levelFilter, lvl]);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                      style={{
+                        backgroundColor: selected ? 'rgba(34,197,94,0.1)' : 'transparent',
+                        color: selected ? '#22c55e' : 'var(--color-text-primary)',
+                      }}
+                    >
+                      <span
+                        className="w-4 h-4 rounded flex items-center justify-center text-xs border"
+                        style={{
+                          borderColor: selected ? '#22c55e' : 'var(--color-border)',
+                          backgroundColor: selected ? '#22c55e' : 'transparent',
+                          color: '#fff',
+                        }}
+                      >
+                        {selected && '✓'}
+                      </span>
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: LEVEL_LABELS[lvl].color }}
+                      />
+                      {isRTL ? LEVEL_LABELS[lvl].ar : LEVEL_LABELS[lvl].en}
+                    </button>
+                  );
+                })}
+                {levelFilter.length > 0 && (
+                  <button
+                    onClick={() => setLevelFilter([])}
+                    className="w-full px-4 py-2 text-xs font-medium transition-colors"
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                  >
+                    {isRTL ? 'مسح الاختيار' : 'Clear'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
-        <div className={`flex flex-wrap gap-3 mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          {(['all', 'free', 'paid'] as const).map((p) => {
-            const isActive = pricingFilter === p;
-            const label = p === 'all' ? (isRTL ? 'الكل' : 'All')
-              : p === 'free' ? (isRTL ? 'مجاني' : 'Free')
-              : (isRTL ? 'مدفوع' : 'Paid');
-            return (
-              <button
-                key={p}
-                onClick={() => setPricingFilter(p)}
-                className="px-5 py-2 rounded-full text-sm font-semibold transition-all"
-                style={{
-                  backgroundColor: isActive ? 'var(--color-accent)' : 'var(--color-surface)',
-                  color: isActive ? '#fff' : 'var(--color-text-secondary)',
-                  border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                }}
+          {/* Pricing Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setOpenFilter(openFilter === 'pricing' ? null : 'pricing')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: pricingFilter.length > 0 ? 'var(--color-accent)' : 'var(--color-surface)',
+                color: pricingFilter.length > 0 ? '#fff' : 'var(--color-text-secondary)',
+                border: `1px solid ${pricingFilter.length > 0 ? 'var(--color-accent)' : 'var(--color-border)'}`,
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.66 0-3 .9-3 2s1.34 2 3 2 3 .9 3 2-1.34 2-3 2m0-8c1.11 0 2.08.4 2.71 1H17v2h-1.54c.09.54.04 1.1-.25 1.6L17 16l-1.96 1-1.62-2.3A5.07 5.07 0 0012 15c-1.66 0-3-.9-3-2s1.34-2 3-2 3-.9 3-2-1.34-2-3-2z" />
+              </svg>
+              {isRTL ? 'السعر' : 'Pricing'}
+              {pricingFilter.length > 0 && (
+                <span className="w-5 h-5 rounded-full text-xs flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}>
+                  {pricingFilter.length}
+                </span>
+              )}
+              <svg className={`w-3 h-3 transition-transform ${openFilter === 'pricing' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {openFilter === 'pricing' && (
+              <div
+                className={`absolute top-full mt-1 ${isRTL ? 'right-0' : 'left-0'} z-20 rounded-xl shadow-lg py-1 min-w-[160px]`}
+                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
               >
-                {label}
-              </button>
-            );
-          })}
-          {(['all', 'ar', 'en', 'both'] as const).map((l) => {
-            const isActive = languageFilter === l;
-            const label = l === 'all' ? (isRTL ? 'كل اللغات' : 'All languages')
-              : (isRTL ? LANG_LABELS[l].ar : LANG_LABELS[l].en);
-            return (
-              <button
-                key={l}
-                onClick={() => setLanguageFilter(l)}
-                className="px-5 py-2 rounded-full text-sm font-semibold transition-all"
-                style={{
-                  backgroundColor: isActive ? 'var(--color-accent)' : 'var(--color-surface)',
-                  color: isActive ? '#fff' : 'var(--color-text-secondary)',
-                  border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                }}
+                {(['free', 'paid'] as const).map((p) => {
+                  const selected = pricingFilter.includes(p);
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setPricingFilter(selected
+                          ? pricingFilter.filter(x => x !== p)
+                          : [...pricingFilter, p]);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                      style={{
+                        backgroundColor: selected ? (p === 'free' ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)') : 'transparent',
+                        color: selected ? (p === 'free' ? '#22c55e' : '#f59e0b') : 'var(--color-text-primary)',
+                      }}
+                    >
+                      <span
+                        className="w-4 h-4 rounded flex items-center justify-center text-xs border"
+                        style={{
+                          borderColor: selected ? (p === 'free' ? '#22c55e' : '#f59e0b') : 'var(--color-border)',
+                          backgroundColor: selected ? (p === 'free' ? '#22c55e' : '#f59e0b') : 'transparent',
+                          color: '#fff',
+                        }}
+                      >
+                        {selected && '✓'}
+                      </span>
+                      {isRTL ? PRICING_OPTIONS[p].ar : PRICING_OPTIONS[p].en}
+                    </button>
+                  );
+                })}
+                {pricingFilter.length > 0 && (
+                  <button
+                    onClick={() => setPricingFilter([])}
+                    className="w-full px-4 py-2 text-xs font-medium transition-colors"
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                  >
+                    {isRTL ? 'مسح الاختيار' : 'Clear'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Language Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setOpenFilter(openFilter === 'language' ? null : 'language')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: languageFilter.length > 0 ? 'var(--color-accent)' : 'var(--color-surface)',
+                color: languageFilter.length > 0 ? '#fff' : 'var(--color-text-secondary)',
+                border: `1px solid ${languageFilter.length > 0 ? 'var(--color-accent)' : 'var(--color-border)'}`,
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 12m6.088 4.788A15.947 15.947 0 0112 15a15.947 15.947 0 01-2.5 1.788M7.5 9h.01M3 17h12" />
+              </svg>
+              {isRTL ? 'اللغة' : 'Language'}
+              {languageFilter.length > 0 && (
+                <span className="w-5 h-5 rounded-full text-xs flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}>
+                  {languageFilter.length}
+                </span>
+              )}
+              <svg className={`w-3 h-3 transition-transform ${openFilter === 'language' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {openFilter === 'language' && (
+              <div
+                className={`absolute top-full mt-1 ${isRTL ? 'right-0' : 'left-0'} z-20 rounded-xl shadow-lg py-1 min-w-[160px]`}
+                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
               >
-                {label}
-              </button>
-            );
-          })}
+                {(['ar', 'en', 'both'] as CourseLanguage[]).map((l) => {
+                  const selected = languageFilter.includes(l);
+                  return (
+                    <button
+                      key={l}
+                      onClick={() => {
+                        setLanguageFilter(selected
+                          ? languageFilter.filter(x => x !== l)
+                          : [...languageFilter, l]);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors"
+                      style={{
+                        backgroundColor: selected ? `${LANG_LABELS[l].color}20` : 'transparent',
+                        color: selected ? LANG_LABELS[l].color : 'var(--color-text-primary)',
+                      }}
+                    >
+                      <span
+                        className="w-4 h-4 rounded flex items-center justify-center text-xs border"
+                        style={{
+                          borderColor: selected ? LANG_LABELS[l].color : 'var(--color-border)',
+                          backgroundColor: selected ? LANG_LABELS[l].color : 'transparent',
+                          color: '#fff',
+                        }}
+                      >
+                        {selected && '✓'}
+                      </span>
+                      {isRTL ? LANG_LABELS[l].ar : LANG_LABELS[l].en}
+                    </button>
+                  );
+                })}
+                {languageFilter.length > 0 && (
+                  <button
+                    onClick={() => setLanguageFilter([])}
+                    className="w-full px-4 py-2 text-xs font-medium transition-colors"
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                  >
+                    {isRTL ? 'مسح الاختيار' : 'Clear'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {(levelFilter.length > 0 || pricingFilter.length > 0 || languageFilter.length > 0) && (
+            <button
+              onClick={() => { setLevelFilter([]); setPricingFilter([]); setLanguageFilter([]); }}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: 'rgba(239,68,68,0.1)',
+                color: '#ef4444',
+                border: '1px solid rgba(239,68,68,0.3)',
+              }}
+            >
+              {isRTL ? 'مسح الكل' : 'Clear all'}
+            </button>
+          )}
         </div>
 
         {loading ? (
