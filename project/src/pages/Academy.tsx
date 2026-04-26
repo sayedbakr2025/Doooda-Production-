@@ -577,6 +577,20 @@ function CourseCard({
           {course.description}
         </p>
 
+        {course.instructor_name && (
+          <div className={`flex items-center gap-2 mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+              style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+            >
+              {course.instructor_name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              {course.instructor_name}
+            </span>
+          </div>
+        )}
+
         {enrollment && (
           <div className="mb-3">
             <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>

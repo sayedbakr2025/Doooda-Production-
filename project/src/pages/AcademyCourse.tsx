@@ -254,6 +254,19 @@ export default function AcademyCourse() {
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black leading-tight">{title}</h1>
+          {course.instructor_name && (
+            <div className={`flex items-center gap-2 mt-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+              >
+                {course.instructor_name.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                {course.instructor_name}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -267,8 +280,13 @@ export default function AcademyCourse() {
               {isRTL ? 'عن الدورة' : 'About this course'}
             </h2>
             <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-              {course.description}
+              {language === 'ar' ? (course.description_ar || course.description) : (course.description_en || course.description)}
             </p>
+            {(!course.description_ar && !course.description_en) && course.description && course.description !== course.description && (
+              <p className="text-sm leading-relaxed mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
+                {language === 'ar' ? course.description_en : course.description_ar}
+              </p>
+            )}
             <div className={`flex flex-wrap gap-6 mt-5 text-sm ${isRTL ? 'flex-row-reverse' : ''}`} style={{ color: 'var(--color-text-tertiary)' }}>
               <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -284,6 +302,35 @@ export default function AcademyCourse() {
               </div>
             </div>
           </div>
+
+          {course.instructor_name && (
+            <div
+              className="rounded-2xl p-6 mb-6"
+              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+            >
+              <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+                {isRTL ? 'مقدم الدورة' : 'Course Instructor'}
+              </h2>
+              <div className={`flex items-start gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
+                  style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+                >
+                  {course.instructor_name.charAt(0).toUpperCase()}
+                </div>
+                <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <h3 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    {course.instructor_name}
+                  </h3>
+                  {course.instructor_bio && (
+                    <p className="text-sm leading-relaxed mt-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      {course.instructor_bio}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div
             className="rounded-2xl overflow-hidden"

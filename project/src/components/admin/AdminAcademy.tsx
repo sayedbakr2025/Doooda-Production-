@@ -614,12 +614,16 @@ function CourseFormModal({
     title_ar: course?.title_ar || '',
     title_en: course?.title_en || '',
     description: course?.description || '',
+    description_ar: course?.description_ar || '',
+    description_en: course?.description_en || '',
     level: (course?.level || 'beginner') as CourseLevel,
     category: course?.category || '',
     language: (course?.language || 'ar') as CourseLanguage,
     is_free: course?.is_free ?? true,
     is_paid: course?.is_paid ?? false,
     price_tokens: course?.price_tokens?.toString() || '',
+    instructor_name: course?.instructor_name || '',
+    instructor_bio: course?.instructor_bio || '',
     is_published: course?.is_published || false,
     cover_image: course?.cover_image || '',
     order_index: course?.order_index?.toString() || '0',
@@ -656,12 +660,16 @@ function CourseFormModal({
         title_ar: form.title_ar,
         title_en: form.title_en,
         description: form.description,
+        description_ar: form.description_ar,
+        description_en: form.description_en,
         level: form.level,
         category: form.category,
         language: form.language,
         is_free: !form.is_paid,
         is_paid: form.is_paid,
         price_tokens: form.is_paid ? (parseInt(form.price_tokens) || null) : null,
+        instructor_name: form.instructor_name,
+        instructor_bio: form.instructor_bio,
         is_published: form.is_published,
         cover_image: form.cover_image || null,
         order_index: parseInt(form.order_index) || 0,
@@ -725,13 +733,58 @@ function CourseFormModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Description</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Description (General)</label>
             <textarea
               className="input-field w-full resize-none"
-              rows={3}
+              rows={2}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder="Course description..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Description (Arabic)</label>
+              <textarea
+                className="input-field w-full resize-none"
+                rows={2}
+                value={form.description_ar}
+                onChange={(e) => setForm({ ...form, description_ar: e.target.value })}
+                placeholder="وصف الدورة بالعربية..."
+                style={{ direction: 'rtl' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Description (English)</label>
+              <textarea
+                className="input-field w-full resize-none"
+                rows={2}
+                value={form.description_en}
+                onChange={(e) => setForm({ ...form, description_en: e.target.value })}
+                placeholder="Course description in English..."
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Instructor Name</label>
+            <input
+              className="input-field w-full"
+              value={form.instructor_name}
+              onChange={(e) => setForm({ ...form, instructor_name: e.target.value })}
+              placeholder="e.g. Dr. Ahmed Hassan"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Instructor Bio</label>
+            <textarea
+              className="input-field w-full resize-none"
+              rows={3}
+              value={form.instructor_bio}
+              onChange={(e) => setForm({ ...form, instructor_bio: e.target.value })}
+              placeholder="Brief bio about the instructor..."
             />
           </div>
 

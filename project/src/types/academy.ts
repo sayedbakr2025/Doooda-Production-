@@ -7,12 +7,16 @@ export interface AcademyCourse {
   title_ar: string;
   title_en: string;
   description: string;
+  description_ar: string;
+  description_en: string;
   level: CourseLevel;
   category: string;
   language: CourseLanguage;
   is_free: boolean;
   is_paid: boolean;
   price_tokens: number | null;
+  instructor_name: string;
+  instructor_bio: string;
   is_published: boolean;
   cover_image: string | null;
   order_index: number;
