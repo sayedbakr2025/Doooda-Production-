@@ -11,12 +11,33 @@ import {
   createLesson,
   deleteLesson,
 } from '../../services/academyApi';
-import type { AcademyCourse, AcademyModule, AcademyLesson, CourseLevel, LessonContentType } from '../../types/academy';
+import type { AcademyCourse, AcademyModule, AcademyLesson, CourseLevel, LessonContentType, CourseLanguage } from '../../types/academy';
 
 const LEVELS: { value: CourseLevel; label: string }[] = [
   { value: 'beginner', label: 'Beginner' },
   { value: 'intermediate', label: 'Intermediate' },
   { value: 'advanced', label: 'Advanced' },
+];
+
+const LANGUAGES: { value: CourseLanguage; label: string }[] = [
+  { value: 'ar', label: 'العربية' },
+  { value: 'en', label: 'English' },
+  { value: 'both', label: 'العربية + English' },
+];
+
+const CATEGORIES = [
+  'Fiction Writing',
+  'Poetry',
+  'Screenwriting',
+  'Non-fiction',
+  'Journalism',
+  'Creative Writing',
+  'Story Structure',
+  'Character Development',
+  'World Building',
+  'Editing & Revision',
+  'Publishing',
+  'Self-Publishing',
 ];
 
 const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
@@ -295,7 +316,7 @@ function CoursesList({
       <table className="w-full">
         <thead>
           <tr style={{ backgroundColor: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-            {['Title', 'Level', 'Access', 'Status', 'Actions'].map((h) => (
+            {['Title', 'Category', 'Level', 'Language', 'Access', 'Status', 'Actions'].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
                 {h}
               </th>
@@ -321,6 +342,13 @@ function CoursesList({
                 )}
               </td>
               <td className="px-4 py-3">
+                {course.category && (
+                  <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>
+                    {course.category}
+                  </span>
+                )}
+              </td>
+              <td className="px-4 py-3">
                 <span
                   className="text-xs px-2 py-0.5 rounded capitalize font-medium"
                   style={{
@@ -339,11 +367,26 @@ function CoursesList({
                 <span
                   className="text-xs px-2 py-0.5 rounded font-medium"
                   style={{
-                    backgroundColor: course.is_free ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)',
-                    color: course.is_free ? '#22c55e' : '#f59e0b',
+                    backgroundColor: course.language === 'ar' ? 'rgba(59,130,246,0.1)'
+                      : course.language === 'en' ? 'rgba(34,197,94,0.1)'
+                      : 'rgba(139,92,246,0.1)',
+                    color: course.language === 'ar' ? '#3b82f6'
+                      : course.language === 'en' ? '#22c55e'
+                      : '#8b5cf6',
                   }}
                 >
-                  {course.is_free ? 'Free' : `${course.price_tokens || 0} tokens`}
+                  {course.language === 'ar' ? 'AR' : course.language === 'en' ? 'EN' : 'AR+EN'}
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                <span
+                  className="text-xs px-2 py-0.5 rounded font-medium"
+                  style={{
+                    backgroundColor: !course.is_paid ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)',
+                    color: !course.is_paid ? '#22c55e' : '#f59e0b',
+                  }}
+                >
+                  {!course.is_paid ? 'Free' : `${course.price_tokens || 0} tokens`}
                 </span>
               </td>
               <td className="px-4 py-3">
@@ -572,7 +615,10 @@ function CourseFormModal({
     title_en: course?.title_en || '',
     description: course?.description || '',
     level: (course?.level || 'beginner') as CourseLevel,
+    category: course?.category || '',
+    language: (course?.language || 'ar') as CourseLanguage,
     is_free: course?.is_free ?? true,
+    is_paid: course?.is_paid ?? false,
     price_tokens: course?.price_tokens?.toString() || '',
     is_published: course?.is_published || false,
     cover_image: course?.cover_image || '',
@@ -611,8 +657,11 @@ function CourseFormModal({
         title_en: form.title_en,
         description: form.description,
         level: form.level,
-        is_free: form.is_free,
-        price_tokens: form.is_free ? null : (parseInt(form.price_tokens) || null),
+        category: form.category,
+        language: form.language,
+        is_free: !form.is_paid,
+        is_paid: form.is_paid,
+        price_tokens: form.is_paid ? (parseInt(form.price_tokens) || null) : null,
         is_published: form.is_published,
         cover_image: form.cover_image || null,
         order_index: parseInt(form.order_index) || 0,
@@ -700,6 +749,36 @@ function CourseFormModal({
               </select>
             </div>
             <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Language</label>
+              <select
+                className="input-field w-full"
+                value={form.language}
+                onChange={(e) => setForm({ ...form, language: e.target.value as CourseLanguage })}
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Category</label>
+              <input
+                list="categories"
+                className="input-field w-full"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. Fiction Writing"
+              />
+              <datalist id="categories">
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Order Index</label>
               <input
                 type="number"
@@ -780,11 +859,11 @@ function CourseFormModal({
             <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <input
                 type="checkbox"
-                checked={form.is_free}
-                onChange={(e) => setForm({ ...form, is_free: e.target.checked })}
+                checked={form.is_paid}
+                onChange={(e) => setForm({ ...form, is_paid: e.target.checked })}
                 className="rounded"
               />
-              Free course
+              Paid course
             </label>
             <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <input
@@ -797,7 +876,7 @@ function CourseFormModal({
             </label>
           </div>
 
-          {!form.is_free && (
+          {form.is_paid && (
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Price (tokens)</label>
               <input

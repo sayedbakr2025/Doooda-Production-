@@ -14,6 +14,7 @@ import type {
   AcademyLearningPath,
   AcademyWeeklyChallenge,
   AcademyChallengeSubmission,
+  LessonDocument,
 } from '../types/academy';
 
 export async function getPublishedCourses(): Promise<AcademyCourse[]> {
@@ -628,4 +629,35 @@ export async function getChallengeSubmissionCount(challengeId: string): Promise<
 
   if (error) throw error;
   return count ?? 0;
+}
+
+export async function getLessonDocuments(lessonId: string): Promise<LessonDocument[]> {
+  const { data, error } = await supabase
+    .from('academy_lesson_documents')
+    .select('*')
+    .eq('lesson_id', lessonId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createLessonDocument(doc: Omit<LessonDocument, 'id' | 'created_at'>): Promise<LessonDocument> {
+  const { data, error } = await supabase
+    .from('academy_lesson_documents')
+    .insert(doc)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteLessonDocument(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('academy_lesson_documents')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
 }

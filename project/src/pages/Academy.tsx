@@ -18,6 +18,7 @@ import type {
   AcademyCourse,
   AcademyEnrollment,
   CourseLevel,
+  CourseLanguage,
   AcademyLearningPath,
   AcademyWeeklyChallenge,
   AcademySkillLevel,
@@ -30,6 +31,12 @@ const LEVEL_LABELS: Record<CourseLevel, { ar: string; en: string; color: string 
   advanced:     { ar: 'متقدم',   en: 'Advanced',     color: '#ef4444' },
 };
 
+const LANG_LABELS: Record<CourseLanguage, { ar: string; en: string; color: string }> = {
+  ar:   { ar: 'عربي', en: 'AR', color: '#3b82f6' },
+  en:   { ar: 'إنجليزي', en: 'EN', color: '#22c55e' },
+  both: { ar: 'ثنائي', en: 'AR+EN', color: '#8b5cf6' },
+};
+
 const PEXELS_COVERS: Record<CourseLevel, string> = {
   beginner:     'https://images.pexels.com/photos/159866/books-book-pages-read-literature-159866.jpeg?auto=compress&cs=tinysrgb&w=800',
   intermediate: 'https://images.pexels.com/photos/261763/pexels-photo-261763.jpeg?auto=compress&cs=tinysrgb&w=800',
@@ -37,6 +44,8 @@ const PEXELS_COVERS: Record<CourseLevel, string> = {
 };
 
 type LevelFilter = 'all' | CourseLevel;
+type PricingFilter = 'all' | 'free' | 'paid';
+type LanguageFilter = 'all' | CourseLanguage;
 
 export default function Academy() {
   const { language } = useLanguage();
@@ -51,6 +60,8 @@ export default function Academy() {
   const [courseScores, setCourseScores] = useState<AcademyCourseScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
+  const [pricingFilter, setPricingFilter] = useState<PricingFilter>('all');
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>('all');
 
   useEffect(() => {
     async function load() {
@@ -88,9 +99,13 @@ export default function Academy() {
     enrollments.map((e) => [e.course_id, e])
   );
 
-  const filtered = levelFilter === 'all'
-    ? courses
-    : courses.filter((c) => c.level === levelFilter);
+  const filtered = courses.filter((c) => {
+    if (levelFilter !== 'all' && c.level !== levelFilter) return false;
+    if (pricingFilter === 'free' && c.is_paid) return false;
+    if (pricingFilter === 'paid' && !c.is_paid) return false;
+    if (languageFilter !== 'all' && c.language !== languageFilter) return false;
+    return true;
+  });
 
   const heroImage = 'https://images.pexels.com/photos/6238297/pexels-photo-6238297.jpeg?auto=compress&cs=tinysrgb&w=1600';
 
@@ -205,6 +220,48 @@ export default function Academy() {
           })}
         </div>
 
+        <div className={`flex flex-wrap gap-3 mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          {(['all', 'free', 'paid'] as const).map((p) => {
+            const isActive = pricingFilter === p;
+            const label = p === 'all' ? (isRTL ? 'الكل' : 'All')
+              : p === 'free' ? (isRTL ? 'مجاني' : 'Free')
+              : (isRTL ? 'مدفوع' : 'Paid');
+            return (
+              <button
+                key={p}
+                onClick={() => setPricingFilter(p)}
+                className="px-5 py-2 rounded-full text-sm font-semibold transition-all"
+                style={{
+                  backgroundColor: isActive ? 'var(--color-accent)' : 'var(--color-surface)',
+                  color: isActive ? '#fff' : 'var(--color-text-secondary)',
+                  border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+          {(['all', 'ar', 'en', 'both'] as const).map((l) => {
+            const isActive = languageFilter === l;
+            const label = l === 'all' ? (isRTL ? 'كل اللغات' : 'All languages')
+              : (isRTL ? LANG_LABELS[l].ar : LANG_LABELS[l].en);
+            return (
+              <button
+                key={l}
+                onClick={() => setLanguageFilter(l)}
+                className="px-5 py-2 rounded-full text-sm font-semibold transition-all"
+                style={{
+                  backgroundColor: isActive ? 'var(--color-accent)' : 'var(--color-surface)',
+                  color: isActive ? '#fff' : 'var(--color-text-secondary)',
+                  border: `1px solid ${isActive ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--color-accent)' }} />
@@ -272,14 +329,28 @@ function CourseCard({
         />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }} />
 
-        <div className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'} flex gap-2`}>
+        <div className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'} flex gap-2 flex-wrap`}>
           <span
             className="px-2.5 py-1 rounded-full text-xs font-bold text-white"
             style={{ backgroundColor: level.color }}
           >
             {isRTL ? level.ar : level.en}
           </span>
-          {course.is_free ? (
+          {course.category && (
+            <span
+              className="px-2.5 py-1 rounded-full text-xs font-bold"
+              style={{ backgroundColor: 'rgba(139,92,246,0.9)', color: '#fff' }}
+            >
+              {course.category}
+            </span>
+          )}
+          <span
+            className="px-2.5 py-1 rounded-full text-xs font-bold"
+            style={{ backgroundColor: LANG_LABELS[course.language || 'ar'].color, color: '#fff' }}
+          >
+            {isRTL ? LANG_LABELS[course.language || 'ar'].ar : LANG_LABELS[course.language || 'ar'].en}
+          </span>
+          {!course.is_paid ? (
             <span
               className="px-2.5 py-1 rounded-full text-xs font-bold"
               style={{ backgroundColor: '#22c55e', color: '#fff' }}

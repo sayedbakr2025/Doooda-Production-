@@ -19,8 +19,9 @@ import {
   getLatestSubmission,
   getUserSubmissions,
   createSubmission,
+  getLessonDocuments,
 } from '../services/academyApi';
-import type { AcademyLesson, AcademyModule, AcademyCertificate, AcademySubmission } from '../types/academy';
+import type { AcademyLesson, AcademyModule, AcademyCertificate, AcademySubmission, LessonDocument } from '../types/academy';
 
 export default function AcademyLessonPage() {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +50,7 @@ export default function AcademyLessonPage() {
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [latestSubmission, setLatestSubmission] = useState<AcademySubmission | null>(null);
+  const [documents, setDocuments] = useState<LessonDocument[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -101,6 +103,9 @@ export default function AcademyLessonPage() {
 
             const note = await getLessonNote(user.id, id!);
             if (note) setNoteContent(note.content);
+
+            const docs = await getLessonDocuments(id!);
+            setDocuments(docs);
 
             if (lessonData.content_type === 'exercise') {
               const sub = await getLatestSubmission(user.id, id!);
@@ -339,6 +344,7 @@ export default function AcademyLessonPage() {
                   enrollmentId={enrollmentId}
                   latestSubmission={latestSubmission}
                   onSubmissionCreated={setLatestSubmission}
+                  documents={documents}
                 />
               </div>
 
@@ -642,6 +648,7 @@ function LessonContent({
   enrollmentId,
   latestSubmission,
   onSubmissionCreated,
+  documents,
 }: {
   lesson: AcademyLesson;
   isRTL: boolean;
@@ -649,61 +656,88 @@ function LessonContent({
   enrollmentId: string | null;
   latestSubmission: AcademySubmission | null;
   onSubmissionCreated: (sub: AcademySubmission) => void;
+  documents: LessonDocument[];
 }) {
   if (lesson.content_type === 'video' && lesson.content_url) {
-    return <VideoPlayer url={lesson.content_url} title={lesson.title} />;
+    return (
+      <div>
+        <VideoPlayer url={lesson.content_url} title={lesson.title} />
+        {documents.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+              {isRTL ? '📄 المرفقات' : '📄 Attachments'}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {documents.map((doc) => (
+                <a
+                  key={doc.id}
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:opacity-80"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+                >
+                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-accent)' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{doc.title}</p>
+                  </div>
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-text-tertiary)' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (lesson.content_type === 'pdf' && lesson.content_url) {
     return (
-      <div
-        className="rounded-xl p-6 flex flex-col items-center gap-5 text-center"
-        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-      >
+      <div>
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(239,68,68,0.1)' }}
+          className="rounded-xl overflow-hidden"
+          style={{ border: '1px solid var(--color-border)' }}
         >
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#ef4444' }}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
+          <iframe
+            src={lesson.content_url}
+            title={lesson.title}
+            className="w-full"
+            style={{ height: '80vh', border: 'none' }}
+          />
         </div>
-        <div>
-          <p className="font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>{lesson.title}</p>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {isRTL ? 'اضغط لتنزيل الملف أو فتحه' : 'Click to download or view the file'}
-          </p>
-        </div>
-        <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <a
-            href={lesson.content_url}
-            download
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90"
-            style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            {isRTL ? 'تنزيل' : 'Download'}
-          </a>
-          <a
-            href={lesson.content_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-80"
-            style={{
-              backgroundColor: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            {isRTL ? 'فتح' : 'Open'}
-          </a>
-        </div>
+        {documents.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+              {isRTL ? '📄 المرفقات' : '📄 Attachments'}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {documents.map((doc) => (
+                <a
+                  key={doc.id}
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:opacity-80"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+                >
+                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-accent)' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{doc.title}</p>
+                  </div>
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-text-tertiary)' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -1,5 +1,6 @@
 export type CourseLevel = 'beginner' | 'intermediate' | 'advanced';
 export type LessonContentType = 'video' | 'article' | 'exercise' | 'pdf';
+export type CourseLanguage = 'ar' | 'en' | 'both';
 
 export interface AcademyCourse {
   id: string;
@@ -7,7 +8,10 @@ export interface AcademyCourse {
   title_en: string;
   description: string;
   level: CourseLevel;
+  category: string;
+  language: CourseLanguage;
   is_free: boolean;
+  is_paid: boolean;
   price_tokens: number | null;
   is_published: boolean;
   cover_image: string | null;
@@ -149,4 +153,12 @@ export interface AcademyChallengeSubmission {
   feedback: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface LessonDocument {
+  id: string;
+  lesson_id: string;
+  title: string;
+  file_url: string;
+  created_at: string;
 }
