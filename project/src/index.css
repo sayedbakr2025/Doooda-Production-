@@ -246,17 +246,13 @@
   background: rgba(255, 230, 150, 0.4);
   border-bottom: 2px solid rgba(217, 119, 6, 0.3);
   cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 2px;
-  padding: 1px 0;
+  transition: background 0.2s;
 }
 
 .comment-anchor:hover,
 .comment-anchor.highlighted {
-  background: rgba(255, 230, 150, 0.8);
-  border-bottom: 2px solid rgba(217, 119, 6, 0.8);
-  box-shadow: 0 0 0 2px rgba(255, 200, 50, 0.6);
-  border-radius: 2px;
+  background: rgba(255, 230, 150, 0.7);
+  border-bottom-color: rgba(217, 119, 6, 0.6);
 }
 
 @keyframes mention-highlight {
@@ -274,3 +270,4 @@
   padding: 8px;
   margin: -8px;
 }
+
