@@ -377,12 +377,13 @@ export default function SceneEditor() {
   }, []);
 
   useEffect(() => {
-    if (!highlightedCommentId) return;
     const editor = editorRef.current;
     if (!editor) return;
     editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
-    const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
-    if (anchor) anchor.classList.add('highlighted');
+    if (highlightedCommentId) {
+      const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
+      if (anchor) anchor.classList.add('highlighted');
+    }
   }, [highlightedCommentId]);
 
   function countWords(text: string): number {

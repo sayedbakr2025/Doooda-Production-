@@ -253,6 +253,9 @@
 .comment-anchor.highlighted {
   background: rgba(255, 230, 150, 0.7);
   border-bottom-color: rgba(217, 119, 6, 0.6);
+  outline: 2px solid rgba(255, 200, 50, 0.8);
+  outline-offset: 1px;
+  border-radius: 2px;
 }
 
 @keyframes mention-highlight {
