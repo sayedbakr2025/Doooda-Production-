@@ -1,19 +1,38 @@
 /*
-  # Fix check_doooda_access to work with new get_user_plan JSONB return
+  # Fix check_doooda_access: handle JSONB plan return, allow users with tokens
 
   ## Problem
-  get_user_plan() now returns JSONB instead of text (plan name).
-  check_doooda_access was treating the result as a text plan name,
-  causing v_plan to be a JSONB object, failing to match ai_usage_limits
-  and returning "no_plan" even for users with valid plans and tokens.
+  1. get_user_plan() now returns JSONB instead of text (plan name).
+     check_doooda_access was treating it as a text plan name,
+     causing "no_plan" for valid users.
+  2. Some databases may be missing the is_active column on ai_providers.
 
   ## Fix
-  1. Extract plan_code from JSONB result of get_user_plan()
-  2. If no limits found in ai_usage_limits, fall back to checking tokens_balance
+  1. Ensure is_active column exists on ai_providers
+  2. Extract plan_code from JSONB result of get_user_plan()
+  3. If no limits found in ai_usage_limits, fall back to checking tokens_balance
      - If user has tokens > 0, allow access with plan-based defaults
      - This ensures "no_plan" is never returned for users with tokens
-  3. Read daily/monthly limits from plan features JSONB when available
+  4. Read daily/monthly limits from plan features JSONB when available
 */
+
+-- ═══════════════════════════════════════════
+-- 0. Ensure is_active column exists on ai_providers
+-- ═══════════════════════════════════════════
+ALTER TABLE ai_providers ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT false;
+
+DO $$
+BEGIN
+  -- Migrate: if doooda_config has an active_provider_id, set is_active on that row
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'doooda_config' AND column_name = 'active_provider_id') THEN
+    UPDATE ai_providers
+    SET is_active = true
+    WHERE id IN (SELECT active_provider_id FROM doooda_config WHERE active_provider_id IS NOT NULL LIMIT 1);
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_one_active ON ai_providers(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_ai_providers_active ON ai_providers(is_active);
 
 CREATE OR REPLACE FUNCTION public.check_doooda_access()
 RETURNS jsonb
