@@ -377,6 +377,23 @@ export default function DooodaChatPanel() {
         };
         setMessages((prev) => [...prev, userMsg, limitMsg]);
         setInput('');
+      } else if (reason === 'no_plan') {
+        const tokenData = await fetchUserTokens();
+        if (tokenData && tokenData.tokens_balance > 0) {
+          // User has tokens but check_doooda_access said no_plan — proceed anyway
+        } else {
+          const noPlanMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            text: language === 'ar'
+              ? 'لقد نفدت رصيد التوكنز الخاص بك. قم بالترقية أو شراء توكنز إضافية للمتابعة.'
+              : 'You have used all your tokens. Upgrade or purchase additional tokens to continue.',
+            isUser: false,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, userMsg, noPlanMsg]);
+          setInput('');
+          return;
+        }
       } else {
         const unavailMsg: ChatMessage = {
           id: crypto.randomUUID(),
