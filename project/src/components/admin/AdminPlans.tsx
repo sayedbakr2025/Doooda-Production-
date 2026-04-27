@@ -5,9 +5,17 @@ import { Check, Zap } from 'lucide-react';
 
 interface Plan {
   name: string;
+  code: string;
+  name_ar: string;
+  name_en: string;
   monthly_tokens: number;
   multiplier: number;
   price: number;
+  tokens_initial: number;
+  tokens_recurring: number;
+  allow_token_purchase: boolean;
+  features: Record<string, any>;
+  price_monthly: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -48,7 +56,7 @@ export default function AdminPlans() {
       const { data: plansData, error: plansError } = await supabase
         .from('plans')
         .select('*')
-        .order('price', { ascending: true });
+        .order('price_monthly', { ascending: true });
 
       if (plansError) throw plansError;
 
@@ -78,6 +86,13 @@ export default function AdminPlans() {
           monthly_tokens: editingPlan.monthly_tokens,
           multiplier: editingPlan.multiplier,
           price: editingPlan.price,
+          name_ar: editingPlan.name_ar,
+          name_en: editingPlan.name_en,
+          tokens_initial: editingPlan.tokens_initial,
+          tokens_recurring: editingPlan.tokens_recurring,
+          allow_token_purchase: editingPlan.allow_token_purchase,
+          price_monthly: editingPlan.price_monthly,
+          features: editingPlan.features,
           updated_at: new Date().toISOString()
         })
         .eq('name', editingPlan.name);
@@ -156,10 +171,13 @@ export default function AdminPlans() {
         <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>Subscription Plans</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => {
-            const isPro = plan.name === 'pro';
-            const isFree = plan.name === 'free';
+            const isPro = (plan.code || plan.name) === 'pro';
+            const isFree = (plan.code || plan.name) === 'free';
 
-            const features = isFree
+            const planFeatures: string[] = plan.features?.features_list || [];
+            const features = planFeatures.length > 0
+              ? planFeatures
+              : isFree
               ? ['Unlimited projects', '10,000 gift tokens', 'Some ready-made plots', 'Some free courses', 'Doooda community access']
               : isPro
               ? ['120,000 tokens/month', 'Unlimited projects', 'Free + premium plots', 'Export PDF + Word', 'Marketing & Publishing', 'All courses free', 'Doooda community access']
@@ -167,7 +185,7 @@ export default function AdminPlans() {
 
             const disabledFeatures = isFree ? ['No export', 'No marketing'] : [];
             const badge = isPro ? 'Most Popular' : null;
-            const tokensLabel = !isFree ? 'Buy extra tokens anytime' : null;
+            const tokensLabel = plan.allow_token_purchase ? 'Buy extra tokens anytime' : null;
 
             return (
               <div
@@ -187,8 +205,8 @@ export default function AdminPlans() {
 
                 <div className="p-6">
                   <h4 className="text-base font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                    {isFree ? 'كاتب هاوي' : isPro ? 'كاتب جاد' : 'كاتب محترف'}
-                    <span className="ms-2 text-xs font-normal opacity-50">({plan.name})</span>
+                    {plan.name_ar || (isFree ? 'كاتب هاوي' : isPro ? 'كاتب جاد' : 'كاتب محترف')}
+                    <span className="ms-2 text-xs font-normal opacity-50">({plan.name_en || plan.name})</span>
                   </h4>
 
                   <div className="mb-5 mt-3">
@@ -235,8 +253,11 @@ export default function AdminPlans() {
                     style={{ borderTop: '1px solid var(--color-border-light)' }}
                   >
                     <FeatureRow label="Monthly Tokens" value={plan.monthly_tokens.toLocaleString()} />
+                    <FeatureRow label="Initial Tokens" value={plan.tokens_initial?.toLocaleString() || '0'} />
+                    {plan.tokens_recurring > 0 && <FeatureRow label="Recurring Tokens" value={plan.tokens_recurring.toLocaleString()} />}
                     <FeatureRow label="Token Multiplier" value={`${plan.multiplier}x`} />
                     <FeatureRow label="Price" value={isFree ? 'Free' : `$${plan.price}/mo`} />
+                    <FeatureRow label="Token Purchase" value={plan.allow_token_purchase ? '✅ Enabled' : '❌ Disabled'} />
                   </div>
 
                   <div className="mt-4">
@@ -290,13 +311,38 @@ export default function AdminPlans() {
             className="rounded-xl shadow-xl max-w-md w-full p-6"
             style={{ backgroundColor: 'var(--color-surface)' }}
           >
-            <h3 className="text-xl font-bold mb-5" style={{ color: 'var(--color-text-primary)' }}>
-              Edit {editingPlan.name === 'free' ? 'كاتب هاوي' : editingPlan.name === 'pro' ? 'كاتب جاد' : 'كاتب محترف'} Plan
-            </h3>
+<h3 className="text-xl font-bold mb-5" style={{ color: 'var(--color-text-primary)' }}>
+                Edit {editingPlan.name_en || editingPlan.name} Plan
+              </h3>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={labelStyle}>Monthly Tokens</label>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={labelStyle}>Name (AR)</label>
+                    <input
+                      type="text"
+                      value={editingPlan.name_ar}
+                      onChange={(e) => setEditingPlan({ ...editingPlan, name_ar: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}
+                      placeholder="كاتب هاوي"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={labelStyle}>Name (EN)</label>
+                    <input
+                      type="text"
+                      value={editingPlan.name_en}
+                      onChange={(e) => setEditingPlan({ ...editingPlan, name_en: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}
+                      placeholder="Hobbyist Writer"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={labelStyle}>Monthly Tokens</label>
                 <input
                   type="number"
                   value={editingPlan.monthly_tokens}
@@ -307,31 +353,82 @@ export default function AdminPlans() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1" style={labelStyle}>Token Multiplier</label>
-                <input
-                  type="number"
-                  value={editingPlan.multiplier}
-                  onChange={(e) => setEditingPlan({ ...editingPlan, multiplier: parseFloat(e.target.value) || 1 })}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={inputStyle}
-                  min="0"
-                  step="0.1"
-                />
-              </div>
+<div>
+                  <label className="block text-sm font-medium mb-1" style={labelStyle}>Token Multiplier</label>
+                  <input
+                    type="number"
+                    value={editingPlan.multiplier}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, multiplier: parseFloat(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={inputStyle}
+                    min="0"
+                    step="0.1"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1" style={labelStyle}>Price ($)</label>
-                <input
-                  type="number"
-                  value={editingPlan.price}
-                  onChange={(e) => setEditingPlan({ ...editingPlan, price: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={inputStyle}
-                  min="0"
-                  step="0.01"
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={labelStyle}>Initial Tokens</label>
+                    <input
+                      type="number"
+                      value={editingPlan.tokens_initial || 0}
+                      onChange={(e) => setEditingPlan({ ...editingPlan, tokens_initial: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={labelStyle}>Recurring Tokens</label>
+                    <input
+                      type="number"
+                      value={editingPlan.tokens_recurring || 0}
+                      onChange={(e) => setEditingPlan({ ...editingPlan, tokens_recurring: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={labelStyle}>Price ($)</label>
+                  <input
+                    type="number"
+                    value={editingPlan.price}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, price: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={inputStyle}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={labelStyle}>Monthly Price ($)</label>
+                  <input
+                    type="number"
+                    value={editingPlan.price_monthly ?? 0}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, price_monthly: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={inputStyle}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="allow_token_purchase"
+                    checked={editingPlan.allow_token_purchase ?? false}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, allow_token_purchase: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="allow_token_purchase" className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    Allow token purchase
+                  </label>
+                </div>
             </div>
 
             <div className="flex gap-3 mt-6 pt-4" style={{ borderTop: '1px solid var(--color-border)' }}>

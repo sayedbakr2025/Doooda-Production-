@@ -2,13 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, User, Lock, LogOut, Zap, Star, Crown, Gift } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/supabaseClient';
+import { useUserPlan } from '../hooks/useUserPlan';
 import EditProfileModal from './EditProfileModal';
 import ChangePasswordModal from './ChangePasswordModal';
 import UpgradePlanModal from './UpgradePlanModal';
 import ReferralDashboard from './ReferralDashboard';
 
-const PLAN_DISPLAY: Record<string, { ar: string; en: string; color: string; icon: typeof Star }> = {
+const FALLBACK_PLAN_DISPLAY: Record<string, { ar: string; en: string; color: string; icon: typeof Star }> = {
   free:  { ar: 'كاتب هاوي',  en: 'Hobbyist Writer',    color: '#6b7280', icon: Star  },
   pro:   { ar: 'كاتب جاد',   en: 'Serious Writer',      color: '#d62828', icon: Zap   },
   max:   { ar: 'كاتب محترف', en: 'Professional Writer', color: '#b45309', icon: Crown },
@@ -17,13 +17,13 @@ const PLAN_DISPLAY: Record<string, { ar: string; en: string; color: string; icon
 export default function AccountMenu() {
   const { user, logout } = useAuth();
   const { language } = useLanguage();
+  const { planCode, displayName: planDisplayName } = useUserPlan();
   const isRTL = language === 'ar';
   const [open, setOpen] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showUpgradePlan, setShowUpgradePlan] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState<string>('free');
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,26 +36,15 @@ export default function AccountMenu() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    supabase
-      .from('users')
-      .select('plan')
-      .eq('id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.plan) setCurrentPlan(data.plan.toLowerCase());
-      });
-  }, [user?.id]);
-
   const displayName =
     user?.user_metadata?.pen_name ||
     user?.user_metadata?.full_name ||
     user?.email?.split('@')[0] ||
     (language === 'ar' ? 'حسابك' : 'Account');
 
-  const planInfo = PLAN_DISPLAY[currentPlan] || PLAN_DISPLAY.free;
+  const planInfo = FALLBACK_PLAN_DISPLAY[planCode] || FALLBACK_PLAN_DISPLAY.free;
   const PlanIcon = planInfo.icon;
+  const planLabel = planDisplayName(language);
 
   return (
     <>
@@ -119,7 +108,7 @@ export default function AccountMenu() {
               >
                 <PlanIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: planInfo.color }} />
                 <span className="text-xs font-semibold" style={{ color: planInfo.color }}>
-                  {language === 'ar' ? planInfo.ar : planInfo.en}
+                  {planLabel}
                 </span>
               </button>
             </div>
@@ -188,13 +177,9 @@ export default function AccountMenu() {
       {showReferral && <ReferralDashboard onClose={() => setShowReferral(false)} />}
       {showUpgradePlan && (
         <UpgradePlanModal
-          currentPlan={currentPlan}
+          currentPlan={planCode}
           onClose={() => {
             setShowUpgradePlan(false);
-            if (user?.id) {
-              supabase.from('users').select('plan').eq('id', user.id).maybeSingle()
-                .then(({ data }) => { if (data?.plan) setCurrentPlan(data.plan.toLowerCase()); });
-            }
           }}
         />
       )}

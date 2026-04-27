@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useUserPlan } from '../../hooks/useUserPlan';
 import { t } from '../../utils/translations';
 import type { Project } from '../../types';
 import UpgradeModal from './UpgradeModal';
@@ -7,7 +8,6 @@ import PublishersSearch from './PublishersSearch';
 import CompetitionsTab from './CompetitionsTab';
 import ExportModal from '../../components/ExportModal';
 import CompetitionSubmitModal from '../../components/CompetitionSubmitModal';
-import { useLanguage } from '../../contexts/LanguageContext';
 
 type TabKey = 'export' | 'publishers' | 'competitions';
 
@@ -22,16 +22,12 @@ const TABS: { key: TabKey; labelKey: string; icon: string }[] = [
   { key: 'competitions', labelKey: 'marketing.competitions.title', icon: '🏆' },
 ];
 
-function isPaidPlan(plan: string | undefined): boolean {
-  return plan === 'pro' || plan === 'max';
-}
-
 export default function MarketingPanel({ project, onClose }: MarketingPanelProps) {
   const { language } = useLanguage();
-  const { userPlan } = useAuth();
+  const { isPaid, canMarketing } = useUserPlan();
   const isRTL = language === 'ar';
 
-  const paid = isPaidPlan(userPlan);
+  const paid = isPaid && canMarketing;
 
   const [activeTab, setActiveTab] = useState<TabKey>('export');
   const [showUpgrade, setShowUpgrade] = useState(false);

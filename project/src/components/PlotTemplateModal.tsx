@@ -3,7 +3,7 @@ import { X, LayoutTemplate as BookTemplate, Crown, Info, AlertTriangle, Lock } f
 import { getPlotTemplates } from '../services/api';
 import Button from './Button';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabaseClient';
+import { useUserPlan } from '../hooks/useUserPlan';
 
 interface PlotTemplate {
   id: string;
@@ -27,6 +27,7 @@ const PlotTemplateModal: React.FC<PlotTemplateModalProps> = ({
   onApply,
 }) => {
   const { user } = useAuth();
+  const { isPaid } = useUserPlan();
   const [templates, setTemplates] = useState<PlotTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -34,9 +35,8 @@ const PlotTemplateModal: React.FC<PlotTemplateModalProps> = ({
   const [chapterCount, setChapterCount] = useState<number>(10);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [userPlan, setUserPlan] = useState<string>('free');
 
-  const hasPaidPlan = userPlan !== 'free';
+  const hasPaidPlan = isPaid;
 
   const categories = [
     { key: 'all', label: 'الكل', labelAr: 'الكل' },
@@ -50,19 +50,8 @@ const PlotTemplateModal: React.FC<PlotTemplateModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       fetchTemplates();
-      fetchUserPlan();
     }
   }, [isOpen, user]);
-
-  const fetchUserPlan = async () => {
-    if (!user?.id) return;
-    const { data } = await supabase
-      .from('users')
-      .select('plan')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (data?.plan) setUserPlan(data.plan);
-  };
 
   const fetchTemplates = async () => {
     try {

@@ -74,15 +74,35 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+interface PlanFeatures {
+  doooda_max_tokens?: number;
+  doooda_context_budget?: number;
+  doooda_monthly_limit?: number;
+  doooda_daily_limit?: number;
+  [key: string]: unknown;
+}
+
+interface PlanData {
+  name: string;
+  code: string;
+  name_ar: string;
+  name_en: string;
+  monthly_tokens: number;
+  multiplier: number;
+  price: number;
+  features: PlanFeatures | null;
+  allow_token_purchase: boolean;
+}
+
 function resolveAdaptiveMaxTokens(
   lastUserMessage: string,
   mode: string | undefined,
   hasContext: boolean,
-  plan: string
+  planFeatures: PlanFeatures | null
 ): number {
   const msgLen = lastUserMessage.trim().length;
 
-  const planCeiling = plan === "free" ? 1000 : 2000;
+  const planCeiling = planFeatures?.doooda_max_tokens || (planFeatures ? 2000 : 1000);
 
   let base: number;
   if (msgLen < 60) {
@@ -274,7 +294,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const [configResult, userResult, personaResult] = await Promise.all([
+    const [configResult, userResult, personaResult, planResult] = await Promise.all([
       supabase
         .from("doooda_config")
         .select("session_memory_enabled, max_context_length")
@@ -282,7 +302,7 @@ Deno.serve(async (req: Request) => {
         .maybeSingle(),
       supabase
         .from("users")
-        .select("tokens_balance, plan")
+        .select("tokens_balance, plan, plan_code")
         .eq("id", billingUserId)
         .maybeSingle(),
       supabase
@@ -290,11 +310,15 @@ Deno.serve(async (req: Request) => {
         .select("persona_prompt_en, persona_prompt_ar, guardrails_en, guardrails_ar")
         .eq("is_active", true)
         .maybeSingle(),
+      supabase
+        .rpc("get_user_plan", { p_user_id: billingUserId })
+        .maybeSingle(),
     ]);
 
     const config = configResult.data;
     const userData = userResult.data;
     const activePersona = personaResult.data;
+    const planData: PlanData | null = planResult.data;
 
     if (!userData) {
       return new Response(
@@ -304,8 +328,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const userBalance = userData.tokens_balance || 0;
-    const userPlan = userData.plan || 'free';
-    const MULTIPLIER = userPlan === 'free' ? 1.5 : 2.0;
+    const userPlan = (userData.plan_code || userData.plan || 'free').toLowerCase();
+    const planFeatures = planData?.features || null;
+    const planMultiplier = planData?.multiplier || (userPlan === 'free' ? 1.5 : 2.0);
+    const MULTIPLIER = planMultiplier;
     const MIN_TOKENS = 50;
 
     let systemPrompt: string;
@@ -428,7 +454,7 @@ Deno.serve(async (req: Request) => {
       content: m.content,
     }));
 
-    const tokenBudget = userPlan === 'free' ? 800 : 2000;
+    const tokenBudget = planFeatures?.doooda_context_budget || (userPlan === 'free' ? 800 : 2000);
     const selectedMessages: Array<{ role: string; content: string }> = [];
     let tokensUsed = 0;
 
@@ -445,7 +471,7 @@ Deno.serve(async (req: Request) => {
     const lastUserMessage = chatMessages.filter(m => m.role === "user").pop()?.content || "";
     const hasContext = !!(body.selectedText || body.context || body.characterContext);
 
-    const maxTokens = resolveAdaptiveMaxTokens(lastUserMessage, body.mode, hasContext, userPlan);
+    const maxTokens = resolveAdaptiveMaxTokens(lastUserMessage, body.mode, hasContext, planFeatures);
 
     console.log('[ask-doooda] user:', user.id, '| plan:', userPlan, '| balance:', userBalance, '| adaptive_max_tokens:', maxTokens);
 
@@ -453,7 +479,7 @@ Deno.serve(async (req: Request) => {
       let limitMsg: string;
       if (userPlan === 'free') {
         limitMsg = lang === 'ar'
-          ? 'لقد استخدمت رصيدك المجاني بالكامل. قم بالترقية للحصول على المزيد من التوكنز.'
+          ? `لقد استخدمت رصيدك المجاني بالكامل. قم بالترقية للحصول على المزيد من التوكنز.`
           : 'You have used all your free tokens. Upgrade to get more tokens.';
       } else if (userPlan === 'pro') {
         limitMsg = lang === 'ar'
@@ -592,15 +618,20 @@ Deno.serve(async (req: Request) => {
     console.log('[ask-doooda] deducted:', deductResult.tokens_deducted, '| new_balance:', newBalance);
 
     if (newBalance < 100) {
+      const canPurchase = planData?.allow_token_purchase ?? (userPlan !== 'free');
       let lowMsg: string;
       if (userPlan === 'free') {
         lowMsg = lang === 'ar'
           ? `${finalReply}\n\n⚠️ توكنزك قربت تخلص (متبقي ${newBalance}). قم بالترقية للحصول على المزيد!`
           : `${finalReply}\n\n⚠️ Tokens running low (${newBalance} remaining). Upgrade to get more!`;
-      } else {
+      } else if (canPurchase) {
         lowMsg = lang === 'ar'
           ? `${finalReply}\n\n⚠️ توكنزك قربت تخلص (متبقي ${newBalance}). اشترِ المزيد!`
           : `${finalReply}\n\n⚠️ Tokens running low (${newBalance} remaining). Purchase more!`;
+      } else {
+        lowMsg = lang === 'ar'
+          ? `${finalReply}\n\n⚠️ توكنزك قربت تخلص (متبقي ${newBalance}).`
+          : `${finalReply}\n\n⚠️ Tokens running low (${newBalance} remaining).`;
       }
       return new Response(
         JSON.stringify({ reply: lowMsg, blocked: false, type: "TOKENS_LOW", tokens_left: newBalance }),

@@ -22,6 +22,7 @@ import EditProjectModal from '../components/EditProjectModal';
 import MarketingPanel from '../features/marketing/MarketingPanel';
 import UpgradePlanModal from '../components/UpgradePlanModal';
 import { useAuth } from '../contexts/AuthContext';
+import { useUserPlan } from '../hooks/useUserPlan';
 import ScopedShareModal from '../components/ScopedShareModal';
 import CollaboratorsPanel from '../components/CollaboratorsPanel';
 import ActivityLogPanel from '../components/ActivityLogPanel';
@@ -37,7 +38,8 @@ interface ContextMenuState {
 export default function ProjectWorkspace() {
   const { id } = useParams<{ id: string }>();
   const { language } = useLanguage();
-  const { userPlan, user } = useAuth();
+  const { user } = useAuth();
+  const { isPaid, canExportPdf, planCode } = useUserPlan();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -68,7 +70,6 @@ export default function ProjectWorkspace() {
   const [deletionRequestSent, setDeletionRequestSent] = useState(false);
   const [isFrozenCollaborator, setIsFrozenCollaborator] = useState(false);
 
-  const isPaid = userPlan === 'pro' || userPlan === 'max';
   const isOwner = project ? project.user_id === user?.id : false;
   const isManager = collaboratorRole === 'manager';
   const isEditor = collaboratorRole === 'editor';
@@ -84,7 +85,7 @@ export default function ProjectWorkspace() {
   const { activeUsers } = usePresence(id, user?.id, presenceDisplayName);
 
   function handleExportClick() {
-    if (!isPaid) {
+    if (!isPaid || !canExportPdf) {
       setShowUpgradeModal(true);
     } else {
       setShowExportModal(true);
@@ -815,7 +816,7 @@ const handleContextMenu = (e: React.MouseEvent, contextType: 'logline' | 'chapte
 
       {showUpgradeModal && (
         <UpgradePlanModal
-          currentPlan={userPlan}
+          currentPlan={planCode}
           onClose={() => setShowUpgradeModal(false)}
         />
       )}

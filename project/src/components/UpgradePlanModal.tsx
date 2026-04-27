@@ -5,8 +5,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 interface Plan {
   name: string;
+  name_ar: string;
+  name_en: string;
   monthly_tokens: number;
   price: string;
+  code: string;
 }
 
 interface UpgradePlanModalProps {
@@ -64,10 +67,11 @@ export default function UpgradePlanModal({ onClose, currentPlan }: UpgradePlanMo
   useEffect(() => {
     supabase
       .from('plans')
-      .select('name, monthly_tokens, price')
+      .select('name, name_ar, name_en, monthly_tokens, price, code')
+      .order('price', { ascending: true })
       .then(({ data }) => {
         const sorted = (data || []).sort(
-          (a, b) => PLAN_ORDER.indexOf(a.name) - PLAN_ORDER.indexOf(b.name)
+          (a, b) => PLAN_ORDER.indexOf(a.code || a.name?.toLowerCase() || '') - PLAN_ORDER.indexOf(b.code || b.name?.toLowerCase() || '')
         );
         setPlans(sorted);
         setLoading(false);
@@ -118,8 +122,8 @@ export default function UpgradePlanModal({ onClose, currentPlan }: UpgradePlanMo
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {plans.map(plan => {
-                const key = plan.name.toLowerCase();
-                const info = PLAN_DISPLAY[key] || { ar: plan.name, en: plan.name, color: '#6b7280' };
+                const key = (plan.code || plan.name).toLowerCase();
+                const info = PLAN_DISPLAY[key] || { ar: plan.name_ar || plan.name, en: plan.name_en || plan.name, color: '#6b7280' };
                 const features = PLAN_FEATURES[key];
                 const Icon = PLAN_ICONS[key] || Star;
                 const isCurrent = key === normalizedPlan;

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useUserPlan } from '../hooks/useUserPlan';
 import { getScene, updateScene, createCharacter, createTask, api, logActivity } from '../services/api';
 import type { Scene, Project } from '../types';
 import { getProjectTypeConfig, formatSceneHeader } from '../utils/projectTypeConfig';
@@ -50,7 +51,7 @@ export default function SceneEditor() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { user } = useAuth();
-  const [userPlan, setUserPlan] = useState<string>('free');
+  const { isFree } = useUserPlan();
   const [scene, setScene] = useState<Scene | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [content, setContent] = useState('');
@@ -115,23 +116,11 @@ export default function SceneEditor() {
   }, [currentLock?.userId]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    supabase
-      .from('users')
-      .select('plan')
-      .eq('id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setUserPlan((data?.plan ?? 'free').toLowerCase());
-      });
-  }, [user?.id]);
-
-  useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
 
     function blockCopy(e: ClipboardEvent) {
-      if (userPlan === 'free') {
+      if (isFree) {
         e.preventDefault();
       }
     }
@@ -142,7 +131,7 @@ export default function SceneEditor() {
       editor.removeEventListener('copy', blockCopy);
       editor.removeEventListener('cut', blockCopy);
     };
-  }, [userPlan]);
+  }, [isFree]);
 
   const { triggerImageUpload, rehydrateImages } = useEditorImages({
     editorRef,
@@ -1440,8 +1429,8 @@ export default function SceneEditor() {
             onInput={handleInput}
             onKeyDown={handleEditorKeyDown}
             onContextMenu={handleContextMenu}
-            onCopy={(e) => { if (userPlan === 'free') e.preventDefault(); }}
-            onCut={(e) => { if (userPlan === 'free') e.preventDefault(); }}
+            onCopy={(e) => { if (isFree) e.preventDefault(); }}
+            onCut={(e) => { if (isFree) e.preventDefault(); }}
             dir={textDirection}
             className="flex-1 p-6 focus:outline-none min-h-[500px] prose prose-lg max-w-none"
             style={{

@@ -7,11 +7,41 @@ export interface User {
   preferredLanguage?: 'ar' | 'en';
   role?: 'user' | 'admin';
   subscription?: {
-    plan: 'FREE' | 'PRO';
+    plan: string;
     status: string;
   };
   user_metadata?: Record<string, any>;
   app_metadata?: Record<string, any>;
+}
+
+export interface PlanData {
+  id: string;
+  code: string;
+  name: string;
+  name_ar: string;
+  name_en: string;
+  tokens_initial: number;
+  tokens_recurring: number;
+  allow_token_purchase: boolean;
+  monthly_tokens: number;
+  multiplier: number;
+  price: number;
+  price_monthly: number;
+  features: PlanFeatures;
+}
+
+export interface PlanFeatures {
+  academy?: boolean;
+  competitions?: boolean;
+  max_projects?: number;
+  export_pdf?: boolean;
+  export_word?: boolean;
+  marketing?: boolean;
+  doooda_daily_limit?: number | null;
+  doooda_monthly_limit?: number | null;
+  doooda_max_tokens?: number;
+  doooda_context_budget?: number;
+  [key: string]: unknown;
 }
 
 export type ProjectType =
