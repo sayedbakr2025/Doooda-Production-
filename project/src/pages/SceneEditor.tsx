@@ -372,10 +372,58 @@ export default function SceneEditor() {
     if (!highlightedCommentId) return;
     const editor = editorRef.current;
     if (!editor) return;
+    // Remove any existing highlight first
     editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
-    const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
-    if (anchor) anchor.classList.add('highlighted');
-  }, [highlightedCommentId]);
+    
+    // Get the comment that is being hovered
+    const comment = inlineComments.find(c => c.id === highlightedCommentId);
+    if (!comment || comment.anchor_start == null || comment.anchor_end == null) return;
+    
+    // Use anchor offsets to find and temporarily highlight the text in editor
+    try {
+      const textNodes: { node: Text; start: number }[] = [];
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+      let offset = 0;
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        textNodes.push({ node, start: offset });
+        offset += node.length;
+      }
+      
+      let startNode: Text | null = null;
+      let endNode: Text | null = null;
+      let startOffset = 0;
+      let endOffset = 0;
+      
+      for (const tn of textNodes) {
+        const tnEnd = tn.start + tn.node.length;
+        if (!startNode && tnEnd > comment.anchor_start) {
+          startNode = tn.node;
+          startOffset = comment.anchor_start - tn.start;
+        }
+        if (tnEnd >= comment.anchor_end) {
+          endNode = tn.node;
+          endOffset = comment.anchor_end - tn.start;
+          break;
+        }
+      }
+      
+      if (startNode && endNode) {
+        const range = document.createRange();
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        const span = document.createElement('span');
+        span.className = 'comment-anchor highlighted';
+        if (startNode === endNode) {
+          range.surroundContents(span);
+        } else {
+          const content = range.extractContents();
+          span.appendChild(content);
+          range.insertNode(span);
+        }
+      }
+    } catch {}
+  }, [highlightedCommentId, inlineComments]);
 
   function countWords(text: string): number {
     const withSpaces = text
