@@ -1870,13 +1870,15 @@ export async function addComment(
   if (error) throw error;
 
   if (content.includes('@')) {
-    void supabase.rpc('create_mention_notifications', {
+    supabase.rpc('create_mention_notifications', {
       p_comment_id: data.id,
       p_content: content,
       p_project_id: projectId,
       p_scene_id: sceneId,
       p_author_id: user.id,
       p_comment_type: 'general',
+    }).then(({ error: rpcErr }) => {
+      if (rpcErr) console.error('[Mention] RPC error:', rpcErr.message);
     });
   }
 
@@ -1946,13 +1948,15 @@ export async function addInlineComment(
   if (error) throw error;
 
   if (content.includes('@')) {
-    void supabase.rpc('create_mention_notifications', {
+    supabase.rpc('create_mention_notifications', {
       p_comment_id: data.id,
       p_content: content,
       p_project_id: projectId,
       p_scene_id: sceneId,
       p_author_id: user.id,
       p_comment_type: 'inline',
+    }).then(({ error: rpcErr }) => {
+      if (rpcErr) console.error('[Mention] RPC error:', rpcErr.message);
     });
   }
 
