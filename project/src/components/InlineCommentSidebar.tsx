@@ -13,6 +13,7 @@ interface InlineCommentSidebarProps {
   highlightedCommentId?: string | null;
   pendingSelection?: { start: number; end: number; text: string } | null;
   onClearPending?: () => void;
+  onCommentsChanged?: () => void;
 }
 
 export default function InlineCommentSidebar({
@@ -24,6 +25,7 @@ export default function InlineCommentSidebar({
   highlightedCommentId,
   pendingSelection,
   onClearPending,
+  onCommentsChanged,
 }: InlineCommentSidebarProps) {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
@@ -40,7 +42,7 @@ export default function InlineCommentSidebar({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
-  const canComment = isOwner;
+  const canComment = true;
 
   const loadComments = useCallback(async () => {
     try {
@@ -130,21 +132,22 @@ export default function InlineCommentSidebar({
       setNewComment('');
       onClearPending?.();
       loadComments();
+      onCommentsChanged?.();
     } catch (err) {
       console.error('[InlineComments] Failed to add:', err);
     }
   }
 
   async function handleResolve(id: string) {
-    try { await resolveInlineComment(id); loadComments(); } catch {}
+    try { await resolveInlineComment(id); loadComments(); onCommentsChanged?.(); } catch {}
   }
 
   async function handleReopen(id: string) {
-    try { await reopenInlineComment(id); loadComments(); } catch {}
+    try { await reopenInlineComment(id); loadComments(); onCommentsChanged?.(); } catch {}
   }
 
   async function handleDelete(id: string) {
-    try { await deleteInlineComment(id); loadComments(); } catch {}
+    try { await deleteInlineComment(id); loadComments(); onCommentsChanged?.(); } catch {}
   }
 
   async function toggleReplies(commentId: string) {

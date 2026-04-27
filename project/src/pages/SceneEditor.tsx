@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserPlan } from '../hooks/useUserPlan';
-import { getScene, updateScene, createCharacter, createTask, api, logActivity, getInlineComments } from '../services/api';
+import { getScene, updateScene, createCharacter, createTask, api, logActivity, getInlineComments, stripCommentAnchors } from '../services/api';
 import type { Scene, Project } from '../types';
 import { getProjectTypeConfig, formatSceneHeader } from '../utils/projectTypeConfig';
 import ContextMenu from '../components/ContextMenu';
@@ -22,7 +22,7 @@ import SceneComments from '../components/SceneComments';
 import EditLockBanner from '../components/EditLockBanner';
 import ActiveUsersBar from '../components/ActiveUsersBar';
 import { usePresence } from '../hooks/usePresence';
-import { Share2, MessageSquare } from 'lucide-react';
+import { Share2, MessageSquare, MessageCircle } from 'lucide-react';
 import { useScopeAccess } from '../hooks/useScopeAccess';
 import VoiceToTextButton from '../components/VoiceToTextButton';
 import InlineCommentSidebar from '../components/InlineCommentSidebar';
@@ -72,7 +72,7 @@ export default function SceneEditor() {
   const [showArabicToolsMenu, setShowArabicToolsMenu] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [showInlineComments, setShowInlineComments] = useState(false);
+  const [commentTab, setCommentTab] = useState<'general' | 'inline'>('inline');
   const [inlineComments, setInlineComments] = useState<InlineComment[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   const [pendingSelection, setPendingSelection] = useState<{ start: number; end: number; text: string } | null>(null);
@@ -200,7 +200,7 @@ export default function SceneEditor() {
       if (!cachedAccessToken) return;
 
       const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/scenes?id=eq.${currentSceneId}`;
-      const body = JSON.stringify({ content: currentContent });
+      const body = JSON.stringify({ content: stripCommentAnchors(currentContent) });
       try {
         fetch(url, {
           method: 'PATCH',
@@ -378,7 +378,7 @@ export default function SceneEditor() {
     const currentProjectId = projectIdRef.current;
     if (!currentSceneId || !currentScene) return;
 
-    const contentToSave = contentRef.current;
+    const contentToSave = stripCommentAnchors(contentRef.current);
     if (contentToSave === lastSavedContentRef.current) {
       setSaveStatus(null);
       return;
@@ -842,7 +842,8 @@ export default function SceneEditor() {
               const start = preRange.toString().length;
               const end = start + selectedText.length;
               setPendingSelection({ start, end, text: selectedText });
-              setShowInlineComments(true);
+              setShowComments(true);
+              setCommentTab('inline');
               setContextMenu(null);
             }
           },
@@ -1110,34 +1111,20 @@ export default function SceneEditor() {
                   <span>{language === 'ar' ? 'مشاركة' : 'Share'}</span>
                 </button>
               )}
-              <button
-                onClick={() => setShowComments(!showComments)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
-                style={{
-                  color: showComments ? 'var(--color-accent)' : 'var(--editor-toolbar-text)',
-                  border: `1px solid ${showComments ? 'var(--color-accent)' : 'var(--editor-toolbar-border)'}`,
-                  backgroundColor: showComments ? 'rgba(59,130,246,0.08)' : 'transparent',
-                }}
-                onMouseEnter={(e) => { if (!showComments) { e.currentTarget.style.color = 'var(--color-accent)'; e.currentTarget.style.borderColor = 'var(--color-accent)'; } }}
-                onMouseLeave={(e) => { if (!showComments) { e.currentTarget.style.color = 'var(--editor-toolbar-text)'; e.currentTarget.style.borderColor = 'var(--editor-toolbar-border)'; } }}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>{language === 'ar' ? 'تعليقات' : 'Comments'}</span>
-              </button>
               {(isOwner || !scopeCheck.loading) && (
                 <button
-                  onClick={() => setShowInlineComments(!showInlineComments)}
+                  onClick={() => { setShowComments(!showComments); if (!showComments) setCommentTab('general'); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
                   style={{
-                    color: showInlineComments ? '#d97706' : 'var(--editor-toolbar-text)',
-                    border: `1px solid ${showInlineComments ? '#d97706' : 'var(--editor-toolbar-border)'}`,
-                    backgroundColor: showInlineComments ? 'rgba(217,119,6,0.08)' : 'transparent',
+                    color: showComments ? 'var(--color-accent)' : 'var(--editor-toolbar-text)',
+                    border: `1px solid ${showComments ? 'var(--color-accent)' : 'var(--editor-toolbar-border)'}`,
+                    backgroundColor: showComments ? 'rgba(59,130,246,0.08)' : 'transparent',
                   }}
-                  onMouseEnter={(e) => { if (!showInlineComments) { e.currentTarget.style.color = '#d97706'; e.currentTarget.style.borderColor = '#d97706'; } }}
-                  onMouseLeave={(e) => { if (!showInlineComments) { e.currentTarget.style.color = 'var(--editor-toolbar-text)'; e.currentTarget.style.borderColor = 'var(--editor-toolbar-border)'; } }}
+                  onMouseEnter={(e) => { if (!showComments) { e.currentTarget.style.color = 'var(--color-accent)'; e.currentTarget.style.borderColor = 'var(--color-accent)'; } }}
+                  onMouseLeave={(e) => { if (!showComments) { e.currentTarget.style.color = 'var(--editor-toolbar-text)'; e.currentTarget.style.borderColor = 'var(--editor-toolbar-border)'; } }}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{language === 'ar' ? 'تعليقات النص' : 'Inline'}</span>
+                  <span>{language === 'ar' ? 'تعليقات' : 'Comments'}</span>
                 </button>
               )}
               {saveStatus === 'saving' && (
@@ -1589,39 +1576,54 @@ export default function SceneEditor() {
               top: '180px',
             }}
           >
-            <SceneComments
-              projectId={projectId}
-              sceneId={sceneId}
-              isOwner={isOwner}
-            />
-          </div>
-        )}
-
-        {showInlineComments && projectId && sceneId && user && (
-          <div
-            className="w-80 shrink-0 flex flex-col overflow-hidden"
-            style={{
-              borderLeft: language === 'ar' ? 'none' : `1px solid var(--color-border)`,
-              borderRight: language === 'ar' ? `1px solid var(--color-border)` : 'none',
-              marginLeft: language === 'ar' ? 0 : '16px',
-              marginRight: language === 'ar' ? '16px' : 0,
-              paddingLeft: language === 'ar' ? 0 : '16px',
-              paddingRight: language === 'ar' ? '16px' : 0,
-              height: 'calc(100vh - 180px)',
-              position: 'sticky',
-              top: '180px',
-            }}
-          >
-            <InlineCommentSidebar
-              projectId={projectId}
-              sceneId={sceneId}
-              userId={user.id}
-              isOwner={isOwner}
-              onHoverComment={setHighlightedCommentId}
-              highlightedCommentId={highlightedCommentId}
-              pendingSelection={pendingSelection}
-              onClearPending={() => setPendingSelection(null)}
-            />
+            <div className="flex border-b" style={{ borderColor: 'var(--color-border)' }}>
+              <button
+                onClick={() => setCommentTab('inline')}
+                className="flex-1 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                style={{
+                  color: commentTab === 'inline' ? '#d97706' : 'var(--color-text-tertiary)',
+                  borderBottom: commentTab === 'inline' ? '2px solid #d97706' : '2px solid transparent',
+                  backgroundColor: commentTab === 'inline' ? 'rgba(217,119,6,0.06)' : 'transparent',
+                }}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                {language === 'ar' ? 'تعليقات النص' : 'Text Comments'}
+              </button>
+              <button
+                onClick={() => setCommentTab('general')}
+                className="flex-1 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                style={{
+                  color: commentTab === 'general' ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+                  borderBottom: commentTab === 'general' ? '2px solid var(--color-accent)' : '2px solid transparent',
+                  backgroundColor: commentTab === 'general' ? 'rgba(59,130,246,0.06)' : 'transparent',
+                }}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {language === 'ar' ? 'تعليقات عامة' : 'General'}
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {commentTab === 'inline' && user && (
+                <InlineCommentSidebar
+                  projectId={projectId}
+                  sceneId={sceneId}
+                  userId={user.id}
+                  isOwner={isOwner}
+                  onHoverComment={setHighlightedCommentId}
+                  highlightedCommentId={highlightedCommentId}
+                  pendingSelection={pendingSelection}
+                  onClearPending={() => setPendingSelection(null)}
+                  onCommentsChanged={loadInlineComments}
+                />
+              )}
+              {commentTab === 'general' && (
+                <SceneComments
+                  projectId={projectId}
+                  sceneId={sceneId}
+                  isOwner={isOwner}
+                />
+              )}
+            </div>
           </div>
         )}
       </div>
