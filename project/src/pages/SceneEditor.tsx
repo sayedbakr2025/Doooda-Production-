@@ -372,7 +372,7 @@ useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
     
-    // Remove ONLY temporary highlights we added (without data-comment-id)
+    // Remove any temporary highlights we added
     const tempHighlights = Array.from(editor.querySelectorAll('.comment-anchor.highlighted:not([data-comment-id])'));
     tempHighlights.forEach(el => {
       const parent = el.parentNode;
@@ -381,14 +381,16 @@ useEffect(() => {
       parent.removeChild(el);
     });
     
-    // If no highlighted comment, we're done
+    // If no highlighted comment, stop here
     if (!highlightedCommentId) return;
     
-    // Get the comment that is being hovered
+    // Get the comment that's being hovered
     const comment = inlineComments.find(c => c.id === highlightedCommentId);
-    if (!comment || comment.anchor_start == null || comment.anchor_end == null) return;
     
-    // Find and temporarily highlight the text in editor using offsets
+    // Only show highlight if comment has selected_text (i.e., was created on a text selection)
+    if (!comment || !comment.selected_text || comment.anchor_start == null || comment.anchor_end == null) return;
+    
+    // Find the text in editor using anchor offsets and highlight it
     try {
       const textNodes: { node: Text; start: number }[] = [];
       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
@@ -423,7 +425,6 @@ useEffect(() => {
         range.setEnd(endNode, endOffset);
         const span = document.createElement('span');
         span.className = 'comment-anchor highlighted';
-        // No data-comment-id = temporary highlight
         if (startNode === endNode) {
           range.surroundContents(span);
         } else {
