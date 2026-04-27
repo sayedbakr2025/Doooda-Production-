@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, SupportTicket, SupportMessage, TicketStatus } from '../types';
+import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus } from '../types';
 
 export { supabase };
 
@@ -1867,6 +1867,121 @@ export async function deleteComment(commentId: string): Promise<void> {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', commentId);
   if (error) throw error;
+}
+
+// =============================================
+// INLINE COMMENTS
+// =============================================
+
+export async function getInlineComments(sceneId: string): Promise<InlineComment[]> {
+  const { data, error } = await supabase
+    .rpc('get_inline_comments_with_authors', { p_scene_id: sceneId });
+  if (error) throw error;
+  return (data || []) as InlineComment[];
+}
+
+export async function addInlineComment(
+  projectId: string,
+  sceneId: string,
+  content: string,
+  anchorStart: number | null,
+  anchorEnd: number | null,
+  selectedText: string | null
+): Promise<InlineComment> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('inline_comments')
+    .insert({
+      project_id: projectId,
+      scene_id: sceneId,
+      user_id: user.id,
+      content,
+      anchor_start: anchorStart,
+      anchor_end: anchorEnd,
+      selected_text: selectedText,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as InlineComment;
+}
+
+export async function resolveInlineComment(commentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('inline_comments')
+    .update({ status: 'resolved', updated_at: new Date().toISOString() })
+    .eq('id', commentId);
+  if (error) throw error;
+}
+
+export async function reopenInlineComment(commentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('inline_comments')
+    .update({ status: 'open', updated_at: new Date().toISOString() })
+    .eq('id', commentId);
+  if (error) throw error;
+}
+
+export async function deleteInlineComment(commentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('inline_comments')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', commentId);
+  if (error) throw error;
+}
+
+export async function addInlineCommentReply(
+  commentId: string,
+  content: string
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('inline_comment_replies')
+    .insert({
+      comment_id: commentId,
+      user_id: user.id,
+      content,
+    });
+  if (error) throw error;
+}
+
+export async function getInlineCommentReplies(commentId: string): Promise<InlineCommentReply[]> {
+  const { data, error } = await supabase
+    .from('inline_comment_replies')
+    .select('id, comment_id, user_id, content, created_at')
+    .eq('comment_id', commentId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+
+  const userIds = [...new Set((data || []).map((r: any) => r.user_id))];
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, pen_name, first_name, email')
+    .in('id', userIds);
+
+  const userMap = new Map((users || []).map((u: any) => [u.id, u]));
+
+  return (data || []).map((r: any) => ({
+    ...r,
+    author_name: userMap.get(r.user_id)?.pen_name || userMap.get(r.user_id)?.first_name || r.user_id.slice(0, 8),
+    author_email: userMap.get(r.user_id)?.email,
+  }));
+}
+
+export function stripCommentAnchors(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('.comment-anchor').forEach((el) => {
+    const parent = el.parentNode;
+    while (el.firstChild) parent?.insertBefore(el.firstChild, el);
+    parent?.removeChild(el);
+  });
+  return doc.body.innerHTML;
 }
 
 // =============================================

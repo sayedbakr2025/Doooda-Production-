@@ -16,9 +16,10 @@ function containsHtml(text: string): boolean {
 
 function renderContent(text: string): string {
   if (!text) return '';
-  const trimmed = text.trim();
+  let trimmed = text.trim();
 
   if (containsHtml(trimmed)) {
+    trimmed = trimmed.replace(/<span[^>]*class="comment-anchor"[^>]*>([\s\S]*?)<\/span>/gi, '$1');
     return cleanHtmlToStructuredHtml(trimmed);
   }
 

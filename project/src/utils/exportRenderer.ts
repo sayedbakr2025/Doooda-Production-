@@ -11,15 +11,20 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
+function stripCommentAnchors(html: string): string {
+  return html.replace(/<span[^>]*class="comment-anchor"[^>]*>([\s\S]*?)<\/span>/gi, '$1');
+}
+
 function containsHtml(text: string): boolean {
   return /<[a-z][^>]*>|<br\s*\/?>|&nbsp;/i.test(text);
 }
 
 function renderContent(content: string): string {
   if (!content) return '';
-  const trimmed = content.trim();
+  let trimmed = content.trim();
 
   if (containsHtml(trimmed)) {
+    trimmed = stripCommentAnchors(trimmed);
     return cleanHtmlToStructuredHtml(trimmed);
   }
 

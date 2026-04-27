@@ -242,3 +242,16 @@
   display: inline;
 }
 
+.comment-anchor {
+  background: rgba(255, 230, 150, 0.4);
+  border-bottom: 2px solid rgba(217, 119, 6, 0.3);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.comment-anchor:hover,
+.comment-anchor.highlighted {
+  background: rgba(255, 230, 150, 0.7);
+  border-bottom-color: rgba(217, 119, 6, 0.6);
+}
+

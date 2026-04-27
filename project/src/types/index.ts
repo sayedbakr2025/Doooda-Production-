@@ -285,3 +285,31 @@ export interface Comment {
   user_display_name?: string;
   replies?: Comment[];
 }
+
+export interface InlineComment {
+  id: string;
+  project_id: string;
+  scene_id: string;
+  user_id: string;
+  content: string;
+  anchor_start: number | null;
+  anchor_end: number | null;
+  selected_text: string | null;
+  status: 'open' | 'resolved';
+  created_at: string;
+  updated_at: string;
+  author_name?: string;
+  author_email?: string;
+  reply_count?: number;
+  replies?: InlineCommentReply[];
+}
+
+export interface InlineCommentReply {
+  id: string;
+  comment_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  author_name?: string;
+  author_email?: string;
+}

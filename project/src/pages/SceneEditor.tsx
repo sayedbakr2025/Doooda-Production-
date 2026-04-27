@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserPlan } from '../hooks/useUserPlan';
-import { getScene, updateScene, createCharacter, createTask, api, logActivity } from '../services/api';
+import { getScene, updateScene, createCharacter, createTask, api, logActivity, getInlineComments } from '../services/api';
 import type { Scene, Project } from '../types';
 import { getProjectTypeConfig, formatSceneHeader } from '../utils/projectTypeConfig';
 import ContextMenu from '../components/ContextMenu';
@@ -25,6 +25,8 @@ import { usePresence } from '../hooks/usePresence';
 import { Share2, MessageSquare } from 'lucide-react';
 import { useScopeAccess } from '../hooks/useScopeAccess';
 import VoiceToTextButton from '../components/VoiceToTextButton';
+import InlineCommentSidebar from '../components/InlineCommentSidebar';
+import type { InlineComment } from '../types';
 
 interface ContextMenuSubOption {
   label: string;
@@ -70,6 +72,10 @@ export default function SceneEditor() {
   const [showArabicToolsMenu, setShowArabicToolsMenu] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showInlineComments, setShowInlineComments] = useState(false);
+  const [inlineComments, setInlineComments] = useState<InlineComment[]>([]);
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<{ start: number; end: number; text: string } | null>(null);
   const [lockDismissed, setLockDismissed] = useState(false);
 
   const isOwner = project ? project.user_id === user?.id : false;
@@ -165,8 +171,17 @@ export default function SceneEditor() {
       setWordCount(0);
       if (editorRef.current) editorRef.current.innerHTML = '';
       loadScene();
+      loadInlineComments();
     }
   }, [sceneId]);
+
+  async function loadInlineComments() {
+    if (!sceneId) return;
+    try {
+      const data = await getInlineComments(sceneId);
+      setInlineComments(data);
+    } catch {}
+  }
 
   useEffect(() => {
     let cachedAccessToken: string | null = null;
@@ -258,6 +273,84 @@ export default function SceneEditor() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!editorRef.current || inlineComments.length === 0) return;
+    const editor = editorRef.current;
+    const anchors = editor.querySelectorAll('.comment-anchor');
+    anchors.forEach(el => {
+      const parent = el.parentNode;
+      while (el.firstChild) parent?.insertBefore(el.firstChild, el);
+      parent?.removeChild(el);
+    });
+    inlineComments
+      .filter(c => c.status === 'open' && c.anchor_start != null && c.anchor_end != null)
+      .forEach(comment => {
+        try {
+          const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+          let currentOffset = 0;
+          let startNode: Text | null = null;
+          let endNode: Text | null = null;
+          let startOffset = 0;
+          let endOffset = 0;
+
+          while (walker.nextNode()) {
+            const node = walker.currentNode as Text;
+            const nodeLen = node.length;
+            if (!startNode && currentOffset + nodeLen > comment.anchor_start!) {
+              startNode = node;
+              startOffset = comment.anchor_start! - currentOffset;
+            }
+            if (currentOffset + nodeLen >= comment.anchor_end!) {
+              endNode = node;
+              endOffset = comment.anchor_end! - currentOffset;
+              break;
+            }
+            currentOffset += nodeLen;
+          }
+
+          if (startNode && endNode) {
+            const range = document.createRange();
+            range.setStart(startNode, startOffset);
+            range.setEnd(endNode, endOffset);
+            const span = document.createElement('span');
+            span.className = 'comment-anchor';
+            span.setAttribute('data-comment-id', comment.id);
+            span.setAttribute('data-selected-text', comment.selected_text || '');
+            range.surroundContents(span);
+          }
+        } catch {}
+      });
+  }, [inlineComments, contentInitialized.current]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    function handleAnchorHover(e: MouseEvent) {
+      const target = (e.target as HTMLElement).closest('.comment-anchor') as HTMLElement | null;
+      if (target) {
+        const id = target.getAttribute('data-comment-id');
+        if (id) setHighlightedCommentId(id);
+      } else if (e.type === 'mouseleave') {
+        setHighlightedCommentId(null);
+      }
+    }
+    editor.addEventListener('mouseover', handleAnchorHover);
+    editor.addEventListener('mouseout', handleAnchorHover);
+    return () => {
+      editor.removeEventListener('mouseover', handleAnchorHover);
+      editor.removeEventListener('mouseout', handleAnchorHover);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!highlightedCommentId) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
+    const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
+    if (anchor) anchor.classList.add('highlighted');
+  }, [highlightedCommentId]);
 
   function countWords(text: string): number {
     const withSpaces = text
@@ -735,6 +828,26 @@ export default function SceneEditor() {
           },
         });
       }
+
+      if (selectedText.length > 0 && (isOwner || !scopeCheck.loading)) {
+        options.push({
+          label: language === 'ar' ? 'إضافة تعليق' : 'Add Comment',
+          onClick: () => {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+              const range = sel.getRangeAt(0);
+              const preRange = document.createRange();
+              preRange.selectNodeContents(editorRef.current!);
+              preRange.setEnd(range.startContainer, range.startOffset);
+              const start = preRange.toString().length;
+              const end = start + selectedText.length;
+              setPendingSelection({ start, end, text: selectedText });
+              setShowInlineComments(true);
+              setContextMenu(null);
+            }
+          },
+        });
+      }
     }
 
     setContextMenu({
@@ -1011,6 +1124,22 @@ export default function SceneEditor() {
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>{language === 'ar' ? 'تعليقات' : 'Comments'}</span>
               </button>
+              {(isOwner || !scopeCheck.loading) && (
+                <button
+                  onClick={() => setShowInlineComments(!showInlineComments)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+                  style={{
+                    color: showInlineComments ? '#d97706' : 'var(--editor-toolbar-text)',
+                    border: `1px solid ${showInlineComments ? '#d97706' : 'var(--editor-toolbar-border)'}`,
+                    backgroundColor: showInlineComments ? 'rgba(217,119,6,0.08)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => { if (!showInlineComments) { e.currentTarget.style.color = '#d97706'; e.currentTarget.style.borderColor = '#d97706'; } }}
+                  onMouseLeave={(e) => { if (!showInlineComments) { e.currentTarget.style.color = 'var(--editor-toolbar-text)'; e.currentTarget.style.borderColor = 'var(--editor-toolbar-border)'; } }}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>{language === 'ar' ? 'تعليقات النص' : 'Inline'}</span>
+                </button>
+              )}
               {saveStatus === 'saving' && (
                 <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                   {language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}
@@ -1464,6 +1593,34 @@ export default function SceneEditor() {
               projectId={projectId}
               sceneId={sceneId}
               isOwner={isOwner}
+            />
+          </div>
+        )}
+
+        {showInlineComments && projectId && sceneId && user && (
+          <div
+            className="w-80 shrink-0 flex flex-col overflow-hidden"
+            style={{
+              borderLeft: language === 'ar' ? 'none' : `1px solid var(--color-border)`,
+              borderRight: language === 'ar' ? `1px solid var(--color-border)` : 'none',
+              marginLeft: language === 'ar' ? 0 : '16px',
+              marginRight: language === 'ar' ? '16px' : 0,
+              paddingLeft: language === 'ar' ? 0 : '16px',
+              paddingRight: language === 'ar' ? '16px' : 0,
+              height: 'calc(100vh - 180px)',
+              position: 'sticky',
+              top: '180px',
+            }}
+          >
+            <InlineCommentSidebar
+              projectId={projectId}
+              sceneId={sceneId}
+              userId={user.id}
+              isOwner={isOwner}
+              onHoverComment={setHighlightedCommentId}
+              highlightedCommentId={highlightedCommentId}
+              pendingSelection={pendingSelection}
+              onClearPending={() => setPendingSelection(null)}
             />
           </div>
         )}
