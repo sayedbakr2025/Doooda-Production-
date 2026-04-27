@@ -246,15 +246,16 @@
   background: rgba(255, 230, 150, 0.4);
   border-bottom: 2px solid rgba(217, 119, 6, 0.3);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
+  border-radius: 2px;
+  padding: 1px 0;
 }
 
 .comment-anchor:hover,
 .comment-anchor.highlighted {
-  background: rgba(255, 230, 150, 0.7);
-  border-bottom-color: rgba(217, 119, 6, 0.6);
-  outline: 2px solid rgba(255, 200, 50, 0.8);
-  outline-offset: 1px;
+  background: rgba(255, 230, 150, 0.8);
+  border-bottom: 2px solid rgba(217, 119, 6, 0.8);
+  box-shadow: 0 0 0 2px rgba(255, 200, 50, 0.6);
   border-radius: 2px;
 }
 
