@@ -3,6 +3,7 @@ import { Reply, Check, RotateCcw, Trash2, Send, X } from 'lucide-react';
 import { getInlineComments, addInlineComment, resolveInlineComment, reopenInlineComment, deleteInlineComment, addInlineCommentReply, getInlineCommentReplies, getProjectCollaborators } from '../services/api';
 import type { InlineComment, InlineCommentReply, ProjectCollaborator } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { renderMentionText } from '../utils/mentionText';
 
 interface InlineCommentSidebarProps {
   projectId: string;
@@ -254,7 +255,7 @@ export default function InlineCommentSidebar({
                 </div>
 
                 <div className="whitespace-pre-wrap mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {comment.content}
+                  {renderMentionText(comment.content)}
                 </div>
 
                 {comment.status === 'resolved' && (
@@ -294,7 +295,7 @@ export default function InlineCommentSidebar({
                         <span className="ms-1" style={{ color: 'var(--color-text-tertiary)' }}>
                           {new Date(reply.created_at).toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
                         </span>
-                        <p className="whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{reply.content}</p>
+                        <p className="whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{renderMentionText(reply.content)}</p>
                       </div>
                     ))}
                   </div>

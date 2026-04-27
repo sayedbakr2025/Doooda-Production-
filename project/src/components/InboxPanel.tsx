@@ -209,6 +209,12 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
       </svg>
     );
+    if (type === 'mention') return (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c1.5 0 2.5-.5 3-1 .5 1.5 0 3-1 4" />
+      </svg>
+    );
     return (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -219,6 +225,7 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
   const typeColor = (type: Notification['type']) => {
     if (type === 'invitation' || type === 'project_invite') return { bg: 'rgba(59,130,246,0.1)', color: '#3b82f6' };
     if (type === 'request' || type === 'deletion_request') return { bg: 'rgba(234,179,8,0.1)', color: '#ca8a04' };
+    if (type === 'mention') return { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6' };
     return { bg: 'rgba(107,114,128,0.1)', color: 'var(--color-text-secondary)' };
   };
 
@@ -510,6 +517,22 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                             <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
                               {n.read ? (isRtl ? 'تمت المعالجة' : 'Processed') : ''}
                             </p>
+                          )}
+                        </div>
+                      ) : n.type === 'mention' ? (
+                        <div>
+                          <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                            {isRtl
+                              ? <>ذكرك <strong style={{ color: '#8b5cf6' }}>{n.data?.mentioner_name || ''}</strong> في تعليق</>
+                              : <><strong style={{ color: '#8b5cf6' }}>{n.data?.mentioner_name || ''}</strong> mentioned you in a comment</>}
+                          </p>
+                          {n.data?.project_title && (
+                            <span
+                              className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.2)' }}
+                            >
+                              {n.data.project_title}
+                            </span>
                           )}
                         </div>
                       ) : (

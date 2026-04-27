@@ -3,6 +3,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getSceneComments, addComment, resolveComment, reopenComment, deleteComment, getProjectCollaborators } from '../services/api';
 import type { Comment, ProjectCollaborator } from '../types';
+import { renderMentionText } from '../utils/mentionText';
 
 interface Props {
   projectId: string;
@@ -128,7 +129,7 @@ function CommentBubble({
               )}
             </div>
             <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-              {comment.content}
+              {renderMentionText(comment.content)}
             </p>
             <div className="flex items-center gap-3 mt-2">
               {depth === 0 && (
