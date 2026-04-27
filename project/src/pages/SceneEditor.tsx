@@ -372,17 +372,13 @@ useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
     
-    // Always remove any existing temporary highlights first
-    editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => {
+    // Remove ONLY temporary highlights we added (without data-comment-id)
+    const tempHighlights = Array.from(editor.querySelectorAll('.comment-anchor.highlighted:not([data-comment-id])'));
+    tempHighlights.forEach(el => {
       const parent = el.parentNode;
-      // If it's a temporary highlight (no data-comment-id), remove it
-      if (!el.getAttribute('data-comment-id')) {
-        while (el.firstChild) parent?.insertBefore(el.firstChild, el);
-        el.remove();
-      } else {
-        // It's a permanent anchor - just remove highlight class
-        el.classList.remove('highlighted');
-      }
+      if (!parent) return;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
     });
     
     // If no highlighted comment, we're done
@@ -392,7 +388,7 @@ useEffect(() => {
     const comment = inlineComments.find(c => c.id === highlightedCommentId);
     if (!comment || comment.anchor_start == null || comment.anchor_end == null) return;
     
-    // Use anchor offsets to find and temporarily highlight the text in editor
+    // Find and temporarily highlight the text in editor using offsets
     try {
       const textNodes: { node: Text; start: number }[] = [];
       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
@@ -426,8 +422,8 @@ useEffect(() => {
         range.setStart(startNode, startOffset);
         range.setEnd(endNode, endOffset);
         const span = document.createElement('span');
-        // No data-comment-id = temporary highlight
         span.className = 'comment-anchor highlighted';
+        // No data-comment-id = temporary highlight
         if (startNode === endNode) {
           range.surroundContents(span);
         } else {
