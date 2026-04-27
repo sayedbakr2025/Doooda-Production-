@@ -10,7 +10,7 @@ interface InlineCommentSidebarProps {
   sceneId: string;
   userId: string;
   isOwner: boolean;
-  onHoverComment?: (commentId: string | null) => void;
+  onHoverComment?: (info: { id: string; anchor_start?: number; anchor_end?: number } | null) => void;
   highlightedCommentId?: string | null;
   pendingSelection?: { start: number; end: number; text: string } | null;
   onClearPending?: () => void;
@@ -233,7 +233,7 @@ export default function InlineCommentSidebar({
                   backgroundColor: isHighlighted ? 'rgba(255, 230, 150, 0.15)' : 'var(--color-surface-hover)',
                   border: isHighlighted ? '1.5px solid rgba(255, 200, 50, 0.5)' : '1px solid var(--color-border)',
                 }}
-                onMouseEnter={() => onHoverComment?.(comment.id)}
+                onMouseEnter={() => onHoverComment?.({ id: comment.id, anchor_start: (comment as any).anchor_start, anchor_end: (comment as any).anchor_end })}
                 onMouseLeave={() => onHoverComment?.(null)}
               >
                 {comment.selected_text && (
