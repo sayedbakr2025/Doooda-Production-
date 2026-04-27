@@ -28,6 +28,7 @@ const FREE_PLAN: PlanData = {
   tokens_initial: 10000,
   tokens_recurring: 0,
   allow_token_purchase: false,
+  max_token_cap: 200000,
   monthly_tokens: 10000,
   multiplier: 1.5,
   price: 0,
@@ -120,6 +121,7 @@ export function useUserPlan() {
     tokenMultiplier,
     tokensInitial: plan?.tokens_initial ?? 10000,
     tokensRecurring: plan?.tokens_recurring ?? 0,
+    maxTokenCap: plan?.max_token_cap ?? null,
     priceMonthly: plan?.price_monthly ?? 0,
     refresh: loadPlan,
   };

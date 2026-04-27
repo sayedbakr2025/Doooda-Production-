@@ -14,6 +14,7 @@ interface Plan {
   tokens_initial: number;
   tokens_recurring: number;
   allow_token_purchase: boolean;
+  max_token_cap: number | null;
   features: Record<string, any>;
   price_monthly: number;
   created_at?: string;
@@ -91,6 +92,7 @@ export default function AdminPlans() {
           tokens_initial: editingPlan.tokens_initial,
           tokens_recurring: editingPlan.tokens_recurring,
           allow_token_purchase: editingPlan.allow_token_purchase,
+          max_token_cap: editingPlan.max_token_cap || null,
           price_monthly: editingPlan.price_monthly,
           features: editingPlan.features,
           updated_at: new Date().toISOString()
@@ -258,6 +260,7 @@ export default function AdminPlans() {
                     <FeatureRow label="Token Multiplier" value={`${plan.multiplier}x`} />
                     <FeatureRow label="Price" value={isFree ? 'Free' : `$${plan.price}/mo`} />
                     <FeatureRow label="Token Purchase" value={plan.allow_token_purchase ? '✅ Enabled' : '❌ Disabled'} />
+                    <FeatureRow label="Max Token Cap" value={plan.max_token_cap ? plan.max_token_cap.toLocaleString() : '∞ (No limit)'} />
                   </div>
 
                   <div className="mt-4">
@@ -428,6 +431,19 @@ export default function AdminPlans() {
                   <label htmlFor="allow_token_purchase" className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                     Allow token purchase
                   </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={labelStyle}>Max Token Cap (null = no limit)</label>
+                  <input
+                    type="number"
+                    value={editingPlan.max_token_cap ?? ''}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, max_token_cap: e.target.value ? parseInt(e.target.value) : null })}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={inputStyle}
+                    min="0"
+                    placeholder="∞ No limit"
+                  />
                 </div>
             </div>
 

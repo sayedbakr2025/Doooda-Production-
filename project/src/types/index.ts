@@ -23,6 +23,7 @@ export interface PlanData {
   tokens_initial: number;
   tokens_recurring: number;
   allow_token_purchase: boolean;
+  max_token_cap: number | null;
   monthly_tokens: number;
   multiplier: number;
   price: number;

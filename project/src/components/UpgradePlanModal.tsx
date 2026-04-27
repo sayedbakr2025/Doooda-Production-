@@ -99,11 +99,16 @@ export default function UpgradePlanModal({ onClose, currentPlan }: UpgradePlanMo
             <h2 className="font-bold text-lg" style={{ color: 'var(--color-text-primary)' }}>
               {language === 'ar' ? 'خطط الاشتراك' : 'Subscription Plans'}
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
-              {language === 'ar'
-                ? `أنت حاليًا على خطة ${PLAN_DISPLAY[normalizedPlan]?.ar || normalizedPlan}`
-                : `You are currently on the ${PLAN_DISPLAY[normalizedPlan]?.en || normalizedPlan} plan`}
-            </p>
+<p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+                {language === 'ar'
+                  ? `أنت حاليًا على خطة ${PLAN_DISPLAY[normalizedPlan]?.ar || normalizedPlan}`
+                  : `You are currently on the ${PLAN_DISPLAY[normalizedPlan]?.en || normalizedPlan} plan`}
+              </p>
+              <p className="text-xs" style={{ color: 'var(--color-accent)', opacity: 0.8 }}>
+                {language === 'ar'
+                  ? '✨ التوكنز غير المستخدمة يتم ترحيلها للشهر التالي'
+                  : '✨ Unused tokens roll over to the next month'}
+              </p>
           </div>
           <button
             onClick={onClose}

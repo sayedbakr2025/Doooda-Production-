@@ -77,6 +77,129 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!userData) {
+      const { data: planData } = await supabase
+        .from("plans")
+        .select("tokens_initial")
+        .ilike("name", "free")
+        .maybeSingle();
+
+      const initialTokens = planData?.tokens_initial || 10000;
+
+      const { data: newUser, error: createError } = await supabase
+        .from("users")
+        .insert({
+          id: user.id,
+          email: user.email || "",
+          plan: "free",
+          tokens_balance: initialTokens,
+        })
+        .select("id, email, plan, tokens_balance")
+        .single();
+
+      if (createError) {
+        return new Response(
+          JSON.stringify({ error: createError.message }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      supabase.rpc("grant_initial_tokens", { p_user_id: user.id }).then(({ error }) => {
+        if (error) console.error("[me] grant_initial_tokens error:", error.message);
+      });
+
+      return new Response(
+        JSON.stringify(newUser),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify(userData),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser();
+
+    if (authError || !user) {
+      console.error("[me] Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: "Invalid token", details: authError?.message }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id, email, plan, tokens_balance")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (userError) {
+      return new Response(
+        JSON.stringify({ error: userError.message }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!userData) {
       const { data: newUser, error: createError } = await supabase
         .from("users")
         .insert({
