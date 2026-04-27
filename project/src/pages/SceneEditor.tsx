@@ -310,38 +310,38 @@ export default function SceneEditor() {
   useEffect(() => {
     if (!editorRef.current || inlineComments.length === 0) return;
     const editor = editorRef.current;
-    const anchors = editor.querySelectorAll('.comment-anchor');
-    anchors.forEach(el => {
+    editor.querySelectorAll('.comment-anchor').forEach(el => {
       const parent = el.parentNode;
       while (el.firstChild) parent?.insertBefore(el.firstChild, el);
       parent?.removeChild(el);
     });
     const openComments = inlineComments.filter(c => c.status === 'open' && c.anchor_start != null && c.anchor_end != null);
-    console.log('[Anchors] Creating anchors for', openComments.length, 'open inline comments');
     openComments.forEach(comment => {
         try {
+          const textNodes: { node: Text; start: number }[] = [];
           const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
-          let currentOffset = 0;
-          let startNode: Text | null = null;
-          let endNode: Text | null = null;
-          let startOffset = 0;
-          let endOffset = 0;
-
+          let offset = 0;
           while (walker.nextNode()) {
             const node = walker.currentNode as Text;
-            const nodeLen = node.length;
-            if (!startNode && currentOffset + nodeLen > comment.anchor_start!) {
-              startNode = node;
-              startOffset = comment.anchor_start! - currentOffset;
+            textNodes.push({ node, start: offset });
+            offset += node.length;
+          }
+          let startNode: Text | null = null;
+          let startOffset = 0;
+          let endNode: Text | null = null;
+          let endOffset = 0;
+          for (const tn of textNodes) {
+            const tnEnd = tn.start + tn.node.length;
+            if (!startNode && tnEnd > comment.anchor_start!) {
+              startNode = tn.node;
+              startOffset = comment.anchor_start! - tn.start;
             }
-            if (currentOffset + nodeLen >= comment.anchor_end!) {
-              endNode = node;
-              endOffset = comment.anchor_end! - currentOffset;
+            if (tnEnd >= comment.anchor_end!) {
+              endNode = tn.node;
+              endOffset = comment.anchor_end! - tn.start;
               break;
             }
-            currentOffset += nodeLen;
           }
-
           if (startNode && endNode) {
             const range = document.createRange();
             range.setStart(startNode, startOffset);
@@ -350,10 +350,13 @@ export default function SceneEditor() {
             span.className = 'comment-anchor';
             span.setAttribute('data-comment-id', comment.id);
             span.setAttribute('data-selected-text', comment.selected_text || '');
-            range.surroundContents(span);
-            console.log('[Anchors] Created anchor for', comment.id);
-          } else {
-            console.log('[Anchors] Could not find range for', comment.id, 'start:', !!startNode, 'end:', !!endNode);
+            if (startNode === endNode && startOffset < endOffset) {
+              range.surroundContents(span);
+            } else {
+              const nodes = range.extractContents();
+              span.appendChild(nodes);
+              range.insertNode(span);
+            }
           }
         } catch (err) {
           console.error('[Anchors] Error creating anchor for', comment.id, err);
@@ -387,7 +390,6 @@ export default function SceneEditor() {
     editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
     if (highlightedCommentId) {
       const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
-      console.log('[Highlight] looking for anchor:', highlightedCommentId, 'found:', !!anchor, 'total anchors:', editor.querySelectorAll('.comment-anchor').length);
       if (anchor) anchor.classList.add('highlighted');
     }
   }, [highlightedCommentId]);
