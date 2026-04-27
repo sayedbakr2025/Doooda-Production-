@@ -316,9 +316,9 @@ export default function SceneEditor() {
       while (el.firstChild) parent?.insertBefore(el.firstChild, el);
       parent?.removeChild(el);
     });
-    inlineComments
-      .filter(c => c.status === 'open' && c.anchor_start != null && c.anchor_end != null)
-      .forEach(comment => {
+    const openComments = inlineComments.filter(c => c.status === 'open' && c.anchor_start != null && c.anchor_end != null);
+    console.log('[Anchors] Creating anchors for', openComments.length, 'open inline comments');
+    openComments.forEach(comment => {
         try {
           const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
           let currentOffset = 0;
@@ -351,8 +351,13 @@ export default function SceneEditor() {
             span.setAttribute('data-comment-id', comment.id);
             span.setAttribute('data-selected-text', comment.selected_text || '');
             range.surroundContents(span);
+            console.log('[Anchors] Created anchor for', comment.id);
+          } else {
+            console.log('[Anchors] Could not find range for', comment.id, 'start:', !!startNode, 'end:', !!endNode);
           }
-        } catch {}
+        } catch (err) {
+          console.error('[Anchors] Error creating anchor for', comment.id, err);
+        }
       });
   }, [inlineComments, contentInitialized.current]);
 
