@@ -412,8 +412,8 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
         {showMentions && filteredCollaborators.length > 0 && (
           <div className="absolute bottom-full mb-1 left-0 right-0 rounded-lg shadow-lg overflow-hidden max-h-32 overflow-y-auto z-10" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
             {filteredCollaborators.map(c => (
-              <button key={c.id} className="w-full text-start px-3 py-1.5 text-sm hover:opacity-80" style={{ color: 'var(--color-text-secondary)' }} onClick={() => insertMention(c.display_name || c.email?.split('@')[0] || 'user')}>
-                @{c.display_name || c.email?.split('@')[0]}
+              <button key={c.id} className="w-full text-start px-3 py-1.5 text-sm hover:opacity-80" style={{ color: 'var(--color-text-secondary)' }} onClick={() => insertMention(c.pen_name || c.display_name || c.email?.split('@')[0] || 'user')}>
+                @{c.pen_name || c.display_name || c.email?.split('@')[0]}
               </button>
             ))}
           </div>

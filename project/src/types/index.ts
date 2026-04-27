@@ -215,6 +215,7 @@ export interface ProjectCollaborator {
   scope_type: CollaboratorScopeType;
   scope_id: string | null;
   display_name?: string;
+  pen_name?: string;
   email?: string;
   scope_title?: string;
 }

@@ -316,8 +316,8 @@ export default function InlineCommentSidebar({
                     {showMentions === comment.id && filteredCollaborators.length > 0 && (
                       <div className="absolute bottom-full mb-1 left-0 right-0 rounded-lg shadow-lg overflow-hidden max-h-32 overflow-y-auto z-10" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
                         {filteredCollaborators.map(c => (
-                          <button key={c.id} className="w-full text-left px-2 py-1 text-xs hover:opacity-80" style={{ color: 'var(--color-text-secondary)' }} onClick={() => insertMention(c.display_name || c.email?.split('@')[0] || 'user', comment.id)}>
-                            @{c.display_name || c.email?.split('@')[0]}
+                          <button key={c.id} className="w-full text-left px-2 py-1 text-xs hover:opacity-80" style={{ color: 'var(--color-text-secondary)' }} onClick={() => insertMention(c.pen_name || c.display_name || c.email?.split('@')[0] || 'user', comment.id)}>
+                            @{c.pen_name || c.display_name || c.email?.split('@')[0]}
                           </button>
                         ))}
                       </div>
@@ -363,8 +363,8 @@ export default function InlineCommentSidebar({
             {showMentions === 'new' && filteredCollaborators.length > 0 && (
               <div className="absolute bottom-full mb-1 left-0 right-0 rounded-lg shadow-lg overflow-hidden max-h-32 overflow-y-auto z-10" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
                 {filteredCollaborators.map(c => (
-                  <button key={c.id} className="w-full text-start px-2 py-1 text-xs hover:opacity-80" style={{ color: 'var(--color-text-secondary)' }} onClick={() => insertMention(c.display_name || c.email?.split('@')[0] || 'user')}>
-                    @{c.display_name || c.email?.split('@')[0]}
+                  <button key={c.id} className="w-full text-start px-2 py-1 text-xs hover:opacity-80" style={{ color: 'var(--color-text-secondary)' }} onClick={() => insertMention(c.pen_name || c.display_name || c.email?.split('@')[0] || 'user')}>
+                    @{c.pen_name || c.display_name || c.email?.split('@')[0]}
                   </button>
                 ))}
               </div>

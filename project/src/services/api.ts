@@ -1252,7 +1252,7 @@ export async function getProjectCollaborators(projectId: string): Promise<Projec
 
   const { data: userData } = await supabase.rpc('get_collaborator_display_names', { user_ids: uniqueUserIds });
 
-  const nameMap: Record<string, { display_name: string; email: string }> = {};
+  const nameMap: Record<string, { display_name: string; pen_name: string; email: string }> = {};
   if (userData && Array.isArray(userData)) {
     userData.forEach((u: any) => { nameMap[u.id] = u; });
   }
@@ -1260,6 +1260,7 @@ export async function getProjectCollaborators(projectId: string): Promise<Projec
   const collaborators = collabRows.map((c: any) => ({
     ...c,
     display_name: nameMap[c.user_id]?.display_name || c.user_id,
+    pen_name: nameMap[c.user_id]?.pen_name || '',
     email: nameMap[c.user_id]?.email || '',
   }));
 
@@ -1275,6 +1276,7 @@ export async function getProjectCollaborators(projectId: string): Promise<Projec
       scope_type: 'project' as any,
       scope_id: null,
       display_name: nameMap[ownerUserId]?.display_name || ownerUserId,
+      pen_name: nameMap[ownerUserId]?.pen_name || '',
       email: nameMap[ownerUserId]?.email || '',
     });
   }
