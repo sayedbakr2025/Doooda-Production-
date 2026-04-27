@@ -368,12 +368,25 @@ export default function SceneEditor() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!highlightedCommentId) return;
+useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    // Remove any existing highlight first
-    editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
+    
+    // Always remove any existing temporary highlights first
+    editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => {
+      const parent = el.parentNode;
+      // If it's a temporary highlight (no data-comment-id), remove it
+      if (!el.getAttribute('data-comment-id')) {
+        while (el.firstChild) parent?.insertBefore(el.firstChild, el);
+        el.remove();
+      } else {
+        // It's a permanent anchor - just remove highlight class
+        el.classList.remove('highlighted');
+      }
+    });
+    
+    // If no highlighted comment, we're done
+    if (!highlightedCommentId) return;
     
     // Get the comment that is being hovered
     const comment = inlineComments.find(c => c.id === highlightedCommentId);
@@ -413,6 +426,7 @@ export default function SceneEditor() {
         range.setStart(startNode, startOffset);
         range.setEnd(endNode, endOffset);
         const span = document.createElement('span');
+        // No data-comment-id = temporary highlight
         span.className = 'comment-anchor highlighted';
         if (startNode === endNode) {
           range.surroundContents(span);
