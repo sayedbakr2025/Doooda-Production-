@@ -1792,17 +1792,11 @@ export async function getSceneComments(sceneId: string): Promise<Comment[]> {
   if (all.length === 0) return [];
 
   const userIds = [...new Set(all.map((c) => c.user_id))];
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, email, raw_user_meta_data')
-    .in('id', userIds);
+  const { data: userData } = await supabase.rpc('get_collaborator_display_names', { user_ids: userIds });
 
   const nameMap: Record<string, string> = {};
-  (users || []).forEach((u: any) => {
-    nameMap[u.id] =
-      u.raw_user_meta_data?.pen_name ||
-      u.raw_user_meta_data?.first_name ||
-      (u.email ? u.email.split('@')[0] : u.id);
+  (userData || []).forEach((u: any) => {
+    nameMap[u.id] = u.display_name || u.email?.split('@')[0] || u.id;
   });
 
   const withNames = all.map((c) => ({ ...c, user_display_name: nameMap[c.user_id] || c.user_id, replies: [] as Comment[] }));

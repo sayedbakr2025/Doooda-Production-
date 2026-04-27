@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import { getSceneComments, addComment, resolveComment, reopenComment, deleteComment } from '../services/api';
-import type { Comment } from '../types';
+import { getSceneComments, addComment, resolveComment, reopenComment, deleteComment, getProjectCollaborators } from '../services/api';
+import type { Comment, ProjectCollaborator } from '../types';
 
 interface Props {
   projectId: string;
@@ -239,7 +239,11 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showResolved, setShowResolved] = useState(false);
+  const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const load = async () => {
@@ -257,14 +261,21 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
     load();
   }, [sceneId]);
 
+  useEffect(() => {
+    getProjectCollaborators(projectId).then(setCollaborators).catch(() => {});
+  }, [projectId]);
+
   const handleAdd = async () => {
     if (!newComment.trim()) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await addComment(projectId, sceneId, newComment.trim());
       setNewComment('');
+      setShowMentions(false);
       load();
-    } catch {
+    } catch (err) {
+      setSubmitError(isRtl ? 'فشل إضافة التعليق. حاول مرة أخرى.' : 'Failed to add comment. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -273,6 +284,40 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
   const visible = showResolved ? comments : comments.filter((c) => c.status !== 'resolved');
   const resolvedCount = comments.filter((c) => c.status === 'resolved').length;
   const openCount = comments.filter((c) => c.status === 'open').length;
+
+  const filteredCollaborators = collaborators.filter(c =>
+    (c.display_name || '').toLowerCase().includes(mentionFilter.toLowerCase()) ||
+    (c.email || '').toLowerCase().includes(mentionFilter.toLowerCase())
+  );
+
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNewComment(e.target.value);
+    if (showMentions) {
+      const lastAtIndex = e.target.value.lastIndexOf('@');
+      if (lastAtIndex >= 0) {
+        setMentionFilter(e.target.value.slice(lastAtIndex + 1));
+      }
+    }
+  };
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === '@') {
+      setShowMentions(true);
+      setMentionFilter('');
+    }
+    if (e.key === 'Escape') setShowMentions(false);
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAdd();
+  };
+
+  const insertMention = (name: string) => {
+    const lastAtIndex = newComment.lastIndexOf('@');
+    if (lastAtIndex >= 0) {
+      setNewComment(newComment.slice(0, lastAtIndex) + '@' + name + ' ');
+    }
+    setShowMentions(false);
+    setMentionFilter('');
+    textareaRef.current?.focus();
+  };
 
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} className="flex flex-col h-full">
@@ -341,13 +386,13 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
         )}
       </div>
 
-      <div className="shrink-0" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
+      <div className="shrink-0 relative" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
         <textarea
           ref={textareaRef}
           value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
+          onChange={handleTextareaInput}
           rows={3}
-          placeholder={isRtl ? 'أضف تعليقاً...' : 'Add a comment...'}
+          placeholder={isRtl ? 'أضف تعليقاً... (اضغط @ للإشارة)' : 'Add a comment... (press @ to mention)'}
           dir={isRtl ? 'rtl' : 'ltr'}
           className="w-full text-sm resize-none rounded-lg px-3 py-2.5 outline-none mb-2"
           style={{
@@ -357,10 +402,20 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
           }}
           onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
           onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAdd();
-          }}
+          onKeyDown={handleTextareaKeyDown}
         />
+        {showMentions && filteredCollaborators.length > 0 && (
+          <div className="absolute bottom-full mb-1 left-0 right-0 rounded-lg shadow-lg overflow-hidden max-h-32 overflow-y-auto z-10" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+            {filteredCollaborators.map(c => (
+              <button key={c.id} className="w-full text-start px-3 py-1.5 text-sm hover:opacity-80" style={{ color: 'var(--color-text-secondary)' }} onClick={() => insertMention(c.display_name || c.email?.split('@')[0] || 'user')}>
+                @{c.display_name || c.email?.split('@')[0]}
+              </button>
+            ))}
+          </div>
+        )}
+        {submitError && (
+          <p className="text-xs mb-1" style={{ color: '#ef4444' }}>{submitError}</p>
+        )}
         <button
           onClick={handleAdd}
           disabled={submitting || !newComment.trim()}
