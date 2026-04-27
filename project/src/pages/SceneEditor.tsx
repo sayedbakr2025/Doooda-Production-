@@ -316,6 +316,7 @@ export default function SceneEditor() {
       parent?.removeChild(el);
     });
     const openComments = inlineComments.filter(c => c.status === 'open' && c.anchor_start != null && c.anchor_end != null);
+    console.log('[Anchors] Rebuilding, open comments:', openComments.length, 'total text length:', editor.textContent?.length);
     openComments.forEach(comment => {
         try {
           const textNodes: { node: Text; start: number }[] = [];
@@ -357,6 +358,9 @@ export default function SceneEditor() {
               span.appendChild(nodes);
               range.insertNode(span);
             }
+            console.log('[Anchors] Created anchor for', comment.id, 'text:', comment.selected_text);
+          } else {
+            console.log('[Anchors] Could not find range for', comment.id, 'anchor_start:', comment.anchor_start, 'anchor_end:', comment.anchor_end, 'start:', !!startNode, 'end:', !!endNode, 'totalTextLen:', offset);
           }
         } catch (err) {
           console.error('[Anchors] Error creating anchor for', comment.id, err);
@@ -389,7 +393,9 @@ export default function SceneEditor() {
     if (!editor) return;
     editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
     if (highlightedCommentId) {
+      const anchors = editor.querySelectorAll('.comment-anchor');
       const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
+      console.log('[Highlight] id:', highlightedCommentId, 'found:', !!anchor, 'totalAnchors:', anchors.length);
       if (anchor) anchor.classList.add('highlighted');
     }
   }, [highlightedCommentId]);
