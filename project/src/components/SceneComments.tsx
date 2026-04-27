@@ -288,8 +288,10 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
   const openCount = comments.filter((c) => c.status === 'open').length;
 
   const filteredCollaborators = collaborators.filter(c =>
-    (c.display_name || '').toLowerCase().includes(mentionFilter.toLowerCase()) ||
-    (c.email || '').toLowerCase().includes(mentionFilter.toLowerCase())
+    c.user_id !== (user?.id || '') && (
+      (c.display_name || '').toLowerCase().includes(mentionFilter.toLowerCase()) ||
+      (c.email || '').toLowerCase().includes(mentionFilter.toLowerCase())
+    )
   );
 
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

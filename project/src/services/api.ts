@@ -1226,28 +1226,60 @@ export async function searchUserByEmail(email: string): Promise<CollaboratorUser
 }
 
 export async function getProjectCollaborators(projectId: string): Promise<ProjectCollaborator[]> {
+  const { data: project } = await supabase
+    .from('projects')
+    .select('user_id')
+    .eq('id', projectId)
+    .single();
+
   const { data, error } = await supabase
     .from('project_collaborators')
     .select('*')
     .eq('project_id', projectId)
+    .eq('status', 'active')
     .order('created_at', { ascending: true });
   if (error) throw error;
 
-  if (!data || data.length === 0) return [];
+  const collabRows = (data || []) as any[];
+  const ownerUserId = project?.user_id;
+  const allUserIds = [
+    ...collabRows.map((c: any) => c.user_id),
+    ...(ownerUserId ? [ownerUserId] : []),
+  ];
+  const uniqueUserIds = [...new Set(allUserIds)];
 
-  const userIds = data.map((c: any) => c.user_id);
-  const { data: userData } = await supabase.rpc('get_collaborator_display_names', { user_ids: userIds });
+  if (uniqueUserIds.length === 0) return [];
+
+  const { data: userData } = await supabase.rpc('get_collaborator_display_names', { user_ids: uniqueUserIds });
 
   const nameMap: Record<string, { display_name: string; email: string }> = {};
   if (userData && Array.isArray(userData)) {
     userData.forEach((u: any) => { nameMap[u.id] = u; });
   }
 
-  return (data || []).map((c: any) => ({
+  const collaborators = collabRows.map((c: any) => ({
     ...c,
     display_name: nameMap[c.user_id]?.display_name || c.user_id,
     email: nameMap[c.user_id]?.email || '',
   }));
+
+  if (ownerUserId && !collabRows.some((c: any) => c.user_id === ownerUserId)) {
+    collaborators.push({
+      id: 'owner',
+      project_id: projectId,
+      user_id: ownerUserId,
+      role: 'owner' as any,
+      status: 'active' as any,
+      invited_by: ownerUserId,
+      created_at: new Date().toISOString(),
+      scope_type: 'project' as any,
+      scope_id: null,
+      display_name: nameMap[ownerUserId]?.display_name || ownerUserId,
+      email: nameMap[ownerUserId]?.email || '',
+    });
+  }
+
+  return collaborators;
 }
 
 export async function getProjectCollaboratorsWithNames(projectId: string): Promise<ProjectCollaborator[]> {

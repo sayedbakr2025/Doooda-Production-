@@ -68,8 +68,10 @@ export default function InlineCommentSidebar({
   }, [pendingSelection]);
 
   const filteredCollaborators = collaborators.filter(c =>
-    (c.display_name || '').toLowerCase().includes(mentionFilter.toLowerCase()) ||
-    (c.email || '').toLowerCase().includes(mentionFilter.toLowerCase())
+    c.user_id !== userId && (
+      (c.display_name || '').toLowerCase().includes(mentionFilter.toLowerCase()) ||
+      (c.email || '').toLowerCase().includes(mentionFilter.toLowerCase())
+    )
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, commentId?: string) {
