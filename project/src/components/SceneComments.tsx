@@ -94,6 +94,8 @@ function CommentBubble({
   return (
     <div style={{ marginInlineStart: depth > 0 ? '28px' : '0' }}>
       <div
+        id={`comment-${comment.id}`}
+        data-comment-id={comment.id}
         className="rounded-xl p-3 mb-2"
         style={{
           backgroundColor: isResolved ? 'var(--color-muted)' : 'var(--color-surface)',

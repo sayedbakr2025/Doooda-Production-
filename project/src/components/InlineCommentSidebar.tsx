@@ -223,6 +223,8 @@ export default function InlineCommentSidebar({
             return (
               <div
                 key={comment.id}
+                id={`comment-${comment.id}`}
+                data-comment-id={comment.id}
                 className="rounded-lg p-2.5 text-xs transition-all"
                 style={{
                   backgroundColor: isHighlighted ? 'rgba(255, 230, 150, 0.15)' : 'var(--color-surface-hover)',

@@ -1836,6 +1836,18 @@ export async function addComment(
     .select()
     .single();
   if (error) throw error;
+
+  if (content.includes('@')) {
+    void supabase.rpc('create_mention_notifications', {
+      p_comment_id: data.id,
+      p_content: content,
+      p_project_id: projectId,
+      p_scene_id: sceneId,
+      p_author_id: user.id,
+      p_comment_type: 'general',
+    });
+  }
+
   return data as Comment;
 }
 
@@ -1900,6 +1912,18 @@ export async function addInlineComment(
     .single();
 
   if (error) throw error;
+
+  if (content.includes('@')) {
+    void supabase.rpc('create_mention_notifications', {
+      p_comment_id: data.id,
+      p_content: content,
+      p_project_id: projectId,
+      p_scene_id: sceneId,
+      p_author_id: user.id,
+      p_comment_type: 'inline',
+    });
+  }
+
   return data as InlineComment;
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserPlan } from '../hooks/useUserPlan';
@@ -51,6 +51,7 @@ type TextAlign = 'left' | 'center' | 'right' | 'justify';
 export default function SceneEditor() {
   const { projectId, chapterId, sceneId } = useParams<{ projectId: string; chapterId: string; sceneId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { language } = useLanguage();
   const { user } = useAuth();
   const { isFree } = useUserPlan();
@@ -175,6 +176,29 @@ export default function SceneEditor() {
       loadInlineComments();
     }
   }, [sceneId]);
+
+  useEffect(() => {
+    const openComments = searchParams.get('comments') === 'true';
+    const commentId = searchParams.get('comment_id');
+    const commentType = searchParams.get('comment_type');
+    if (openComments) {
+      setShowComments(true);
+      setCommentTab(commentType === 'inline' ? 'inline' : 'general');
+      if (commentId) {
+        setHighlightedCommentId(commentId);
+        setTimeout(() => {
+          const el = document.querySelector(`[data-comment-id="${commentId}"]`) || document.getElementById(`comment-${commentId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add(commentType === 'inline' ? 'mention-highlight-inline' : 'mention-highlight');
+            setTimeout(() => el.classList.remove('mention-highlight', 'mention-highlight-inline'), 3000);
+          }
+          setHighlightedCommentId(null);
+        }, 500);
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [searchParams, sceneId]);
 
   async function loadInlineComments() {
     if (!sceneId) return;

@@ -255,3 +255,19 @@
   border-bottom-color: rgba(217, 119, 6, 0.6);
 }
 
+@keyframes mention-highlight {
+  0% { background: rgba(255, 200, 50, 0.6); }
+  100% { background: transparent; }
+}
+
+.mention-highlight {
+  animation: mention-highlight 2s ease-out forwards;
+}
+
+.mention-highlight-inline {
+  animation: mention-highlight 2.5s ease-out forwards;
+  border-radius: 4px;
+  padding: 8px;
+  margin: -8px;
+}
+
