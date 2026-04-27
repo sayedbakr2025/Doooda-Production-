@@ -76,6 +76,7 @@ export default function SceneEditor() {
   const [inlineComments, setInlineComments] = useState<InlineComment[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   const [pendingSelection, setPendingSelection] = useState<{ start: number; end: number; text: string } | null>(null);
+  const [savedSelectionRange, setSavedSelectionRange] = useState<{ start: number; end: number; text: string } | null>(null);
   const [lockDismissed, setLockDismissed] = useState(false);
 
   const isOwner = project ? project.user_id === user?.id : false;
@@ -699,6 +700,20 @@ export default function SceneEditor() {
     const selectedText = selection?.toString() || '';
     setSelectedText(selectedText);
 
+    let savedSel: { start: number; end: number; text: string } | null = null;
+    if (selectedText.length > 0 && selection && selection.rangeCount > 0 && editorRef.current) {
+      try {
+        const range = selection.getRangeAt(0);
+        const preRange = document.createRange();
+        preRange.selectNodeContents(editorRef.current);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const start = preRange.toString().length;
+        const end = start + selectedText.length;
+        savedSel = { start, end, text: selectedText };
+      } catch {}
+    }
+    setSavedSelectionRange(savedSel);
+
     const options: Array<{
       label: string;
       onClick?: () => void;
@@ -833,15 +848,9 @@ export default function SceneEditor() {
         options.push({
           label: language === 'ar' ? 'إضافة تعليق' : 'Add Comment',
           onClick: () => {
-            const sel = window.getSelection();
-            if (sel && sel.rangeCount > 0) {
-              const range = sel.getRangeAt(0);
-              const preRange = document.createRange();
-              preRange.selectNodeContents(editorRef.current!);
-              preRange.setEnd(range.startContainer, range.startOffset);
-              const start = preRange.toString().length;
-              const end = start + selectedText.length;
-              setPendingSelection({ start, end, text: selectedText });
+            const selRange = savedSelectionRange;
+            if (selRange) {
+              setPendingSelection(selRange);
               setShowComments(true);
               setCommentTab('inline');
               setContextMenu(null);

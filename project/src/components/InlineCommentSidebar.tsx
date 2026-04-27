@@ -39,6 +39,7 @@ export default function InlineCommentSidebar({
   const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
   const [showMentions, setShowMentions] = useState<string | null>(null);
   const [mentionFilter, setMentionFilter] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
@@ -127,6 +128,7 @@ export default function InlineCommentSidebar({
     const anchorStart = pendingSelection?.start ?? null;
     const anchorEnd = pendingSelection?.end ?? null;
     const selectedText = pendingSelection?.text ?? null;
+    setSubmitError(null);
     try {
       await addInlineComment(projectId, sceneId, newComment.trim(), anchorStart, anchorEnd, selectedText);
       setNewComment('');
@@ -135,6 +137,7 @@ export default function InlineCommentSidebar({
       onCommentsChanged?.();
     } catch (err) {
       console.error('[InlineComments] Failed to add:', err);
+      setSubmitError(isRTL ? 'فشل إضافة التعليق. حاول مرة أخرى.' : 'Failed to add comment. Please try again.');
     }
   }
 
@@ -329,14 +332,18 @@ export default function InlineCommentSidebar({
         </div>
       )}
 
-      {canComment && pendingSelection && (
-        <div className="px-3 py-2" style={{ borderTop: '1px solid var(--color-border)', backgroundColor: 'rgba(255, 230, 150, 0.08)' }}>
-          <p className="text-xs mb-1" style={{ color: 'var(--color-accent)' }}>
-            {isRTL ? 'تعليق على النص المحدد:' : 'Comment on selected text:'}
-          </p>
-          <p className="text-xs italic mb-2 truncate" style={{ color: 'var(--color-text-tertiary)' }}>
-            "{pendingSelection.text.length > 60 ? pendingSelection.text.slice(0, 60) + '…' : pendingSelection.text}"
-          </p>
+      {canComment && (
+        <div className="px-3 py-2" style={{ borderTop: '1px solid var(--color-border)', backgroundColor: pendingSelection ? 'rgba(255, 230, 150, 0.08)' : 'transparent' }}>
+          {pendingSelection && (
+            <>
+              <p className="text-xs mb-1" style={{ color: 'var(--color-accent)' }}>
+                {isRTL ? 'تعليق على النص المحدد:' : 'Comment on selected text:'}
+              </p>
+              <p className="text-xs italic mb-2 truncate" style={{ color: 'var(--color-text-tertiary)' }}>
+                "{pendingSelection.text.length > 60 ? pendingSelection.text.slice(0, 60) + '…' : pendingSelection.text}"
+              </p>
+            </>
+          )}
           <div className="relative">
             <textarea
               ref={textareaRef}
@@ -365,6 +372,9 @@ export default function InlineCommentSidebar({
                 {isRTL ? 'إرسال' : 'Send'}
               </button>
             </div>
+            {submitError && (
+              <p className="text-xs mt-1" style={{ color: '#ef4444' }}>{submitError}</p>
+            )}
           </div>
         </div>
       )}
