@@ -28,7 +28,6 @@ export interface DooodaAccessState {
 
 const HIDDEN_REASONS: DooodaAccessReason[] = [
   'globally_disabled',
-  'no_active_provider',
   'unauthenticated',
 ];
 
@@ -59,7 +58,7 @@ export function useDooodaAccess() {
       const { data, error } = await supabase.rpc('check_doooda_access');
 
       if (error) {
-        const failState: DooodaAccessState = { allowed: false, visible: false, loading: false, error: true };
+        const failState: DooodaAccessState = { allowed: false, visible: true, reason: undefined, loading: false, error: true };
         setState(failState);
         cachedResult = null;
         return failState;
@@ -86,7 +85,7 @@ export function useDooodaAccess() {
       setState(result);
       return result;
     } catch {
-      const failState: DooodaAccessState = { allowed: false, visible: false, loading: false, error: true };
+      const failState: DooodaAccessState = { allowed: false, visible: true, reason: undefined, loading: false, error: true };
       setState(failState);
       cachedResult = null;
       return failState;

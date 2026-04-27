@@ -377,7 +377,7 @@ export default function DooodaChatPanel() {
         };
         setMessages((prev) => [...prev, userMsg, limitMsg]);
         setInput('');
-      } else if (reason === 'no_plan') {
+      } else if (reason === 'no_plan' || reason === 'no_active_provider') {
         const tokenData = await fetchUserTokens();
         if (tokenData && tokenData.tokens_balance > 0) {
           // User has tokens but check_doooda_access said no_plan — proceed anyway
