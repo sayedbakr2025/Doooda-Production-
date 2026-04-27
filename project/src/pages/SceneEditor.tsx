@@ -186,15 +186,23 @@ export default function SceneEditor() {
       setCommentTab(commentType === 'inline' ? 'inline' : 'general');
       if (commentId) {
         setHighlightedCommentId(commentId);
-        setTimeout(() => {
+        let attempts = 0;
+        const maxAttempts = 20;
+        const tryScroll = () => {
           const el = document.querySelector(`[data-comment-id="${commentId}"]`) || document.getElementById(`comment-${commentId}`);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el.classList.add(commentType === 'inline' ? 'mention-highlight-inline' : 'mention-highlight');
             setTimeout(() => el.classList.remove('mention-highlight', 'mention-highlight-inline'), 3000);
+            setHighlightedCommentId(null);
+          } else if (attempts < maxAttempts) {
+            attempts++;
+            setTimeout(tryScroll, 300);
+          } else {
+            setHighlightedCommentId(null);
           }
-          setHighlightedCommentId(null);
-        }, 500);
+        };
+        setTimeout(tryScroll, 500);
       }
       window.history.replaceState({}, '', window.location.pathname);
     }
