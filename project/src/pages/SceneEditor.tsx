@@ -382,6 +382,7 @@ export default function SceneEditor() {
     editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
     if (highlightedCommentId) {
       const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
+      console.log('[Highlight] looking for anchor:', highlightedCommentId, 'found:', !!anchor, 'total anchors:', editor.querySelectorAll('.comment-anchor').length);
       if (anchor) anchor.classList.add('highlighted');
     }
   }, [highlightedCommentId]);
