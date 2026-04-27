@@ -317,7 +317,7 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
   const insertMention = (name: string) => {
     const lastAtIndex = newComment.lastIndexOf('@');
     if (lastAtIndex >= 0) {
-      setNewComment(newComment.slice(0, lastAtIndex) + '@' + name + ' ');
+      setNewComment(newComment.slice(0, lastAtIndex) + '@[' + name + '] ');
     }
     setShowMentions(false);
     setMentionFilter('');

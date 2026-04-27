@@ -118,7 +118,7 @@ export default function InlineCommentSidebar({
     const text = commentId ? (replyTexts[commentId] || '') : newComment;
     const lastAtIndex = text.lastIndexOf('@');
     if (lastAtIndex >= 0) {
-      const newText = text.slice(0, lastAtIndex) + '@' + name + ' ';
+      const newText = text.slice(0, lastAtIndex) + '@[' + name + '] ';
       if (commentId) setReplyTexts(prev => ({ ...prev, [commentId]: newText }));
       else setNewComment(newText);
     }
