@@ -308,16 +308,36 @@ export default function SceneEditor() {
   }
 
   useEffect(() => {
-    if (!editorRef.current || inlineComments.length === 0) return;
     const editor = editorRef.current;
-    editor.querySelectorAll('.comment-anchor').forEach(el => {
+    if (!editor) return;
+    function handleAnchorHover(e: MouseEvent) {
+      const target = (e.target as HTMLElement).closest('.comment-anchor, .comment-highlight-temp') as HTMLElement | null;
+      if (target) {
+        const id = target.getAttribute('data-comment-id');
+        if (id) setHighlightedCommentId(id);
+      } else if (e.type === 'mouseleave') {
+        setHighlightedCommentId(null);
+      }
+    }
+    editor.addEventListener('mouseover', handleAnchorHover);
+    editor.addEventListener('mouseout', handleAnchorHover);
+    return () => {
+      editor.removeEventListener('mouseover', handleAnchorHover);
+      editor.removeEventListener('mouseout', handleAnchorHover);
+};
+  }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.querySelectorAll('.comment-highlight-temp').forEach(el => {
       const parent = el.parentNode;
       while (el.firstChild) parent?.insertBefore(el.firstChild, el);
       parent?.removeChild(el);
     });
-    const openComments = inlineComments.filter(c => c.status === 'open' && c.anchor_start != null && c.anchor_end != null);
-    console.log('[Anchors] Rebuilding, open comments:', openComments.length, 'total text length:', editor.textContent?.length);
-    openComments.forEach(comment => {
+    if (highlightedCommentId && inlineComments.length > 0) {
+      const comment = inlineComments.find(c => c.id === highlightedCommentId);
+      if (comment && comment.anchor_start != null && comment.anchor_end != null) {
         try {
           const textNodes: { node: Text; start: number }[] = [];
           const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
@@ -333,13 +353,13 @@ export default function SceneEditor() {
           let endOffset = 0;
           for (const tn of textNodes) {
             const tnEnd = tn.start + tn.node.length;
-            if (!startNode && tnEnd > comment.anchor_start!) {
+            if (!startNode && tnEnd > comment.anchor_start) {
               startNode = tn.node;
-              startOffset = comment.anchor_start! - tn.start;
+              startOffset = comment.anchor_start - tn.start;
             }
-            if (tnEnd >= comment.anchor_end!) {
+            if (tnEnd >= comment.anchor_end) {
               endNode = tn.node;
-              endOffset = comment.anchor_end! - tn.start;
+              endOffset = comment.anchor_end - tn.start;
               break;
             }
           }
@@ -348,57 +368,19 @@ export default function SceneEditor() {
             range.setStart(startNode, startOffset);
             range.setEnd(endNode, endOffset);
             const span = document.createElement('span');
-            span.className = 'comment-anchor';
-            span.setAttribute('data-comment-id', comment.id);
-            span.setAttribute('data-selected-text', comment.selected_text || '');
-            if (startNode === endNode && startOffset < endOffset) {
+            span.className = 'comment-anchor highlighted';
+            if (startNode === endNode) {
               range.surroundContents(span);
             } else {
               const nodes = range.extractContents();
               span.appendChild(nodes);
               range.insertNode(span);
             }
-            console.log('[Anchors] Created anchor for', comment.id, 'text:', comment.selected_text);
-          } else {
-            console.log('[Anchors] Could not find range for', comment.id, 'anchor_start:', comment.anchor_start, 'anchor_end:', comment.anchor_end, 'start:', !!startNode, 'end:', !!endNode, 'totalTextLen:', offset);
           }
-        } catch (err) {
-          console.error('[Anchors] Error creating anchor for', comment.id, err);
-        }
-      });
-  }, [inlineComments, contentInitialized.current]);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    function handleAnchorHover(e: MouseEvent) {
-      const target = (e.target as HTMLElement).closest('.comment-anchor') as HTMLElement | null;
-      if (target) {
-        const id = target.getAttribute('data-comment-id');
-        if (id) setHighlightedCommentId(id);
-      } else if (e.type === 'mouseleave') {
-        setHighlightedCommentId(null);
+        } catch {}
       }
     }
-    editor.addEventListener('mouseover', handleAnchorHover);
-    editor.addEventListener('mouseout', handleAnchorHover);
-    return () => {
-      editor.removeEventListener('mouseover', handleAnchorHover);
-      editor.removeEventListener('mouseout', handleAnchorHover);
-    };
-  }, []);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    editor.querySelectorAll('.comment-anchor.highlighted').forEach(el => el.classList.remove('highlighted'));
-    if (highlightedCommentId) {
-      const anchors = editor.querySelectorAll('.comment-anchor');
-      const anchor = editor.querySelector(`.comment-anchor[data-comment-id="${highlightedCommentId}"]`);
-      console.log('[Highlight] id:', highlightedCommentId, 'found:', !!anchor, 'totalAnchors:', anchors.length);
-      if (anchor) anchor.classList.add('highlighted');
-    }
-  }, [highlightedCommentId]);
+  }, [highlightedCommentId, inlineComments]);
 
   function countWords(text: string): number {
     const withSpaces = text
