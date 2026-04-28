@@ -513,16 +513,6 @@ useEffect(() => {
         node: range.startContainer,
         offset: range.startOffset,
       };
-      if (selection.toString().length > 0 && editorRef.current) {
-        try {
-          const preRange = document.createRange();
-          preRange.selectNodeContents(editorRef.current);
-          preRange.setEnd(range.startContainer, range.startOffset);
-          const start = preRange.toString().length;
-          const end = start + selection.toString().length;
-          setSavedSelectionRange({ start, end, text: selection.toString() });
-        } catch {}
-      }
     }
   };
 
@@ -795,8 +785,25 @@ useEffect(() => {
 const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
 
-    const selectedText = savedSelectionRange?.text || window.getSelection()?.toString() || '';
+    saveCursorPosition();
+
+    const selection = window.getSelection();
+    const selectedText = selection?.toString() || '';
     setSelectedText(selectedText);
+
+    let savedSel: { start: number; end: number; text: string } | null = null;
+    if (selectedText.length > 0 && selection && selection.rangeCount > 0 && editorRef.current) {
+      try {
+        const range = selection.getRangeAt(0);
+        const preRange = document.createRange();
+        preRange.selectNodeContents(editorRef.current);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const start = preRange.toString().length;
+        const end = start + selectedText.length;
+        savedSel = { start, end, text: selectedText };
+      } catch {}
+    }
+    setSavedSelectionRange(savedSel);
 
     const options: Array<{
       label: string;
@@ -808,164 +815,140 @@ const handleContextMenu = (e: React.MouseEvent) => {
         label: language === 'ar' ? 'جلب شخصية للحوار' : 'Insert Character Dialogue',
         onClick: () => setShowCharacterDialogueModal(true),
       },
-    ];
-
-    if (!selectedText) {
-      options.push({
+      {
         label: language === 'ar' ? 'إضافة شخصية' : 'Add Character',
         onClick: () => setShowCharacterModal(true),
-      });
-      options.push({
+      },
+      {
         label: language === 'ar' ? 'إضافة ملاحظة' : 'Add Note',
         onClick: () => setShowNoteModal(true),
-      });
-    } else {
-      options.push({
-        label: 'نسخ',
-        onClick: () => {
-          navigator.clipboard.writeText(selectedText);
-          setContextMenu(null);
-        },
-      });
-    }
+      },
+    ];
 
-    if (isArabic) {
-      const disabled = isDiacritizing;
-      options.push({
-        label: 'أدوات اللغة العربية',
-        disabled,
-        submenu: [
-          {
-            label: 'تشكيل خفيف',
-            onClick: () => handleDiacritize('light'),
-            disabled,
-          },
-          {
-            label: 'تشكيل كامل',
-            onClick: () => handleDiacritize('full'),
-            disabled,
-          },
-          {
-            label: 'تشكيل خفيف + علامات الترقيم',
-            onClick: () => handleDiacritize('light_with_punctuation'),
-            disabled,
-          },
-          {
-            label: 'تشكيل كامل + علامات الترقيم',
-            onClick: () => handleDiacritize('full_with_punctuation'),
-            disabled,
-          },
-          {
-            label: 'علامات الترقيم',
-            onClick: () => handleDiacritize('punctuation'),
-            disabled,
-          },
-          {
-            label: 'تصحيح + تشكيل',
-            onClick: () => handleDiacritize('correction_with_diacritics'),
-            disabled,
-          },
-          {
-            label: 'تصحيح فقط',
-            onClick: () => handleDiacritize('correction'),
-            disabled,
-          },
-          {
-            label: 'تدقيق لغوي',
-            onClick: () => handleDiacritize('proofread'),
-            disabled,
-          },
-          {
-            label: 'تدقيق لغوي شامل',
-            onClick: () => handleDiacritize('proofread_advanced'),
-            disabled,
-          },
-        ],
-      });
-    }
+    if (selectedText.length > 0) {
+      const isArabic = language === 'ar';
 
-    if (selectedText.length > 0 && (isOwner || !scopeCheck.loading)) {
-      options.push({
-        label: language === 'ar' ? 'إضافة تعليق' : 'Add Comment',
-        onClick: () => {
-          const selRange = savedSelectionRange;
-          if (selRange) {
-            setPendingSelection({ ...selRange });
-            setShowComments(true);
-            setCommentTab('inline');
-          }
-          setContextMenu(null);
-        },
-      });
-    }
+      if (isArabic) {
+        const disabled = isDiacritizing;
+        options.push({
+          label: 'أدوات اللغة العربية',
+          disabled,
+          submenu: [
+            {
+              label: 'تشكيل خفيف',
+              onClick: () => handleDiacritize('light'),
+              disabled,
+            },
+            {
+              label: 'تشكيل كامل',
+              onClick: () => handleDiacritize('full'),
+              disabled,
+            },
+            {
+              label: 'تشكيل خفيف + علامات الترقيم',
+              onClick: () => handleDiacritize('light_with_punctuation'),
+              disabled,
+            },
+            {
+              label: 'تشكيل كامل + علامات الترقيم',
+              onClick: () => handleDiacritize('full_with_punctuation'),
+              disabled,
+            },
+            {
+              label: 'علامات الترقيم',
+              onClick: () => handleDiacritize('punctuation'),
+              disabled,
+            },
+            {
+              label: 'تصحيح + تشكيل',
+              onClick: () => handleDiacritize('correction_with_diacritics'),
+              disabled,
+            },
+            {
+              label: 'تدقيق لغوي',
+              onClick: () => handleDiacritize('proofread'),
+              disabled,
+            },
+            {
+              label: 'تدقيق لغوي شامل',
+              onClick: () => handleDiacritize('proofread_advanced'),
+              disabled,
+            },
+          ],
+        });
+      }
 
-    if (selectedText.length > 0 && dooodaAccess.visible) {
-      options.push({
-        label: language === 'ar' ? 'اسأل دووودة' : 'Ask doooda',
-        onClick: async () => {
-          const detectedCharacter = detectCharacterInSelection();
-          let characterContext = undefined;
+      if (dooodaAccess.visible) {
+        options.push({
+          label: language === 'ar' ? 'اسأل دووودة' : 'Ask doooda',
+          onClick: async () => {
+            const detectedCharacter = detectCharacterInSelection();
+            let characterContext = undefined;
 
-          if (detectedCharacter && detectedCharacter.characterId) {
-            try {
-              const { data: characterData, error } = await supabase
-                .from('project_characters')
-                .select('*')
-                .eq('id', detectedCharacter.characterId)
-                .maybeSingle();
+            if (detectedCharacter && detectedCharacter.characterId) {
+              try {
+                const { data: characterData, error } = await supabase
+                  .from('project_characters')
+                  .select('*')
+                  .eq('id', detectedCharacter.characterId)
+                  .maybeSingle();
 
-              if (!error && characterData) {
-                const dialogueMatch = selectedText.match(/^([^:\n]+):\s*(.+)/s);
-                const dialogueName = dialogueMatch ? dialogueMatch[1].trim() : characterData.dialogue_name;
-                const dialogueText = dialogueMatch ? dialogueMatch[2].trim() : selectedText.trim();
+                if (!error && characterData) {
+                  const dialogueMatch = selectedText.match(/^([^:\n]+):\s*(.+)/s);
+                  const dialogueName = dialogueMatch ? dialogueMatch[1].trim() : characterData.dialogue_name;
+                  const dialogueText = dialogueMatch ? dialogueMatch[2].trim() : selectedText.trim();
 
-                characterContext = {
-                  character: {
-                    id: characterData.id,
-                    name: characterData.name,
-                    dialogue_name: characterData.dialogue_name,
-                    description: characterData.description || undefined,
-                    personality_traits: characterData.personality_traits || undefined,
-                    background: characterData.background || undefined,
-                    speaking_style: characterData.speaking_style || undefined,
-                    speech_style: characterData.speech_style || undefined,
-                    dialect: characterData.dialect || undefined,
-                    goals: characterData.goals || undefined,
-                    fears: characterData.fears || undefined,
-                  },
-                  dialogue: {
-                    dialogueName: dialogueName,
-                    dialogueText: dialogueText,
-                    fullText: selectedText.trim(),
-                  },
-                };
+                  characterContext = {
+                    character: {
+                      id: characterData.id,
+                      name: characterData.name,
+                      dialogue_name: characterData.dialogue_name,
+                      description: characterData.description || undefined,
+                      personality_traits: characterData.personality_traits || undefined,
+                      background: characterData.background || undefined,
+                      speaking_style: characterData.speaking_style || undefined,
+                      speech_style: characterData.speech_style || undefined,
+                      dialect: characterData.dialect || undefined,
+                      goals: characterData.goals || undefined,
+                      fears: characterData.fears || undefined,
+                    },
+                    dialogue: {
+                      dialogueName: dialogueName,
+                      dialogueText: dialogueText,
+                      fullText: selectedText.trim(),
+                    },
+                  };
+                }
+              } catch (err) {
+                console.error('Failed to fetch character data:', err);
               }
-            } catch (err) {
-              console.error('Failed to fetch character data:', err);
             }
-          }
 
-          dispatchAskDoooda(selectedText, {
-            level: 'selected_text',
-            scene: scene ? { title: scene.title, content, summary: scene.summary } : undefined,
-            projectTitle: undefined,
-            projectId: projectId,
-            characterContext,
-          });
-        },
-      });
-    }
+            dispatchAskDoooda(selectedText, {
+              level: 'selected_text',
+              scene: scene ? { title: scene.title, content, summary: scene.summary } : undefined,
+              projectTitle: undefined,
+              projectId: projectId,
+              characterContext,
+            });
+          },
+        });
+      }
 
-    if (!selectedText.includes('\n') && selectedText.length > 0) {
-      options.push({
-        label: language === 'ar' ? 'تحويل إلى مشهد' : 'Convert to Scene',
-        onClick: () => {
-          setNewSceneTitle(selectedText.slice(0, 60));
-          setNewSceneSummary(selectedText);
-          setConvertToSceneModal(true);
-          setContextMenu(null);
-        },
-      });
+      if (selectedText.length > 0 && (isOwner || !scopeCheck.loading)) {
+        options.push({
+          label: language === 'ar' ? 'إضافة تعليق' : 'Add Comment',
+          onClick: () => {
+            const selRange = savedSelectionRange;
+            if (selRange) {
+              setPendingSelection({ ...selRange });
+              setShowComments(true);
+              setCommentTab('inline');
+            }
+            setContextMenu(null);
+          },
+        });
+      }
     }
 
     setContextMenu({
@@ -1661,7 +1644,6 @@ const handleContextMenu = (e: React.MouseEvent) => {
             contentEditable
             onInput={handleInput}
             onKeyDown={handleEditorKeyDown}
-            onMouseDown={saveCursorPosition}
             onContextMenu={handleContextMenu}
             onCopy={(e) => { if (isFree) e.preventDefault(); }}
             onCut={(e) => { if (isFree) e.preventDefault(); }}
