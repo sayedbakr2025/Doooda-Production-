@@ -548,16 +548,10 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                       {n.cta_label && n.cta_link && (
                         <a
                           href={n.cta_link}
+                          target="_self"
+                          rel="noopener noreferrer"
                           className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white cursor-pointer"
-                          style={{ 
-                            backgroundColor: 'var(--color-accent)',
-                            color: 'white',
-                            textDecoration: 'none'
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onClose();
-                          }}
+                          style={{ backgroundColor: 'var(--color-accent)', textDecoration: 'none' }}
                         >
                           {displayCtaLabel(n)}
                         </a>
