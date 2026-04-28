@@ -144,18 +144,10 @@ export default function SceneEditor() {
   const { triggerImageUpload, rehydrateImages } = useEditorImages({
     editorRef,
     language,
-    onContentChange: (html) => setContent(html),
+onContentChange: (html) => setContent(html),
   });
 
   useEffect(() => {
-    if (showComments && commentTab === 'inline' && pendingSelectionRef.current) {
-      setPendingSelection(pendingSelectionRef.current);
-      pendingSelectionRef.current = null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showComments, commentTab]);
-
-useEffect(() => {
     setTextDirection(language === 'ar' ? 'rtl' : 'ltr');
     setTextAlign(language === 'ar' ? 'right' : 'left');
   }, [language]);
@@ -945,7 +937,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
               setShowComments(true);
               setCommentTab('inline');
             }
-            setContextMenu(null);
+            setTimeout(() => setContextMenu(null), 100);
           },
         });
       }
