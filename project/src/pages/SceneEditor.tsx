@@ -935,9 +935,11 @@ useEffect(() => {
             if (selRange) {
               setContextMenu(null);
               requestAnimationFrame(() => {
-                setPendingSelection(selRange);
                 setShowComments(true);
-                setCommentTab('inline');
+                requestAnimationFrame(() => {
+                  setCommentTab('inline');
+                  setPendingSelection(selRange);
+                });
               });
             }
           },
