@@ -792,20 +792,11 @@ useEffect(() => {
     }
   };
 
-  const handleContextMenu = (e: React.MouseEvent) => {
+const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
 
     const selectedText = savedSelectionRange?.text || window.getSelection()?.toString() || '';
     setSelectedText(selectedText);
-
-    if (!selectedText || !savedSelectionRange) {
-      setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
-        options: [],
-      });
-      return;
-    }
 
     const options: Array<{
       label: string;
@@ -817,15 +808,26 @@ useEffect(() => {
         label: language === 'ar' ? 'جلب شخصية للحوار' : 'Insert Character Dialogue',
         onClick: () => setShowCharacterDialogueModal(true),
       },
-      {
+    ];
+
+    if (!selectedText) {
+      options.push({
+        label: language === 'ar' ? 'إضافة شخصية' : 'Add Character',
+        onClick: () => setShowCharacterModal(true),
+      });
+      options.push({
+        label: language === 'ar' ? 'إضافة ملاحظة' : 'Add Note',
+        onClick: () => setShowNoteModal(true),
+      });
+    } else {
+      options.push({
         label: 'نسخ',
         onClick: () => {
           navigator.clipboard.writeText(selectedText);
           setContextMenu(null);
         },
-        disabled: false,
-      },
-    ];
+      });
+    }
 
     if (isArabic) {
       const disabled = isDiacritizing;
@@ -866,6 +868,16 @@ useEffect(() => {
           {
             label: 'تصحيح فقط',
             onClick: () => handleDiacritize('correction'),
+            disabled,
+          },
+          {
+            label: 'تدقيق لغوي',
+            onClick: () => handleDiacritize('proofread'),
+            disabled,
+          },
+          {
+            label: 'تدقيق لغوي شامل',
+            onClick: () => handleDiacritize('proofread_advanced'),
             disabled,
           },
         ],
@@ -959,7 +971,7 @@ useEffect(() => {
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
-options,
+      options,
     });
   };
 
