@@ -77,9 +77,13 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
 
   const handleMarkRead = async (n: Notification) => {
     if (n.read) return;
-    await markNotificationRead(n.id);
-    setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
-    onUnreadCountChange(notifications.filter(x => !x.read && x.id !== n.id).length);
+    try {
+      await markNotificationRead(n.id);
+      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+      onUnreadCountChange(notifications.filter(x => !x.read && x.id !== n.id).length);
+    } catch (err) {
+      console.error('Mark read error:', err);
+    }
   };
 
   const handleMarkAllRead = async () => {
@@ -543,16 +547,25 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
 
                       {n.cta_label && n.cta_link && (
                         <span
-                          onClick={(e) => {
-                            const target = n.cta_link || '';
-                            console.log('Navigating to:', target);
-                            onClose();
-                            navigate(target);
-                          }}
                           className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors cursor-pointer"
                           style={{ backgroundColor: 'var(--color-accent)' }}
                         >
-                          {displayCtaLabel(n)}
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log('CTA span click, n.type:', n.type, 'n.cta_link:', n.cta_link);
+                              if (n.cta_link) {
+                                onClose();
+                                setTimeout(() => {
+                                  console.log('Calling navigate to:', n.cta_link);
+                                  navigate(n.cta_link);
+                                }, 50);
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {displayCtaLabel(n)}
+                          </span>
                         </span>
                       )}
                     </div>
