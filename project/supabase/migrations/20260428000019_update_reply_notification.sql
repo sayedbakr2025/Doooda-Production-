@@ -1,4 +1,4 @@
--- Create notification when someone replies to a comment
+-- Update create_reply_notification to handle both inline and general comments
 CREATE OR REPLACE FUNCTION public.create_reply_notification(
   p_comment_id uuid,
   p_reply_author_id uuid,
@@ -7,7 +7,8 @@ CREATE OR REPLACE FUNCTION public.create_reply_notification(
   p_reply_author_name text,
   p_project_title text,
   p_scene_title text,
-  p_cta_link text
+  p_cta_link text,
+  p_comment_type text DEFAULT 'general'
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -18,10 +19,17 @@ DECLARE
   v_original_author_id uuid;
   v_original_comment_type text;
 BEGIN
-  -- Get the original comment's author and type
-  SELECT user_id, comment_type INTO v_original_author_id, v_original_comment_type
-  FROM comments
-  WHERE id = p_comment_id;
+  -- Determine which table to query based on comment_type
+  IF p_comment_type = 'inline' THEN
+    SELECT user_id INTO v_original_author_id
+    FROM inline_comments
+    WHERE id = p_comment_id;
+    v_original_comment_type := 'inline';
+  ELSE
+    SELECT user_id, comment_type INTO v_original_author_id, v_original_comment_type
+    FROM comments
+    WHERE id = p_comment_id;
+  END IF;
 
   -- Don't notify if replying to own comment
   IF v_original_author_id IS NULL OR v_original_author_id = p_reply_author_id THEN
@@ -43,7 +51,7 @@ BEGIN
       'scene_id', p_scene_id,
       'project_id', p_project_id,
       'project_title', COALESCE(p_project_title, ''),
-      'comment_type', v_original_comment_type,
+      'comment_type', COALESCE(v_original_comment_type, 'general'),
       'replier_name', COALESCE(p_reply_author_name, ''),
       'type', 'reply'
     ),

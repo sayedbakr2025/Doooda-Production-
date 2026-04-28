@@ -1903,6 +1903,7 @@ export async function addComment(
         p_project_title: projectData?.title || '',
         p_scene_title: sceneData?.title || '',
         p_cta_link: ctaLink,
+        p_comment_type: 'general',
       });
     }
   }
@@ -2083,6 +2084,7 @@ export async function addInlineCommentReply(
       p_project_title: projectData?.title || '',
       p_scene_title: sceneData?.title || '',
       p_cta_link: ctaLink,
+      p_comment_type: 'inline',
     });
   }
 
