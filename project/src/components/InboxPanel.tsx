@@ -542,19 +542,22 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                       )}
 
                       {n.cta_label && n.cta_link && (
-                        <button
-                          disabled={!n.cta_link}
-                          onClick={() => {
-                            if (n.cta_link) {
-                              onClose();
-                              setTimeout(() => navigate(n.cta_link), 150);
-                            }
+                        <a
+                          href={n.cta_link || '#'}
+                          target="_self"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            console.log('[Inbox] Anchor clicked, href:', e.currentTarget.href);
                           }}
-                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors disabled:opacity-50"
-                          style={{ backgroundColor: 'var(--color-accent)' }}
+                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
+                          style={{ 
+                            backgroundColor: 'var(--color-accent)',
+                            textDecoration: 'none',
+                            pointerEvents: 'auto'
+                          }}
                         >
                           {displayCtaLabel(n)}
-                        </button>
+                        </a>
                       )}
                     </div>
                   </div>
