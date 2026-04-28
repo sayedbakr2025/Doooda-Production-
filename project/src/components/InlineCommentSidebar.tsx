@@ -50,11 +50,28 @@ export default function InlineCommentSidebar({
 
   const isTextDeleted = (comment: InlineComment): boolean => {
     const originalText = comment.selected_text;
-    if (!originalText || typeof originalText !== 'string' || originalText.length === 0) return false;
-    if (!editorText || comment.anchor_start == null || comment.anchor_end == null) return false;
-    if (comment.anchor_start < 0 || comment.anchor_end <= comment.anchor_start) return false;
+    if (!originalText || typeof originalText !== 'string' || originalText.length === 0) {
+      return false;
+    }
+    if (!editorText || comment.anchor_start == null || comment.anchor_end == null) {
+      return false;
+    }
+    if (comment.anchor_start < 0 || comment.anchor_end <= comment.anchor_start) {
+      return false;
+    }
     const textAtAnchor = editorText.slice(comment.anchor_start, comment.anchor_end);
-    return textAtAnchor.toLowerCase() !== originalText.toLowerCase();
+    const deleted = textAtAnchor.toLowerCase() !== originalText.toLowerCase();
+    if (deleted) {
+      console.log('[InlineComment] Text deleted check:', {
+        commentId: comment.id,
+        originalText,
+        textAtAnchor,
+        anchorStart: comment.anchor_start,
+        anchorEnd: comment.anchor_end,
+        editorLen: editorText.length
+      });
+    }
+    return deleted;
   };
 
   const loadComments = useCallback(async () => {
