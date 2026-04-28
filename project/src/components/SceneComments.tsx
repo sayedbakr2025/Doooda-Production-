@@ -134,7 +134,13 @@ function CommentBubble({
             <div className="flex items-center gap-3 mt-2">
               {depth === 0 && (
                 <button
-                  onClick={() => setReplying(!replying)}
+                  onClick={() => {
+                    setReplying(!replying);
+                    if (!replying && comment.user) {
+                      const authorName = comment.user.pen_name || comment.user.first_name || 'user';
+                      setReplyText(`@[{authorName}] `);
+                    }
+                  }}
                   className="text-xs font-medium transition-colors"
                   style={{ color: 'var(--color-text-tertiary)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-accent)')}

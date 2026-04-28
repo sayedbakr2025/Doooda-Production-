@@ -159,7 +159,7 @@ export default function InlineCommentSidebar({
     try { await deleteInlineComment(id); loadComments(); onCommentsChanged?.(); } catch {}
   }
 
-  async function toggleReplies(commentId: string) {
+  async function toggleReplies(commentId: string, authorPenName?: string, authorFirstName?: string) {
     if (expandedReplies.has(commentId)) {
       setExpandedReplies(prev => { const n = new Set(prev); n.delete(commentId); return n; });
     } else {
@@ -167,6 +167,12 @@ export default function InlineCommentSidebar({
       try {
         const replies = await getInlineCommentReplies(commentId);
         setRepliesMap(prev => ({ ...prev, [commentId]: replies }));
+        if (authorPenName || authorFirstName) {
+          setReplyTexts(prev => ({
+            ...prev,
+            [commentId]: `@[${authorPenName || authorFirstName || 'user'}] `
+          }));
+        }
       } catch {}
     }
   }
@@ -283,7 +289,7 @@ export default function InlineCommentSidebar({
                       <Trash2 className="w-3 h-3" />
                     </button>
                   )}
-                  <button onClick={() => toggleReplies(comment.id)} className="text-xs flex items-center gap-0.5 hover:opacity-80" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <button onClick={() => toggleReplies(comment.id, comment.user?.pen_name || comment.author_name)} className="text-xs flex items-center gap-0.5 hover:opacity-80" style={{ color: 'var(--color-text-tertiary)' }}>
                     <Reply className="w-3 h-3" /> {(comment.reply_count || 0)}
                   </button>
                 </div>
