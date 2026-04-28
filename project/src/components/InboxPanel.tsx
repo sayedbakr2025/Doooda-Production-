@@ -542,40 +542,24 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                       )}
 
                       {n.cta_label && n.cta_link && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onClose();
-                              const link = n.cta_link || '';
-                              console.log('[CTA] Key navigate to:', link);
-                              if (link) {
-                                window.location.href = link;
-                              }
-                            }
-                          }}
+                        <a
+                          href={n.cta_link || '#'}
                           onClick={(e) => {
+                            if (!n.cta_link || n.cta_link.startsWith('http')) {
+                              return;
+                            }
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log('[CTA] Click, link:', n.cta_link);
                             onClose();
-                            const link = n.cta_link || '';
-                            if (link) {
-                              window.location.href = link;
-                            }
+                            setTimeout(() => {
+                              window.location.href = n.cta_link || '';
+                            }, 100);
                           }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            console.log('[CTA] MouseDown');
-                          }}
-                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors cursor-pointer"
-                          style={{ backgroundColor: 'var(--color-accent)' }}
+                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
+                          style={{ backgroundColor: 'var(--color-accent)', textDecoration: 'none', cursor: 'pointer' }}
                         >
                           {displayCtaLabel(n)}
-                        </span>
+                        </a>
                       )}
                     </div>
                   </div>
