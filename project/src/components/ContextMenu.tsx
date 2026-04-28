@@ -90,6 +90,7 @@ export default function ContextMenu({ x, y, options, onClose }: ContextMenuProps
   const handleMouseEnter = (index: number, hasSubmenu: boolean, event?: React.MouseEvent) => {
     if (submenuTimeoutRef.current) {
       clearTimeout(submenuTimeoutRef.current);
+      submenuTimeoutRef.current = null;
     }
     if (hasSubmenu) {
       setActiveSubmenu(index);
@@ -128,13 +129,20 @@ export default function ContextMenu({ x, y, options, onClose }: ContextMenuProps
           [index]: { ...horizontalPos, ...verticalPos }
         }));
       }
+    } else {
+      setActiveSubmenu(null);
     }
   };
 
-  const handleMouseLeave = () => {
-    submenuTimeoutRef.current = window.setTimeout(() => {
-      setActiveSubmenu(null);
-    }, 200);
+  const handleMouseLeave = (hasSubmenu: boolean) => {
+    if (submenuTimeoutRef.current) {
+      clearTimeout(submenuTimeoutRef.current);
+    }
+    if (hasSubmenu) {
+      submenuTimeoutRef.current = window.setTimeout(() => {
+        setActiveSubmenu(null);
+      }, 200);
+    }
   };
 
   const isSubmenuOnLeft = (index: number) => {
@@ -180,7 +188,7 @@ export default function ContextMenu({ x, y, options, onClose }: ContextMenuProps
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              handleMouseLeave();
+              handleMouseLeave(!!option.submenu);
             }}
           >
             <span>{option.label}</span>
@@ -223,7 +231,14 @@ export default function ContextMenu({ x, y, options, onClose }: ContextMenuProps
                   clearTimeout(submenuTimeoutRef.current);
                 }
               }}
-              onMouseLeave={handleMouseLeave}
+              onMouseLeave={() => {
+                if (submenuTimeoutRef.current) {
+                  clearTimeout(submenuTimeoutRef.current);
+                }
+                submenuTimeoutRef.current = window.setTimeout(() => {
+                  setActiveSubmenu(null);
+                }, 200);
+              }}
             >
               {option.submenu.map((subOption, subIndex) => (
                 <button
