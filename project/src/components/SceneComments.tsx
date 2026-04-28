@@ -136,8 +136,8 @@ function CommentBubble({
                 onClick={() => {
                   setReplying(!replying);
                   if (!replying) {
-                    const user = comment.user as { pen_name?: string; first_name?: string; email?: string } | undefined;
-                    const authorName = user?.pen_name || user?.first_name || user?.email?.split('@')[0] || 'user';
+                    const user = comment.user as any;
+                    const authorName = user?.pen_name || user?.first_name || user?.email?.split('@')[0] || comment.user_display_name || user?.id?.slice(0, 8) || 'user';
                     setReplyText('@[' + authorName + '] ');
                   }
                 }}

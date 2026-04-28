@@ -1836,7 +1836,8 @@ export async function getSceneComments(sceneId: string): Promise<Comment[]> {
 
   const withReplies = all.map((c) => ({
     ...c,
-    user: userMap[c.user_id] || null,
+    user: userMap[c.user_id] || { id: c.user_id, pen_name: c.user_id?.slice(0, 8), first_name: null, email: null },
+    user_display_name: userMap[c.user_id]?.pen_name || userMap[c.user_id]?.first_name || userMap[c.user_id]?.email?.split('@')[0] || c.user_id?.slice(0, 8) || 'مستخدم',
     replies: [] as Comment[]
   }));
 
@@ -1910,7 +1911,7 @@ export async function addComment(
 
     const authorName = user.email?.split('@')[0] || 'Someone';
 
-    if (parentComment && parentComment.user_id !== user.id) {
+    if (parentComment.user_id !== user.id) {
       const ctaLink = `/project/${projectId}/scene/${sceneId}?comments=true&comment_id=${parentId}&comment_type=general`;
       await supabase.rpc('create_reply_notification', {
         p_comment_id: parentId,
