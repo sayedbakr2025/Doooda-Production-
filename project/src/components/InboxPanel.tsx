@@ -542,24 +542,19 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                       )}
 
                       {n.cta_label && n.cta_link && (
-                        <a
-                          href={n.cta_link || '#'}
-                          onClick={(e) => {
-                            if (!n.cta_link || n.cta_link.startsWith('http')) {
-                              return;
+                        <button
+                          disabled={!n.cta_link}
+                          onClick={() => {
+                            if (n.cta_link) {
+                              onClose();
+                              setTimeout(() => navigate(n.cta_link), 150);
                             }
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onClose();
-                            setTimeout(() => {
-                              window.location.href = n.cta_link || '';
-                            }, 100);
                           }}
-                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
-                          style={{ backgroundColor: 'var(--color-accent)', textDecoration: 'none', cursor: 'pointer' }}
+                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors disabled:opacity-50"
+                          style={{ backgroundColor: 'var(--color-accent)' }}
                         >
                           {displayCtaLabel(n)}
-                        </a>
+                        </button>
                       )}
                     </div>
                   </div>
