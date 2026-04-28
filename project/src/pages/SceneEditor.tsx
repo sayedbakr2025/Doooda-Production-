@@ -429,8 +429,14 @@ useEffect(() => {
       parent.removeChild(el);
     });
     
-    // If no highlighted comment, stop here
-    if (!highlightedCommentId) return;
+    // If no highlighted comment, remove the highlighted class from all anchors
+    if (!highlightedCommentId) {
+      const allHighlighted = Array.from(editor.querySelectorAll('.comment-anchor.highlighted'));
+      allHighlighted.forEach(el => {
+        el.classList.remove('highlighted');
+      });
+      return;
+    }
     
     // Get the comment that's being hovered
     const comment = inlineComments.find(c => c.id === highlightedCommentId);

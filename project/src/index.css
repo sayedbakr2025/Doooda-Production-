@@ -262,6 +262,16 @@
   animation: mention-highlight 2s ease-out forwards;
 }
 
+.comment-anchor.highlighted {
+  background: rgba(255, 200, 50, 0.4) !important;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+.comment-anchor.highlighted:hover {
+  background: rgba(255, 200, 50, 0.5) !important;
+}
+
 .mention-highlight-inline {
   animation: mention-highlight 2.5s ease-out forwards;
   border-radius: 4px;
