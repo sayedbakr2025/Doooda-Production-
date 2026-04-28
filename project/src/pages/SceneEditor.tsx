@@ -196,8 +196,11 @@ onContentChange: (html) => setContent(html),
   useEffect(() => {
     if (!highlightedCommentId) return;
     
+    const openComments = searchParams.get('comments') === 'true';
+    if (!openComments) return;
+    
     const commentType = searchParams.get('comment_type');
-    console.log('[Comment] Processing highlight for:', highlightedCommentId, 'type:', commentType);
+    console.log('[Comment] Processing highlight from URL:', highlightedCommentId, 'type:', commentType);
     
     setTimeout(() => {
       const commentId = highlightedCommentId;
