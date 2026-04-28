@@ -1912,18 +1912,23 @@ export async function addComment(
     const authorName = user.email?.split('@')[0] || 'Someone';
 
     if (parentComment.user_id !== user.id) {
-      const ctaLink = `/project/${projectId}/scene/${sceneId}?comments=true&comment_id=${parentId}&comment_type=general`;
-      await supabase.rpc('create_reply_notification', {
-        p_comment_id: parentId,
-        p_reply_author_id: user.id,
-        p_project_id: projectId,
-        p_scene_id: sceneId,
-        p_reply_author_name: authorName,
-        p_project_title: projectData?.title || '',
-        p_scene_title: sceneData?.title || '',
-        p_cta_link: ctaLink,
-        p_comment_type: 'general',
-      });
+      try {
+        const ctaLink = `/project/${projectId}/scene/${sceneId}?comments=true&comment_id=${parentId}&comment_type=general`;
+        const { error: replyErr } = await supabase.rpc('create_reply_notification', {
+          p_comment_id: parentId,
+          p_reply_author_id: user.id,
+          p_project_id: projectId,
+          p_scene_id: sceneId,
+          p_reply_author_name: authorName,
+          p_project_title: projectData?.title || '',
+          p_scene_title: sceneData?.title || '',
+          p_cta_link: ctaLink,
+          p_comment_type: 'general',
+        });
+        if (replyErr) console.error('[Reply] Notification error:', replyErr);
+      } catch (replyCatchErr) {
+        console.error('[Reply] Notification catch:', replyCatchErr);
+      }
     }
   }
 

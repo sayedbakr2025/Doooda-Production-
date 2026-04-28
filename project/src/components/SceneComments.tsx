@@ -58,7 +58,13 @@ function CommentBubble({
   const canModify = comment.user_id === currentUserId || isOwner;
 
   useEffect(() => {
-    if (replying) replyRef.current?.focus();
+    if (replying && replyRef.current) {
+      replyRef.current.focus();
+      const len = replyRef.current.value.length;
+      setTimeout(() => {
+        replyRef.current?.setSelectionRange(len, len);
+      }, 0);
+    }
   }, [replying]);
 
   const handleReply = async () => {
@@ -183,7 +189,7 @@ function CommentBubble({
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               rows={2}
-              placeholder={isRtl ? 'اكتب ردك...' : 'Write a reply...'}
+              placeholder={isRtl ? 'اكتب ردًا... (اضغط @ للإشارة)' : 'Write a reply... (press @ to mention)'}
               dir={isRtl ? 'rtl' : 'ltr'}
               className="w-full text-sm resize-none rounded-lg px-3 py-2 outline-none"
               style={{
