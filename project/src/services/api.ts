@@ -1815,7 +1815,7 @@ export async function getProjectActivityLogs(
 export async function getSceneComments(sceneId: string): Promise<Comment[]> {
   const { data, error } = await supabase
     .from('comments')
-    .select('*, user:users!inner(id, pen_name, first_name, email)')
+    .select('*')
     .eq('scene_id', sceneId)
     .is('deleted_at', null)
     .order('created_at', { ascending: true });
@@ -1825,18 +1825,29 @@ export async function getSceneComments(sceneId: string): Promise<Comment[]> {
 
   if (all.length === 0) return [];
 
-  const withReplies = all.map((c) => ({ ...c, replies: [] as Comment[] }));
+  const userIds = [...new Set(all.map((c) => c.user_id))];
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, pen_name, first_name, email')
+    .in('id', userIds);
+
+  const userMap: Record<string, any> = {};
+  (users || []).forEach((u: any) => { userMap[u.id] = u; });
+
+  const withReplies = all.map((c) => ({
+    ...c,
+    user: userMap[c.user_id] || null,
+    replies: [] as Comment[]
+  }));
 
   const roots: Comment[] = [];
   const map: Record<string, Comment> = {};
   withReplies.forEach((c) => { map[c.id] = c; });
   withReplies.forEach((c) => {
     if (c.parent_id && map[c.parent_id]) {
-      c.user_display_name = c.user?.pen_name || c.user?.first_name || c.user?.email?.split('@')[0] || c.user_id?.slice(0, 8) || '';
       if (!map[c.parent_id].replies) map[c.parent_id].replies = [];
       map[c.parent_id].replies!.push(c);
     } else {
-      c.user_display_name = c.user?.pen_name || c.user?.first_name || c.user?.email?.split('@')[0] || c.user_id?.slice(0, 8) || '';
       roots.push(c);
     }
   });
