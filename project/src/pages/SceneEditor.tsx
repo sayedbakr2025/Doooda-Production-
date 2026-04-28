@@ -934,11 +934,11 @@ useEffect(() => {
             const selRange = savedSelectionRange;
             if (selRange) {
               setContextMenu(null);
-              setTimeout(() => {
+              requestAnimationFrame(() => {
                 setPendingSelection(selRange);
                 setShowComments(true);
                 setCommentTab('inline');
-              }, 0);
+              });
             }
           },
         });
