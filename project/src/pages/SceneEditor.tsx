@@ -194,43 +194,6 @@ onContentChange: (html) => setContent(html),
   }, [searchParams, sceneId]);
 
   useEffect(() => {
-          console.log('[Comment] Looking for element:', commentId, 'type:', commentType);
-          let el = document.querySelector(`[data-comment-id="${commentId}"]`) as HTMLElement;
-          if (!el) {
-            el = document.getElementById(`comment-${commentId}`) as HTMLElement;
-          }
-          if (!el && commentType === 'inline') {
-            const anchors = document.querySelectorAll('.comment-anchor');
-            anchors.forEach((anchor) => {
-              const anchorEl = anchor as HTMLElement;
-              const start = parseInt(anchorEl.dataset.start || '0');
-              const end = parseInt(anchorEl.dataset.end || '0');
-              if (start && end) {
-                const commentIdEl = anchorEl.closest(`[data-comment-id*="${commentId.slice(0, 8)}"]`) as HTMLElement;
-                if (commentIdEl) el = commentIdEl;
-              }
-            });
-          }
-          if (el) {
-            console.log('[Comment] Found element, scrolling:', el);
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add(commentType === 'inline' ? 'mention-highlight-inline' : 'mention-highlight');
-            console.log('[Comment] Added highlight class, will remove in 3s');
-            setTimeout(() => {
-              el?.classList.remove('mention-highlight', 'mention-highlight-inline');
-              console.log('[Comment] Removed highlight');
-            }, 3000);
-          } else {
-            console.log('[Comment] Element not found for:', commentId);
-          }
-          setHighlightedCommentId(null);
-        }, 800);
-      }
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, [searchParams, sceneId]);
-
-  useEffect(() => {
     if (!highlightedCommentId) return;
     if (inlineComments.length === 0) return;
     
