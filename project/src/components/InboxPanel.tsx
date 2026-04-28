@@ -544,15 +544,24 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                       {n.cta_label && n.cta_link && (
                         <button
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            handleMarkRead(n);
-                            onClose();
-                            const link = n.cta_link!;
-                            if (link.startsWith('/')) {
-                              navigate(link);
-                            } else {
-                              window.open(link, '_blank', 'noopener,noreferrer');
+                            try {
+                              markNotificationRead(n.id);
+                              setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                              onUnreadCountChange((notifications || []).filter(x => !x.read && x.id !== n.id).length);
+                            } catch (err) {
+                              console.error('Mark read error:', err);
                             }
+                            onClose();
+                            setTimeout(() => {
+                              const link = n.cta_link || '';
+                              if (link.startsWith('/')) {
+                                navigate(link);
+                              } else if (link) {
+                                window.open(link, '_blank', 'noopener,noreferrer');
+                              }
+                            }, 100);
                           }}
                           className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors"
                           style={{ backgroundColor: 'var(--color-accent)' }}
