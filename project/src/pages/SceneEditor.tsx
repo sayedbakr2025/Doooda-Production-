@@ -77,6 +77,7 @@ export default function SceneEditor() {
   const [inlineComments, setInlineComments] = useState<InlineComment[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   const [pendingSelection, setPendingSelection] = useState<{ start: number; end: number; text: string } | null>(null);
+  const pendingSelectionRef = useRef<{ start: number; end: number; text: string } | null>(null);
   const [savedSelectionRange, setSavedSelectionRange] = useState<{ start: number; end: number; text: string } | null>(null);
   const [lockDismissed, setLockDismissed] = useState(false);
 
@@ -146,6 +147,14 @@ export default function SceneEditor() {
     language,
     onContentChange: (html) => setContent(html),
   });
+
+  useEffect(() => {
+    if (showComments && commentTab === 'inline' && pendingSelectionRef.current) {
+      setPendingSelection(pendingSelectionRef.current);
+      pendingSelectionRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showComments, commentTab]);
 
   useEffect(() => {
     setTextDirection(language === 'ar' ? 'rtl' : 'ltr');
@@ -933,15 +942,13 @@ useEffect(() => {
           onClick: () => {
             const selRange = savedSelectionRange;
             if (selRange) {
-              setContextMenu(null);
+              pendingSelectionRef.current = selRange;
+              setShowComments(true);
               setTimeout(() => {
-                setShowComments(true);
-                setTimeout(() => {
-                  setCommentTab('inline');
-                  setPendingSelection(selRange);
-                }, 50);
+                setCommentTab('inline');
               }, 50);
             }
+            setContextMenu(null);
           },
         });
       }
