@@ -285,6 +285,7 @@ export interface Comment {
   deleted_at: string | null;
   user_display_name?: string;
   replies?: Comment[];
+  user?: { id: string; pen_name?: string; first_name?: string; email?: string };
 }
 
 export interface InlineComment {
@@ -303,6 +304,7 @@ export interface InlineComment {
   author_email?: string;
   reply_count?: number;
   replies?: InlineCommentReply[];
+  user?: { id: string; pen_name?: string; first_name?: string; email?: string };
 }
 
 export interface InlineCommentReply {

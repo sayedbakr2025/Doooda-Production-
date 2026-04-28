@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   getNotifications,
@@ -24,7 +23,6 @@ interface Props {
 export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
   const { language } = useLanguage();
   const isRtl = language === 'ar';
-  const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);

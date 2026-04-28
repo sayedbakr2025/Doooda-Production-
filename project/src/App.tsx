@@ -18,7 +18,6 @@ import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
-import ProjectWorkspace from './pages/ProjectWorkspace';
 import LoglineEditor from './pages/LoglineEditor';
 import PlotEditor from './pages/PlotEditor';
 import ChapterView from './pages/ChapterView';
