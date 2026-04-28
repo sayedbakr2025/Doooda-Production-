@@ -347,8 +347,17 @@ onContentChange: (html) => setContent(html),
       .forEach(comment => {
         try {
           const editorText = editor.textContent || '';
+          const anchorLen = comment.anchor_end! - comment.anchor_start!;
+          
           if (comment.anchor_end! > editorText.length) {
             console.log('[InlineComment] Text was deleted, skipping highlight for:', comment.id);
+            return;
+          }
+          
+          const currentTextAtAnchor = editorText.slice(comment.anchor_start!, comment.anchor_end!);
+          const originalText = comment.selected_text || '';
+          if (currentTextAtAnchor.toLowerCase() !== originalText.toLowerCase()) {
+            console.log('[InlineComment] Text changed, expected:', originalText, 'got:', currentTextAtAnchor);
             return;
           }
           
@@ -432,6 +441,12 @@ useEffect(() => {
     
     const editorText = editor.textContent || '';
     if (comment.anchor_end > editorText.length) {
+      return;
+    }
+    
+    const currentTextAtAnchor = editorText.slice(comment.anchor_start, comment.anchor_end);
+    const originalText = comment.selected_text || '';
+    if (currentTextAtAnchor.toLowerCase() !== originalText.toLowerCase()) {
       return;
     }
     
