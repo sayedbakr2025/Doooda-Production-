@@ -939,22 +939,9 @@ useEffect(() => {
         options.push({
           label: language === 'ar' ? 'إضافة تعليق' : 'Add Comment',
           onClick: () => {
-            const selection = window.getSelection();
-            const text = selection?.toString() || '';
-            let selRange: { start: number; end: number; text: string } | null = null;
-            if (text.length > 0 && selection && selection.rangeCount > 0 && editorRef.current) {
-              try {
-                const range = selection.getRangeAt(0);
-                const preRange = document.createRange();
-                preRange.selectNodeContents(editorRef.current);
-                preRange.setEnd(range.startContainer, range.startOffset);
-                const start = preRange.toString().length;
-                const end = start + text.length;
-                selRange = { start, end, text };
-              } catch {}
-            }
+            const selRange = savedSelectionRange;
             if (selRange) {
-              setPendingSelection(selRange);
+              setPendingSelection({ ...selRange });
               setShowComments(true);
               setCommentTab('inline');
             }
