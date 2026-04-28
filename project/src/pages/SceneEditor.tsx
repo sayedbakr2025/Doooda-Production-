@@ -77,7 +77,6 @@ export default function SceneEditor() {
   const [inlineComments, setInlineComments] = useState<InlineComment[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   const [pendingSelection, setPendingSelection] = useState<{ start: number; end: number; text: string } | null>(null);
-  const pendingSelectionRef = useRef<{ start: number; end: number; text: string } | null>(null);
   const [savedSelectionRange, setSavedSelectionRange] = useState<{ start: number; end: number; text: string } | null>(null);
   const [lockDismissed, setLockDismissed] = useState(false);
 
@@ -156,7 +155,7 @@ export default function SceneEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showComments, commentTab]);
 
-  useEffect(() => {
+useEffect(() => {
     setTextDirection(language === 'ar' ? 'rtl' : 'ltr');
     setTextAlign(language === 'ar' ? 'right' : 'left');
   }, [language]);
@@ -940,13 +939,24 @@ useEffect(() => {
         options.push({
           label: language === 'ar' ? 'إضافة تعليق' : 'Add Comment',
           onClick: () => {
-            const selRange = savedSelectionRange;
+            const selection = window.getSelection();
+            const text = selection?.toString() || '';
+            let selRange: { start: number; end: number; text: string } | null = null;
+            if (text.length > 0 && selection && selection.rangeCount > 0 && editorRef.current) {
+              try {
+                const range = selection.getRangeAt(0);
+                const preRange = document.createRange();
+                preRange.selectNodeContents(editorRef.current);
+                preRange.setEnd(range.startContainer, range.startOffset);
+                const start = preRange.toString().length;
+                const end = start + text.length;
+                selRange = { start, end, text };
+              } catch {}
+            }
             if (selRange) {
-              pendingSelectionRef.current = selRange;
+              setPendingSelection(selRange);
               setShowComments(true);
-              setTimeout(() => {
-                setCommentTab('inline');
-              }, 50);
+              setCommentTab('inline');
             }
             setContextMenu(null);
           },
