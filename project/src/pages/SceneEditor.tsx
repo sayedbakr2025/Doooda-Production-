@@ -221,7 +221,7 @@ onContentChange: (html) => setContent(html),
       }
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [searchParams, sceneId, location.pathname]);
+  }, [searchParams, sceneId]);
 
   async function loadInlineComments() {
     if (!sceneId) return;
