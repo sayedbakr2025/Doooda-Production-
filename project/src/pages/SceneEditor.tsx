@@ -1759,6 +1759,8 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   projectId={projectId}
                   sceneId={sceneId}
                   isOwner={isOwner}
+                  highlightedCommentId={commentType === 'general' ? highlightedCommentId : null}
+                  onHighlightDone={() => setHighlightedCommentId(null)}
                 />
               )}
             </div>

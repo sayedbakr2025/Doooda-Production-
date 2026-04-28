@@ -9,6 +9,8 @@ interface Props {
   projectId: string;
   sceneId: string;
   isOwner: boolean;
+  highlightedCommentId?: string | null;
+  onHighlightDone?: () => void;
 }
 
 function formatRelTime(dateStr: string, isRtl: boolean): string {
@@ -31,16 +33,7 @@ function formatRelTime(dateStr: string, isRtl: boolean): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function CommentBubble({
-  comment,
-  projectId,
-  sceneId,
-  isOwner,
-  currentUserId,
-  isRtl,
-  depth,
-  onRefresh,
-}: {
+interface CommentBubbleProps {
   comment: Comment;
   projectId: string;
   sceneId: string;
@@ -49,7 +42,10 @@ function CommentBubble({
   isRtl: boolean;
   depth: number;
   onRefresh: () => void;
-}) {
+  openReplies?: boolean;
+  onToggleReplies?: () => void;
+  commentRef?: (el: HTMLDivElement | null) => void;
+} {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -103,6 +99,9 @@ function CommentBubble({
       <div
         id={`comment-${comment.id}`}
         data-comment-id={comment.id}
+        ref={(el) => {
+          if (commentRef) commentRef(el);
+        }}
         className="rounded-xl p-3 mb-2"
         style={{
           backgroundColor: isResolved ? 'var(--color-muted)' : 'var(--color-surface)',
@@ -236,6 +235,7 @@ function CommentBubble({
               isRtl={isRtl}
               depth={depth + 1}
               onRefresh={onRefresh}
+              commentRef={(el) => { commentRefs.current[reply.id] = el; }}
             />
           ))}
         </div>
@@ -244,7 +244,7 @@ function CommentBubble({
   );
 }
 
-export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
+export default function SceneComments({ projectId, sceneId, isOwner, highlightedCommentId, onHighlightDone }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
   const isRtl = language === 'ar';
@@ -252,6 +252,10 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
+  const [openReplyIds, setOpenReplyIds] = useState<Set<string>>(new Set());
+  const commentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const highlightTimeout = useRef<NodeJS.Timeout>();
+  const prevHighlightRef = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showResolved, setShowResolved] = useState(false);
@@ -278,6 +282,64 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
   useEffect(() => {
     getProjectCollaborators(projectId).then(setCollaborators).catch(() => {});
   }, [projectId]);
+
+  useEffect(() => {
+    if (!highlightedCommentId || highlightedCommentId === prevHighlightRef.current) return;
+    prevHighlightRef.current = highlightedCommentId;
+    console.log('[SceneComments] Will highlight:', highlightedCommentId, 'openReplyIds:', openReplyIds);
+    
+    clearTimeout(highlightTimeout.current);
+    highlightTimeout.current = setTimeout(() => {
+      const findAndHighlight = (commentId: string, depth = 0): boolean => {
+        const comment = comments.find(c => c.id === commentId);
+        if (comment) {
+          if (comment.parent_id && depth === 0) {
+            setOpenReplyIds(prev => new Set([...prev, comment.parent_id!]));
+          }
+          const el = commentRefs.current[commentId];
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('mention-highlight');
+            setTimeout(() => {
+              el.classList.remove('mention-highlight');
+            }, 3000);
+          }
+          return true;
+        }
+        for (const c of comments) {
+          if (c.replies) {
+            for (const r of c.replies) {
+              if (r.id === commentId) {
+                setOpenReplyIds(prev => new Set([...prev, c.id]));
+                const el = commentRefs.current[commentId];
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  el.classList.add('mention-highlight');
+                  setTimeout(() => {
+                    el.classList.remove('mention-highlight');
+                  }, 3000);
+                }
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+      
+      if (findAndHighlight(highlightedCommentId)) {
+        console.log('[SceneComments] Highlighted:', highlightedCommentId);
+        setTimeout(() => {
+          onHighlightDone?.();
+        }, 500);
+      } else {
+        console.log('[SceneComments] Comment not found for highlight:', highlightedCommentId);
+        onHighlightDone?.();
+      }
+    }, 300);
+    
+    return () => clearTimeout(highlightTimeout.current);
+  }, [highlightedCommentId, comments, openReplyIds]);
 
   const handleAdd = async () => {
     if (!newComment.trim()) return;
@@ -397,6 +459,7 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
               isRtl={isRtl}
               depth={0}
               onRefresh={load}
+              commentRef={(el) => { commentRefs.current[c.id] = el; }}
             />
           ))
         )}
