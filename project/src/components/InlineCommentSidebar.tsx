@@ -15,6 +15,7 @@ interface InlineCommentSidebarProps {
   pendingSelection?: { start: number; end: number; text: string } | null;
   onClearPending?: () => void;
   onCommentsChanged?: () => void;
+  editorText?: string;
 }
 
 export default function InlineCommentSidebar({
@@ -27,6 +28,7 @@ export default function InlineCommentSidebar({
   pendingSelection,
   onClearPending,
   onCommentsChanged,
+  editorText,
 }: InlineCommentSidebarProps) {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
@@ -45,6 +47,13 @@ export default function InlineCommentSidebar({
   const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const canComment = true;
+
+  const isTextDeleted = (comment: InlineComment): boolean => {
+    if (!editorText || comment.anchor_start == null || comment.anchor_end == null) return false;
+    if (comment.anchor_end > editorText.length) return true;
+    const textAtAnchor = editorText.slice(comment.anchor_start, comment.anchor_end);
+    return textAtAnchor.toLowerCase() !== (comment.selected_text || '').toLowerCase();
+  };
 
   const loadComments = useCallback(async () => {
     try {
@@ -242,15 +251,24 @@ export default function InlineCommentSidebar({
                   backgroundColor: isHighlighted ? 'rgba(255, 230, 150, 0.15)' : 'var(--color-surface-hover)',
                   border: isHighlighted ? '1.5px solid rgba(255, 200, 50, 0.5)' : '1px solid var(--color-border)',
                 }}
-                onMouseEnter={() => onHoverComment?.(comment.id)}
+                onMouseEnter={() => !isTextDeleted(comment) && onHoverComment?.(comment.id)}
                 onMouseLeave={() => onHoverComment?.(null)}
               >
-                {comment.selected_text && (
+                {comment.selected_text && !isTextDeleted(comment) && (
                   <div
                     className="mb-1.5 px-2 py-1 rounded text-xs italic"
                     style={{ backgroundColor: 'rgba(255, 230, 150, 0.2)', color: 'var(--color-text-secondary)' }}
                   >
                     "{comment.selected_text.length > 80 ? comment.selected_text.slice(0, 80) + '…' : comment.selected_text}"
+                  </div>
+                )}
+                
+                {comment.selected_text && isTextDeleted(comment) && (
+                  <div
+                    className="mb-1.5 px-2 py-1 rounded text-xs"
+                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-error)' }}
+                  >
+                    {isRTL ? '📝 النص المعلق عليه تم حذفه' : '📝 Text was deleted'}
                   </div>
                 )}
 

@@ -347,7 +347,6 @@ onContentChange: (html) => setContent(html),
       .forEach(comment => {
         try {
           const editorText = editor.textContent || '';
-          const anchorLen = comment.anchor_end! - comment.anchor_start!;
           
           if (comment.anchor_end! > editorText.length) {
             console.log('[InlineComment] Text was deleted, skipping highlight for:', comment.id);
@@ -1777,6 +1776,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   pendingSelection={pendingSelection}
                   onClearPending={() => setPendingSelection(null)}
                   onCommentsChanged={loadInlineComments}
+                  editorText={content}
                 />
               )}
               {commentTab === 'general' && (
