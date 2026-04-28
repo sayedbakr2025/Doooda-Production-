@@ -231,7 +231,7 @@ onContentChange: (html) => setContent(html),
         console.log('[Comment] Element not found for:', commentId);
       }
       setHighlightedCommentId(null);
-    }, 500);
+    }, 800);
   }, [highlightedCommentId, inlineComments, searchParams]);
 
   async function loadInlineComments() {

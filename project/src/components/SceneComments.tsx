@@ -256,7 +256,7 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-expect-error unused state kept for future feature
   const [openReplyIds] = useState<Set<string>>(new Set());
   const highlightTimeout = useRef<NodeJS.Timeout>();
   const prevHighlightRef = useRef<string | null>(null);
@@ -290,25 +290,39 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
   useEffect(() => {
     if (!highlightedCommentId) return;
     
-    console.log('[SceneComments] Will highlight:', highlightedCommentId);
+    console.log('[SceneComments] Will highlight:', highlightedCommentId, 'loading:', loading);
     
     clearTimeout(highlightTimeout.current);
     highlightTimeout.current = setTimeout(() => {
-      const el = document.getElementById(`comment-${highlightedCommentId}`);
+      if (loading) {
+        console.log('[SceneComments] Still loading, retrying in 200ms...');
+        highlightTimeout.current = setTimeout(() => {
+          doHighlight(highlightedCommentId);
+        }, 200);
+        return;
+      }
+      doHighlight(highlightedCommentId);
+    }, 500);
+    
+    function doHighlight(commentId: string) {
+      console.log('[SceneComments] Looking for element:', commentId);
+      const el = document.getElementById(`comment-${commentId}`);
       if (el) {
+        console.log('[SceneComments] Found! Scrolling...');
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('mention-highlight');
         setTimeout(() => {
           el.classList.remove('mention-highlight');
+          console.log('[SceneComments] Highlight done');
         }, 3000);
       } else {
-        console.log('[SceneComments] Not found:', highlightedCommentId);
+        console.log('[SceneComments] Not found:', commentId);
       }
-      prevHighlightRef.current = highlightedCommentId;
-    }, 500);
+      prevHighlightRef.current = commentId;
+    }
     
     return () => clearTimeout(highlightTimeout.current);
-  }, [highlightedCommentId]);
+  }, [highlightedCommentId, loading]);
 
   const handleAdd = async () => {
     if (!newComment.trim()) return;
