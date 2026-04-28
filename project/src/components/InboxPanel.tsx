@@ -546,27 +546,21 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                       )}
 
                       {n.cta_label && n.cta_link && (
-                        <span
-                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-colors cursor-pointer"
-                          style={{ backgroundColor: 'var(--color-accent)' }}
+                        <a
+                          href={n.cta_link}
+                          className="inline-block mt-2 px-3 py-1 rounded-lg text-xs font-semibold text-white cursor-pointer"
+                          style={{ 
+                            backgroundColor: 'var(--color-accent)',
+                            color: 'white',
+                            textDecoration: 'none'
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                          }}
                         >
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log('CTA span click, n.type:', n.type, 'n.cta_link:', n.cta_link);
-                              if (n.cta_link) {
-                                onClose();
-                                setTimeout(() => {
-                                  console.log('Calling navigate to:', n.cta_link);
-                                  navigate(n.cta_link);
-                                }, 50);
-                              }
-                            }}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {displayCtaLabel(n)}
-                          </span>
-                        </span>
+                          {displayCtaLabel(n)}
+                        </a>
                       )}
                     </div>
                   </div>
