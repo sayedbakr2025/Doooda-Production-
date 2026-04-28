@@ -124,6 +124,9 @@ export default function InlineCommentSidebar({
     }
     setShowMentions(null);
     setMentionFilter('');
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
   }
 
   async function handleAddComment() {
