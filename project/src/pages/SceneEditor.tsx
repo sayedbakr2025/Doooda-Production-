@@ -931,29 +931,16 @@ useEffect(() => {
         options.push({
           label: language === 'ar' ? 'إضافة تعليق' : 'Add Comment',
           onClick: () => {
-            const selection = window.getSelection();
-            const nowSelectedText = selection?.toString() || '';
-            let selRange: { start: number; end: number; text: string } | null = null;
-            if (nowSelectedText.length > 0 && selection && selection.rangeCount > 0 && editorRef.current) {
-              try {
-                const range = selection.getRangeAt(0);
-                const preRange = document.createRange();
-                preRange.selectNodeContents(editorRef.current);
-                preRange.setEnd(range.startContainer, range.startOffset);
-                const start = preRange.toString().length;
-                const end = start + nowSelectedText.length;
-                selRange = { start, end, text: nowSelectedText };
-              } catch {}
-            }
+            const selRange = savedSelectionRange;
             if (selRange) {
               setContextMenu(null);
-              requestAnimationFrame(() => {
+              setTimeout(() => {
                 setShowComments(true);
-                requestAnimationFrame(() => {
+                setTimeout(() => {
                   setCommentTab('inline');
                   setPendingSelection(selRange);
-                });
-              });
+                }, 50);
+              }, 50);
             }
           },
         });
