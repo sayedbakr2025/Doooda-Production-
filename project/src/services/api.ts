@@ -1871,6 +1871,42 @@ export async function addComment(
     .single();
   if (error) throw error;
 
+  if (parentId) {
+    const { data: parentComment } = await supabase
+      .from('comments')
+      .select('*, user:users!inner(id, pen_name, first_name)')
+      .eq('id', parentId)
+      .single();
+
+    const { data: projectData } = await supabase
+      .from('projects')
+      .select('title')
+      .eq('id', projectId)
+      .single();
+
+    const { data: sceneData } = await supabase
+      .from('scenes')
+      .select('title')
+      .eq('id', sceneId)
+      .single();
+
+    const authorName = user.email?.split('@')[0] || 'Someone';
+
+    if (parentComment && parentComment.user_id !== user.id) {
+      const ctaLink = `/project/${projectId}/scene/${sceneId}?comments=true&comment_id=${parentId}&comment_type=general`;
+      await supabase.rpc('create_reply_notification', {
+        p_comment_id: parentId,
+        p_reply_author_id: user.id,
+        p_project_id: projectId,
+        p_scene_id: sceneId,
+        p_reply_author_name: authorName,
+        p_project_title: projectData?.title || '',
+        p_scene_title: sceneData?.title || '',
+        p_cta_link: ctaLink,
+      });
+    }
+  }
+
   if (content.includes('@')) {
     console.log('[Mention] Sending RPC for comment:', data.id, 'content:', content);
     const { error: rpcErr, data: rpcData } = await supabase.rpc('create_mention_notifications', {
@@ -2000,18 +2036,57 @@ export async function deleteInlineComment(commentId: string): Promise<void> {
 export async function addInlineCommentReply(
   commentId: string,
   content: string
-): Promise<void> {
+): Promise<{ comment: any; parentComment: any }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error } = await supabase
+  const { data: reply, error } = await supabase
     .from('inline_comment_replies')
     .insert({
       comment_id: commentId,
       user_id: user.id,
       content,
-    });
+    })
+    .select()
+    .single();
   if (error) throw error;
+
+  const { data: parentComment } = await supabase
+    .from('inline_comments')
+    .select('*, user:users!inner(id, pen_name, first_name)')
+    .eq('id', commentId)
+    .single();
+
+  const { data: projectData } = await supabase
+    .from('projects')
+    .select('title')
+    .eq('id', parentComment?.project_id)
+    .single();
+
+  const { data: sceneData } = await supabase
+    .from('scenes')
+    .select('title')
+    .eq('id', parentComment?.scene_id)
+    .single();
+
+  const userResponse = await supabase.auth.getUser();
+  const authorName = userResponse.data.user?.email?.split('@')[0] || 'Someone';
+
+  if (parentComment && parentComment.user_id !== user.id) {
+    const ctaLink = `/project/${parentComment.project_id}/scene/${parentComment.scene_id}?comments=true&comment_id=${commentId}&comment_type=inline`;
+    await supabase.rpc('create_reply_notification', {
+      p_comment_id: commentId,
+      p_reply_author_id: user.id,
+      p_project_id: parentComment.project_id,
+      p_scene_id: parentComment.scene_id,
+      p_reply_author_name: authorName,
+      p_project_title: projectData?.title || '',
+      p_scene_title: sceneData?.title || '',
+      p_cta_link: ctaLink,
+    });
+  }
+
+  return { comment: reply, parentComment };
 }
 
 export async function getInlineCommentReplies(commentId: string): Promise<InlineCommentReply[]> {
