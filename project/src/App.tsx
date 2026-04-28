@@ -4,8 +4,8 @@ if (import.meta.env.DEV) {
   (window as any).supabase = supabase;
 }
 
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -122,7 +122,7 @@ function AppContent() {
           <Route path="/community/topic/:id" element={<CommunityTopic />} />
           <Route path="/competitions" element={<Competitions />} />
           <Route path="/inbox" element={<NotificationsPage />} />
-          <Route path="/projects/:id" element={<ProjectWorkspace />} />
+          <Route path="/project/:projectId/scene/:sceneId" element={<ProjectSceneRedirect />} />
           <Route path="/projects/:projectId/plot" element={<PlotEditor />} />
           <Route path="/projects/:projectId/logline" element={<LoglineEditor />} />
           <Route path="/projects/:projectId/chapters/:chapterId" element={<ChapterView />} />
@@ -158,3 +158,30 @@ function App() {
 }
 
 export default App;
+
+function ProjectSceneRedirect() {
+  const { projectId, sceneId } = useParams<{ projectId: string; sceneId: string }>();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId || !sceneId) return;
+    async function findChapterAndRedirect() {
+      const { data: scene, error: sceneError } = await supabase
+        .from('scenes')
+        .select('chapter_id')
+        .eq('id', sceneId)
+        .single();
+      if (sceneError || !scene?.chapter_id) {
+        setError('Scene not found');
+        return;
+      }
+      const url = window.location.search;
+      navigate(`/projects/${projectId}/chapters/${scene.chapter_id}/scenes/${sceneId}${url}`, { replace: true });
+    }
+    findChapterAndRedirect();
+  }, [projectId, sceneId, navigate]);
+
+  if (error) return <div className="p-8 text-center text-[var(--color-error)]">{error}</div>;
+  return <div className="p-8 text-center">[Loading...]</div>;
+}
