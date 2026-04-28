@@ -887,6 +887,75 @@ useEffect(() => {
       });
     }
 
+    if (selectedText.length > 0 && dooodaAccess.visible) {
+      options.push({
+        label: language === 'ar' ? 'اسأل دووودة' : 'Ask doooda',
+        onClick: async () => {
+          const detectedCharacter = detectCharacterInSelection();
+          let characterContext = undefined;
+
+          if (detectedCharacter && detectedCharacter.characterId) {
+            try {
+              const { data: characterData, error } = await supabase
+                .from('project_characters')
+                .select('*')
+                .eq('id', detectedCharacter.characterId)
+                .maybeSingle();
+
+              if (!error && characterData) {
+                const dialogueMatch = selectedText.match(/^([^:\n]+):\s*(.+)/s);
+                const dialogueName = dialogueMatch ? dialogueMatch[1].trim() : characterData.dialogue_name;
+                const dialogueText = dialogueMatch ? dialogueMatch[2].trim() : selectedText.trim();
+
+                characterContext = {
+                  character: {
+                    id: characterData.id,
+                    name: characterData.name,
+                    dialogue_name: characterData.dialogue_name,
+                    description: characterData.description || undefined,
+                    personality_traits: characterData.personality_traits || undefined,
+                    background: characterData.background || undefined,
+                    speaking_style: characterData.speaking_style || undefined,
+                    speech_style: characterData.speech_style || undefined,
+                    dialect: characterData.dialect || undefined,
+                    goals: characterData.goals || undefined,
+                    fears: characterData.fears || undefined,
+                  },
+                  dialogue: {
+                    dialogueName: dialogueName,
+                    dialogueText: dialogueText,
+                    fullText: selectedText.trim(),
+                  },
+                };
+              }
+            } catch (err) {
+              console.error('Failed to fetch character data:', err);
+            }
+          }
+
+          dispatchAskDoooda(selectedText, {
+            level: 'selected_text',
+            scene: scene ? { title: scene.title, content, summary: scene.summary } : undefined,
+            projectTitle: undefined,
+            projectId: projectId,
+            characterContext,
+          });
+        },
+      });
+    }
+
+    if (!selectedText.includes('\n') && selectedText.length > 0) {
+      options.push({
+        label: language === 'ar' ? 'تحويل إلى مشهد' : 'Convert to Scene',
+        onClick: () => {
+          setNewSceneTitle(selectedText.slice(0, 60));
+          setNewSceneSummary(selectedText);
+          setConvertToSceneModal(true);
+          setContextMenu(null);
+        },
+      });
+    }
+
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
