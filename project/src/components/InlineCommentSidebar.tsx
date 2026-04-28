@@ -49,10 +49,12 @@ export default function InlineCommentSidebar({
   const canComment = true;
 
   const isTextDeleted = (comment: InlineComment): boolean => {
+    const originalText = comment.selected_text;
+    if (!originalText || typeof originalText !== 'string' || originalText.length === 0) return false;
     if (!editorText || comment.anchor_start == null || comment.anchor_end == null) return false;
-    if (comment.anchor_end > editorText.length) return true;
+    if (comment.anchor_start < 0 || comment.anchor_end <= comment.anchor_start) return false;
     const textAtAnchor = editorText.slice(comment.anchor_start, comment.anchor_end);
-    return textAtAnchor.toLowerCase() !== (comment.selected_text || '').toLowerCase();
+    return textAtAnchor.toLowerCase() !== originalText.toLowerCase();
   };
 
   const loadComments = useCallback(async () => {
