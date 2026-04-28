@@ -346,6 +346,12 @@ onContentChange: (html) => setContent(html),
       .filter(c => c.status === 'open' && c.anchor_start != null && c.anchor_end != null)
       .forEach(comment => {
         try {
+          const editorText = editor.textContent || '';
+          if (comment.anchor_end! > editorText.length) {
+            console.log('[InlineComment] Text was deleted, skipping highlight for:', comment.id);
+            return;
+          }
+          
           const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
           let currentOffset = 0;
           let startNode: Text | null = null;
@@ -423,6 +429,11 @@ useEffect(() => {
     
     // Only show highlight if comment has selected_text (i.e., was created on a text selection)
     if (!comment || !comment.selected_text || comment.anchor_start == null || comment.anchor_end == null) return;
+    
+    const editorText = editor.textContent || '';
+    if (comment.anchor_end > editorText.length) {
+      return;
+    }
     
     // Find the text in editor using anchor offsets and highlight it
     try {
