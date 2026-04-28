@@ -248,7 +248,7 @@ function CommentBubble({
   );
 }
 
-export default function SceneComments({ projectId, sceneId, isOwner, highlightedCommentId, onHighlightDone }: Props) {
+export default function SceneComments({ projectId, sceneId, isOwner, highlightedCommentId /* onHighlightDone */ }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
   const isRtl = language === 'ar';
@@ -256,6 +256,7 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [openReplyIds] = useState<Set<string>>(new Set());
   const highlightTimeout = useRef<NodeJS.Timeout>();
   const prevHighlightRef = useRef<string | null>(null);
@@ -287,9 +288,9 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
   }, [projectId]);
 
   useEffect(() => {
-    if (!highlightedCommentId || highlightedCommentId === prevHighlightRef.current) return;
-    prevHighlightRef.current = highlightedCommentId;
-    console.log('[SceneComments] Will highlight:', highlightedCommentId, 'openReplyIds:', openReplyIds);
+    if (!highlightedCommentId) return;
+    
+    console.log('[SceneComments] Will highlight:', highlightedCommentId);
     
     clearTimeout(highlightTimeout.current);
     highlightTimeout.current = setTimeout(() => {
@@ -300,17 +301,14 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
         setTimeout(() => {
           el.classList.remove('mention-highlight');
         }, 3000);
-        setTimeout(() => {
-          onHighlightDone?.();
-        }, 500);
       } else {
         console.log('[SceneComments] Not found:', highlightedCommentId);
-        onHighlightDone?.();
       }
-    }, 300);
+      prevHighlightRef.current = highlightedCommentId;
+    }, 500);
     
     return () => clearTimeout(highlightTimeout.current);
-  }, [highlightedCommentId, comments, openReplyIds]);
+  }, [highlightedCommentId]);
 
   const handleAdd = async () => {
     if (!newComment.trim()) return;

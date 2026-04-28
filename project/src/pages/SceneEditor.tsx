@@ -195,10 +195,9 @@ onContentChange: (html) => setContent(html),
 
   useEffect(() => {
     if (!highlightedCommentId) return;
-    if (inlineComments.length === 0) return;
     
     const commentType = searchParams.get('comment_type');
-    console.log('[Comment] Processing highlight for:', highlightedCommentId, 'inlineComments count:', inlineComments.length);
+    console.log('[Comment] Processing highlight for:', highlightedCommentId, 'type:', commentType);
     
     setTimeout(() => {
       const commentId = highlightedCommentId;
