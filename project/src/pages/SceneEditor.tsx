@@ -934,9 +934,11 @@ useEffect(() => {
             const selRange = savedSelectionRange;
             if (selRange) {
               setContextMenu(null);
-              setPendingSelection(selRange);
-              setShowComments(true);
-              setCommentTab('inline');
+              setTimeout(() => {
+                setPendingSelection(selRange);
+                setShowComments(true);
+                setCommentTab('inline');
+              }, 0);
             }
           },
         });
