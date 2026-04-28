@@ -50,27 +50,34 @@ export default function InlineCommentSidebar({
 
   const isTextDeleted = (comment: InlineComment): boolean => {
     const originalText = comment.selected_text;
-    if (!originalText || typeof originalText !== 'string' || originalText.length === 0) {
+    if (!originalText || typeof originalText !== 'string' || originalText.length < 2) {
       return false;
     }
+    
+    const commentTime = new Date(comment.created_at).getTime();
+    const now = Date.now();
+    if (now - commentTime < 3000) {
+      return false;
+    }
+    
     if (!editorText || comment.anchor_start == null || comment.anchor_end == null) {
       return false;
     }
     if (comment.anchor_start < 0 || comment.anchor_end <= comment.anchor_start) {
       return false;
     }
-    const textAtAnchor = editorText.slice(comment.anchor_start, comment.anchor_end);
-    const deleted = textAtAnchor.toLowerCase() !== originalText.toLowerCase();
-    if (deleted) {
-      console.log('[InlineComment] Text deleted check:', {
-        commentId: comment.id,
-        originalText,
-        textAtAnchor,
-        anchorStart: comment.anchor_start,
-        anchorEnd: comment.anchor_end,
-        editorLen: editorText.length
-      });
+    if (comment.anchor_end > editorText.length + 50) {
+      return false;
     }
+    
+    const textAtAnchor = editorText.slice(comment.anchor_start, comment.anchor_end);
+    const anchorLen = comment.anchor_end - comment.anchor_start;
+    const originalLen = originalText.length;
+    if (Math.abs(anchorLen - originalLen) > 10) {
+      return false;
+    }
+    
+    const deleted = textAtAnchor.toLowerCase() !== originalText.toLowerCase();
     return deleted;
   };
 
