@@ -358,7 +358,7 @@ export default function InlineCommentSidebar({
               value={newComment}
               onChange={e => handleTextareaInput(e)}
               onKeyDown={e => handleKeyDown(e)}
-              placeholder={isRTL ? 'اكتب تعليقًا… (اضغط Enter للإرسال)' : 'Write a comment… (Enter to send)'}
+              placeholder={isRTL ? 'أضف تعليقًا... (اضغط @ للإشارة)' : 'Add a comment... (press @ to mention)'}
               className="w-full px-2 py-1.5 rounded-lg text-xs resize-none"
               style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
               rows={3}

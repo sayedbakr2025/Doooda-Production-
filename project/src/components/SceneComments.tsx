@@ -397,7 +397,7 @@ export default function SceneComments({ projectId, sceneId, isOwner }: Props) {
           value={newComment}
           onChange={handleTextareaInput}
           rows={3}
-          placeholder={isRtl ? 'أضف تعليقاً... (اضغط @ للإشارة)' : 'Add a comment... (press @ to mention)'}
+          placeholder={isRtl ? 'أضف تعليقًا... (اضغط @ للإشارة)' : 'Add a comment... (press @ to mention)'}
           dir={isRtl ? 'rtl' : 'ltr'}
           className="w-full text-sm resize-none rounded-lg px-3 py-2.5 outline-none mb-2"
           style={{
