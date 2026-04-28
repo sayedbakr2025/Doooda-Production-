@@ -15,7 +15,7 @@ interface InlineCommentSidebarProps {
   pendingSelection?: { start: number; end: number; text: string } | null;
   onClearPending?: () => void;
   onCommentsChanged?: () => void;
-  editorText?: string;
+  getEditorText?: () => string;
 }
 
 export default function InlineCommentSidebar({
@@ -28,7 +28,7 @@ export default function InlineCommentSidebar({
   pendingSelection,
   onClearPending,
   onCommentsChanged,
-  editorText,
+  getEditorText,
 }: InlineCommentSidebarProps) {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
@@ -60,6 +60,7 @@ export default function InlineCommentSidebar({
       return false;
     }
     
+    const editorText = getEditorText ? getEditorText() : '';
     if (!editorText || comment.anchor_start == null || comment.anchor_end == null) {
       return false;
     }

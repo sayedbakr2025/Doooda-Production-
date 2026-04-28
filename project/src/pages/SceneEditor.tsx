@@ -1776,7 +1776,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   pendingSelection={pendingSelection}
                   onClearPending={() => setPendingSelection(null)}
                   onCommentsChanged={loadInlineComments}
-                  editorText={content}
+                  getEditorText={() => editorRef.current?.textContent || ''}
                 />
               )}
               {commentTab === 'general' && (
