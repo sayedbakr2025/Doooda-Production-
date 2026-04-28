@@ -1878,11 +1878,23 @@ export async function addComment(
   if (error) throw error;
 
   if (parentId) {
-    const { data: parentComment } = await supabase
+    const { data: parentComment, error: parentErr } = await supabase
       .from('comments')
-      .select('*, user:users!inner(id, pen_name, first_name)')
+      .select('*')
       .eq('id', parentId)
       .single();
+
+    if (parentErr || !parentComment) {
+      return data as Comment;
+    }
+
+    const { data: parentUser } = await supabase
+      .from('users')
+      .select('id, pen_name, first_name, email')
+      .eq('id', parentComment.user_id)
+      .single();
+
+    parentComment.user = parentUser || null;
 
     const { data: projectData } = await supabase
       .from('projects')

@@ -138,7 +138,7 @@ function CommentBubble({
                   if (!replying) {
                     const user = comment.user as { pen_name?: string; first_name?: string; email?: string } | undefined;
                     const authorName = user?.pen_name || user?.first_name || user?.email?.split('@')[0] || 'user';
-                    setReplyText(`@[{authorName}] `);
+                    setReplyText('@[' + authorName + '] ');
                   }
                 }}
                 className="text-xs font-medium transition-colors"

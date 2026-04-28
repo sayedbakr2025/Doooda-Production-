@@ -170,7 +170,7 @@ export default function InlineCommentSidebar({
         if (authorPenName || authorFirstName) {
           setReplyTexts(prev => ({
             ...prev,
-            [commentId]: `@[${authorPenName || authorFirstName || 'user'}] `
+            [commentId]: '@[' + (authorPenName || authorFirstName || 'user') + '] '
           }));
         }
       } catch {}
