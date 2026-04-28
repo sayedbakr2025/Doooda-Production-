@@ -505,6 +505,16 @@ useEffect(() => {
         node: range.startContainer,
         offset: range.startOffset,
       };
+      if (selection.toString().length > 0 && editorRef.current) {
+        try {
+          const preRange = document.createRange();
+          preRange.selectNodeContents(editorRef.current);
+          preRange.setEnd(range.startContainer, range.startOffset);
+          const start = preRange.toString().length;
+          const end = start + selection.toString().length;
+          setSavedSelectionRange({ start, end, text: selection.toString() });
+        } catch {}
+      }
     }
   };
 
@@ -1636,6 +1646,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
             contentEditable
             onInput={handleInput}
             onKeyDown={handleEditorKeyDown}
+            onMouseUp={saveCursorPosition}
             onContextMenu={handleContextMenu}
             onCopy={(e) => { if (isFree) e.preventDefault(); }}
             onCut={(e) => { if (isFree) e.preventDefault(); }}
