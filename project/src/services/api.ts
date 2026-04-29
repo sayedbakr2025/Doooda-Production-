@@ -279,7 +279,10 @@ export async function updateUserPlan(userId: string, updates: {
 }) {
   const { error } = await supabase
     .from('users')
-    .update(updates)
+    .update({ 
+      ...updates,
+      plan_code: updates.plan || undefined
+    })
     .eq('id', userId);
   if (error) throw error;
 }
