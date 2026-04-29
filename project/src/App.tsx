@@ -18,6 +18,7 @@ import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
+import ProjectWorkspace from './pages/ProjectWorkspace';
 import LoglineEditor from './pages/LoglineEditor';
 import PlotEditor from './pages/PlotEditor';
 import ChapterView from './pages/ChapterView';
@@ -121,6 +122,7 @@ function AppContent() {
           <Route path="/community/topic/:id" element={<CommunityTopic />} />
           <Route path="/competitions" element={<Competitions />} />
           <Route path="/inbox" element={<NotificationsPage />} />
+          <Route path="/projects/:id" element={<ProjectWorkspace />} />
           <Route path="/project/:projectId/scene/:sceneId" element={<ProjectSceneRedirect />} />
           <Route path="/projects/:projectId/plot" element={<PlotEditor />} />
           <Route path="/projects/:projectId/logline" element={<LoglineEditor />} />
