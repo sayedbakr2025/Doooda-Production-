@@ -289,12 +289,16 @@ export default function InlineCommentSidebar({
                   }, 300);
                 }}
               >
-                {comment.selected_text && !isTextDeleted(comment) && (
+                {comment.selected_text && (
                   <div
                     className="mb-1.5 px-2 py-1 rounded text-xs italic"
-                    style={{ backgroundColor: 'rgba(255, 230, 150, 0.2)', color: 'var(--color-text-secondary)' }}
+                    style={{ 
+                      backgroundColor: isTextDeleted(comment) ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255, 230, 150, 0.2)', 
+                      color: isTextDeleted(comment) ? 'var(--color-error)' : 'var(--color-text-secondary)',
+                      textDecoration: isTextDeleted(comment) ? 'line-through' : 'none'
+                    }}
                   >
-                    "{comment.selected_text.length > 80 ? comment.selected_text.slice(0, 80) + '…' : comment.selected_text}"
+                    {comment.selected_text.length > 80 ? comment.selected_text.slice(0, 80) + '…' : comment.selected_text}
                   </div>
                 )}
                 
