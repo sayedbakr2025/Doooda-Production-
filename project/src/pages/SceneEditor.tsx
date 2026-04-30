@@ -403,29 +403,37 @@ onContentChange: (html) => setContent(html),
     const editor = editorRef.current;
     if (!editor) return;
     
-    let leaveTimer: NodeJS.Timeout | null = null;
+    let isOverEditor = false;
+    
+    function handleEditorMouseEnter() {
+      isOverEditor = true;
+    }
+    
+    function handleEditorMouseLeave() {
+      isOverEditor = false;
+      setHighlightedCommentId(null);
+    }
     
     function handleAnchorHover(e: MouseEvent) {
       const target = (e.target as HTMLElement).closest('.comment-anchor') as HTMLElement | null;
       if (target) {
         const id = target.getAttribute('data-comment-id');
-        if (id) {
-          if (leaveTimer) {
-            clearTimeout(leaveTimer);
-            leaveTimer = null;
-          }
-          setHighlightedCommentId(id);
-        }
-      } else if (e.type === 'mouseleave') {
-        leaveTimer = setTimeout(() => {
+        if (id) setHighlightedCommentId(id);
+      }
+      if (e.type === 'mouseout') {
+        const relatedTarget = e.relatedTarget as HTMLElement;
+        if (!relatedTarget || !editor.contains(relatedTarget)) {
           setHighlightedCommentId(null);
-        }, 300);
+        }
       }
     }
+    editor.addEventListener('mouseenter', handleEditorMouseEnter);
+    editor.addEventListener('mouseleave', handleEditorMouseLeave);
     editor.addEventListener('mouseover', handleAnchorHover);
     editor.addEventListener('mouseout', handleAnchorHover);
     return () => {
-      if (leaveTimer) clearTimeout(leaveTimer);
+      editor.removeEventListener('mouseenter', handleEditorMouseEnter);
+      editor.removeEventListener('mouseleave', handleEditorMouseLeave);
       editor.removeEventListener('mouseover', handleAnchorHover);
       editor.removeEventListener('mouseout', handleAnchorHover);
     };

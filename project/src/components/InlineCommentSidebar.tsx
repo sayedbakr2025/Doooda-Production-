@@ -286,7 +286,7 @@ export default function InlineCommentSidebar({
                 onMouseLeave={() => {
                   leaveTimeoutRef.current[comment.id] = setTimeout(() => {
                     onHoverComment?.(null);
-                  }, 300);
+                  }, 500);
                 }}
               >
                 {comment.selected_text && (
