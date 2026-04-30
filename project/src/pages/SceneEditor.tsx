@@ -407,18 +407,19 @@ onContentChange: (html) => setContent(html),
       setHighlightedCommentId(null);
     }
     
-    function handleAnchorHover(e: MouseEvent) {
+    function handleAnchorMouseOver(e: MouseEvent) {
       const target = (e.target as HTMLElement).closest('.comment-anchor') as HTMLElement | null;
       if (target) {
         const id = target.getAttribute('data-comment-id');
         if (id) setHighlightedCommentId(id);
       }
     }
+    
     editor.addEventListener('mouseleave', handleEditorMouseLeave);
-    editor.addEventListener('mouseover', handleAnchorHover);
+    editor.addEventListener('mouseover', handleAnchorMouseOver);
     return () => {
       editor.removeEventListener('mouseleave', handleEditorMouseLeave);
-      editor.removeEventListener('mouseover', handleAnchorHover);
+      editor.removeEventListener('mouseover', handleAnchorMouseOver);
     };
   }, []);
 

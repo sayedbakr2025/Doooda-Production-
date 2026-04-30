@@ -280,7 +280,6 @@ export default function InlineCommentSidebar({
                   border: isHighlighted ? '1.5px solid rgba(255, 200, 50, 0.5)' : '1px solid var(--color-border)',
                 }}
                 onMouseEnter={() => onHoverComment?.(comment.id)}
-                onMouseLeave={() => onHoverComment?.(null)}
               >
                 {comment.selected_text && (
                   <div
