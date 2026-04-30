@@ -402,18 +402,30 @@ onContentChange: (html) => setContent(html),
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
+    
+    let leaveTimer: NodeJS.Timeout | null = null;
+    
     function handleAnchorHover(e: MouseEvent) {
       const target = (e.target as HTMLElement).closest('.comment-anchor') as HTMLElement | null;
       if (target) {
         const id = target.getAttribute('data-comment-id');
-        if (id) setHighlightedCommentId(id);
+        if (id) {
+          if (leaveTimer) {
+            clearTimeout(leaveTimer);
+            leaveTimer = null;
+          }
+          setHighlightedCommentId(id);
+        }
       } else if (e.type === 'mouseleave') {
-        setHighlightedCommentId(null);
+        leaveTimer = setTimeout(() => {
+          setHighlightedCommentId(null);
+        }, 300);
       }
     }
     editor.addEventListener('mouseover', handleAnchorHover);
     editor.addEventListener('mouseout', handleAnchorHover);
     return () => {
+      if (leaveTimer) clearTimeout(leaveTimer);
       editor.removeEventListener('mouseover', handleAnchorHover);
       editor.removeEventListener('mouseout', handleAnchorHover);
     };
