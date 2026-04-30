@@ -279,15 +279,8 @@ export default function InlineCommentSidebar({
                   backgroundColor: isHighlighted ? 'rgba(255, 230, 150, 0.15)' : 'var(--color-surface-hover)',
                   border: isHighlighted ? '1.5px solid rgba(255, 200, 50, 0.5)' : '1px solid var(--color-border)',
                 }}
-                onMouseEnter={() => {
-                  clearTimeout(leaveTimeoutRef.current[comment.id]);
-                  onHoverComment?.(comment.id);
-                }}
-                onMouseLeave={() => {
-                  leaveTimeoutRef.current[comment.id] = setTimeout(() => {
-                    onHoverComment?.(null);
-                  }, 500);
-                }}
+                onMouseEnter={() => onHoverComment?.(comment.id)}
+                onMouseLeave={() => onHoverComment?.(null)}
               >
                 {comment.selected_text && (
                   <div

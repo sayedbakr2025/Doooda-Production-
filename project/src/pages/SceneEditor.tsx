@@ -403,14 +403,7 @@ onContentChange: (html) => setContent(html),
     const editor = editorRef.current;
     if (!editor) return;
     
-    let isOverEditor = false;
-    
-    function handleEditorMouseEnter() {
-      isOverEditor = true;
-    }
-    
     function handleEditorMouseLeave() {
-      isOverEditor = false;
       setHighlightedCommentId(null);
     }
     
@@ -420,22 +413,12 @@ onContentChange: (html) => setContent(html),
         const id = target.getAttribute('data-comment-id');
         if (id) setHighlightedCommentId(id);
       }
-      if (e.type === 'mouseout') {
-        const relatedTarget = e.relatedTarget as HTMLElement;
-        if (!relatedTarget || !editor.contains(relatedTarget)) {
-          setHighlightedCommentId(null);
-        }
-      }
     }
-    editor.addEventListener('mouseenter', handleEditorMouseEnter);
     editor.addEventListener('mouseleave', handleEditorMouseLeave);
     editor.addEventListener('mouseover', handleAnchorHover);
-    editor.addEventListener('mouseout', handleAnchorHover);
     return () => {
-      editor.removeEventListener('mouseenter', handleEditorMouseEnter);
       editor.removeEventListener('mouseleave', handleEditorMouseLeave);
       editor.removeEventListener('mouseover', handleAnchorHover);
-      editor.removeEventListener('mouseout', handleAnchorHover);
     };
   }, []);
 
