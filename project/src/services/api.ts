@@ -2111,7 +2111,7 @@ export async function addInlineCommentReply(
   const authorName = userResponse.data.user?.email?.split('@')[0] || 'Someone';
 
   if (parentComment && parentComment.user_id !== user.id) {
-    const ctaLink = `/project/${parentComment.project_id}/scene/${parentComment.scene_id}?comments=true&comment_id=${parentComment.id}&comment_type=inline`;
+    const ctaLink = `/project/${parentComment.project_id}/scene/${parentComment.scene_id}?comments=true&comment_id=${reply.id}&comment_type=inline&highlight_type=reply&parent_comment_id=${parentComment.id}`;
     const { error: inlineReplyErr } = await supabase.rpc('create_reply_notification', {
       p_comment_id: parentComment.id,
       p_reply_author_id: user.id,
@@ -2122,6 +2122,7 @@ export async function addInlineCommentReply(
       p_scene_title: sceneData?.title || '',
       p_cta_link: ctaLink,
       p_comment_type: 'inline',
+      p_reply_id: reply.id,
     });
     if (inlineReplyErr) {
       console.error('[Inline Reply] Notification error:', inlineReplyErr);
