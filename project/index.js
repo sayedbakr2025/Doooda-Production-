@@ -2,4 +2,4 @@
 
 console.log(`Hello Node.js v${process.versions.node}!`);
 // force update
-console.log("HELLO TEST");
+console.log("HELLO TEST2");
