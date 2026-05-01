@@ -293,34 +293,44 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
     
     console.log('[SceneComments] Will highlight:', highlightedCommentId, 'loading:', loading);
     
+    let retries = 0;
+    const maxRetries = 8;
+    
     clearTimeout(highlightTimeout.current);
-    highlightTimeout.current = setTimeout(() => {
+    
+    function tryHighlight() {
       if (loading) {
-        console.log('[SceneComments] Still loading, retrying in 200ms...');
-        highlightTimeout.current = setTimeout(() => {
-          doHighlight(highlightedCommentId);
-        }, 200);
+        if (retries < maxRetries) {
+          retries++;
+          console.log('[SceneComments] Still loading, retry:', retries);
+          highlightTimeout.current = setTimeout(tryHighlight, 300);
+        }
         return;
       }
-      doHighlight(highlightedCommentId);
-    }, 500);
-    
-    function doHighlight(commentId: string) {
-      console.log('[SceneComments] Looking for element:', commentId);
-      const el = document.getElementById(`comment-${commentId}`);
+      
+      const el = document.getElementById(`comment-${highlightedCommentId}`);
       if (el) {
         console.log('[SceneComments] Found! Scrolling...');
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('mention-highlight');
+        
+        // Ensure parent is visible
+        const parentComment = el.closest('[class*="rounded-xl"]');
+        if (parentComment) {
+          (parentComment as HTMLElement).style.opacity = '1';
+        }
+        
         setTimeout(() => {
           el.classList.remove('mention-highlight');
           console.log('[SceneComments] Highlight done');
-        }, 3000);
+        }, 4000);
       } else {
         console.log('[SceneComments] Not found:', commentId);
       }
-      prevHighlightRef.current = commentId;
+      prevHighlightRef.current = highlightedCommentId;
     }
+    
+    highlightTimeout.current = setTimeout(tryHighlight, 500);
     
     return () => clearTimeout(highlightTimeout.current);
   }, [highlightedCommentId, loading]);
@@ -330,23 +340,42 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
     
     console.log('[SceneComments] Will highlight parent:', parentCommentIdForHighlight, 'loading:', loading);
     
-    const parentTimeout = setTimeout(() => {
+    let retries = 0;
+    const maxRetries = 5;
+    
+    function tryHighlight() {
       if (loading) {
+        if (retries < maxRetries) {
+          retries++;
+          setTimeout(tryHighlight, 300);
+        }
         return;
       }
+      
       const el = document.getElementById(`comment-${parentCommentIdForHighlight}`);
       if (el) {
         console.log('[SceneComments] Found parent! Scrolling...');
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('mention-highlight-parent');
+        
+        // Make sure replies are visible by expanding the parent container
+        const parentContainer = el.closest('[class*="rounded"]');
+        if (parentContainer) {
+          parentContainer.classList.remove('opacity-50');
+        }
+        
         setTimeout(() => {
           el.classList.remove('mention-highlight-parent');
           onHighlightDone?.();
-        }, 3000);
+        }, 4000);
+      } else {
+        console.log('[SceneComments] Parent not found:', parentCommentIdForHighlight);
       }
-    }, 500);
+    }
     
-    return () => clearTimeout(parentTimeout);
+    setTimeout(tryHighlight, 500);
+    
+    return () => {};
   }, [parentCommentIdForHighlight, loading, onHighlightDone]);
 
   const handleAdd = async () => {
