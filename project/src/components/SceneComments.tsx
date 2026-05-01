@@ -10,6 +10,7 @@ interface Props {
   sceneId: string;
   isOwner: boolean;
   highlightedCommentId?: string | null;
+  parentCommentIdForHighlight?: string | null;
   onHighlightDone?: () => void;
 }
 
@@ -248,7 +249,7 @@ function CommentBubble({
   );
 }
 
-export default function SceneComments({ projectId, sceneId, isOwner, highlightedCommentId /* onHighlightDone */ }: Props) {
+export default function SceneComments({ projectId, sceneId, isOwner, highlightedCommentId, parentCommentIdForHighlight, onHighlightDone }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
   const isRtl = language === 'ar';
@@ -323,6 +324,30 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
     
     return () => clearTimeout(highlightTimeout.current);
   }, [highlightedCommentId, loading]);
+
+  useEffect(() => {
+    if (!parentCommentIdForHighlight) return;
+    
+    console.log('[SceneComments] Will highlight parent:', parentCommentIdForHighlight, 'loading:', loading);
+    
+    const parentTimeout = setTimeout(() => {
+      if (loading) {
+        return;
+      }
+      const el = document.getElementById(`comment-${parentCommentIdForHighlight}`);
+      if (el) {
+        console.log('[SceneComments] Found parent! Scrolling...');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('mention-highlight-parent');
+        setTimeout(() => {
+          el.classList.remove('mention-highlight-parent');
+          onHighlightDone?.();
+        }, 3000);
+      }
+    }, 500);
+    
+    return () => clearTimeout(parentTimeout);
+  }, [parentCommentIdForHighlight, loading, onHighlightDone]);
 
   const handleAdd = async () => {
     if (!newComment.trim()) return;

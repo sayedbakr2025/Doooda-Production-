@@ -1,4 +1,4 @@
--- Fix create_reply_notification to use comment_type parameter and add reply_id
+-- Add reply_id to create_reply_notification function
 CREATE OR REPLACE FUNCTION public.create_reply_notification(
   p_comment_id uuid,
   p_reply_author_id uuid,

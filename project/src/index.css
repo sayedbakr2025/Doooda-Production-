@@ -279,3 +279,13 @@
   margin: -8px;
 }
 
+.mention-highlight-parent {
+  animation: mention-highlight-parent 2s ease-out forwards;
+  border: 2px solid rgba(255, 200, 50, 0.8) !important;
+}
+
+@keyframes mention-highlight-parent {
+  0% { box-shadow: 0 0 0 4px rgba(255, 200, 50, 0.4); }
+  100% { box-shadow: none; border-color: var(--color-border) !important; }
+}
+

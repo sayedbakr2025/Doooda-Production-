@@ -1916,7 +1916,7 @@ export async function addComment(
 
     if (parentComment.user_id !== user.id) {
       try {
-        const ctaLink = `/project/${projectId}/scene/${sceneId}?comments=true&comment_id=${parentId}&comment_type=general`;
+        const ctaLink = `/project/${projectId}/scene/${sceneId}?comments=true&comment_id=${data.id}&comment_type=general&highlight_type=reply&parent_comment_id=${parentId}`;
         const { error: replyErr } = await supabase.rpc('create_reply_notification', {
           p_comment_id: parentId,
           p_reply_author_id: user.id,
@@ -1927,6 +1927,7 @@ export async function addComment(
           p_scene_title: sceneData?.title || '',
           p_cta_link: ctaLink,
           p_comment_type: 'general',
+          p_reply_id: data.id,
         });
         if (replyErr) {
           console.error('[Reply] Notification error:', replyErr);

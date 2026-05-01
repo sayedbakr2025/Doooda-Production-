@@ -76,6 +76,7 @@ export default function SceneEditor() {
   const [commentTab, setCommentTab] = useState<'general' | 'inline'>('inline');
   const [inlineComments, setInlineComments] = useState<InlineComment[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  const [parentCommentIdForHighlight, setParentCommentIdForHighlight] = useState<string | null>(null);
   const [pendingSelection, setPendingSelection] = useState<{ start: number; end: number; text: string } | null>(null);
   const [savedSelectionRange, setSavedSelectionRange] = useState<{ start: number; end: number; text: string } | null>(null);
   const [lockDismissed, setLockDismissed] = useState(false);
@@ -181,13 +182,17 @@ onContentChange: (html) => setContent(html),
     const openComments = searchParams.get('comments') === 'true';
     const commentId = searchParams.get('comment_id');
     const commentType = searchParams.get('comment_type');
-    console.log('[Comment] Processing URL params:', { openComments, commentId, commentType });
+    const highlightType = searchParams.get('highlight_type');
+    console.log('[Comment] Processing URL params:', { openComments, commentId, commentType, highlightType });
     if (openComments) {
       setShowComments(true);
       setCommentTab(commentType === 'inline' ? 'inline' : 'general');
       if (commentId) {
-        console.log('[Comment] Will highlight:', commentId);
+        console.log('[Comment] Will highlight:', commentId, 'highlightType:', highlightType);
         setHighlightedCommentId(commentId);
+        if (highlightType === 'reply') {
+          setParentCommentIdForHighlight(searchParams.get('parent_comment_id'));
+        }
         setTimeout(() => {
           window.history.replaceState({}, '', window.location.pathname);
         }, 3500);
@@ -1802,7 +1807,11 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   sceneId={sceneId}
                   isOwner={isOwner}
                   highlightedCommentId={highlightedCommentId}
-                  onHighlightDone={() => setHighlightedCommentId(null)}
+                  parentCommentIdForHighlight={parentCommentIdForHighlight}
+                  onHighlightDone={() => {
+                    setHighlightedCommentId(null);
+                    setParentCommentIdForHighlight(null);
+                  }}
                 />
               ) : null}
             </div>
