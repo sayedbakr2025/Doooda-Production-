@@ -1,4 +1,4 @@
--- Update create_reply_notification to handle comment_type properly
+-- Fix create_reply_notification to use comment_type parameter
 CREATE OR REPLACE FUNCTION public.create_reply_notification(
   p_comment_id uuid,
   p_reply_author_id uuid,
@@ -20,7 +20,6 @@ DECLARE
   v_original_author_id uuid;
   v_comment_type text;
 BEGIN
-  -- Determine which table to query based on comment_type
   IF p_comment_type = 'inline' THEN
     SELECT user_id INTO v_original_author_id
     FROM inline_comments
@@ -33,12 +32,10 @@ BEGIN
     v_comment_type := 'general';
   END IF;
 
-  -- Don't notify if replying to own comment
   IF v_original_author_id IS NULL OR v_original_author_id = p_reply_author_id THEN
     RETURN;
   END IF;
 
-  -- Create notification
   INSERT INTO notifications (user_id, type, category, title, title_ar, message, message_ar, data, cta_label, cta_label_ar, cta_link)
   VALUES (
     v_original_author_id,

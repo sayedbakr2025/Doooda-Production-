@@ -4,7 +4,7 @@ DECLARE
   v_match text;
 BEGIN
   RAISE NOTICE 'Test content: %', v_text;
-  FOR v_match IN SELECT (regexp_matches(v_text, '@\\[([^\\]]+)\\]', 'g'))[1] LOOP
+  FOR v_match IN SELECT (regexp_matches(v_text, E'@\\[([^\\]]+)\\]', 'g'))[1] LOOP
     RAISE NOTICE 'Found mention: %', v_match;
   END LOOP;
 END;

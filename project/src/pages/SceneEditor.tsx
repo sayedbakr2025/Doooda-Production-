@@ -188,8 +188,12 @@ onContentChange: (html) => setContent(html),
       if (commentId) {
         console.log('[Comment] Will highlight:', commentId);
         setHighlightedCommentId(commentId);
+        setTimeout(() => {
+          window.history.replaceState({}, '', window.location.pathname);
+        }, 3500);
+      } else {
+        window.history.replaceState({}, '', window.location.pathname);
       }
-      window.history.replaceState({}, '', window.location.pathname);
     }
   }, [searchParams, sceneId]);
 
