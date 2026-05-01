@@ -1782,7 +1782,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
-              {commentTab === 'inline' && user && (
+              {(commentTab === 'inline' || searchParams.get('comment_type') === 'inline') && user && (
                 <InlineCommentSidebar
                   projectId={projectId}
                   sceneId={sceneId}
@@ -1796,15 +1796,15 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   getEditorText={() => editorRef.current?.textContent || ''}
                 />
               )}
-              {commentTab === 'general' && (
+              {commentTab === 'general' || (searchParams.get('comment_type') !== 'inline' && showComments) ? (
                 <SceneComments
                   projectId={projectId}
                   sceneId={sceneId}
                   isOwner={isOwner}
-                  highlightedCommentId={commentTab === 'general' ? highlightedCommentId : null}
+                  highlightedCommentId={highlightedCommentId}
                   onHighlightDone={() => setHighlightedCommentId(null)}
                 />
-              )}
+              ) : null}
             </div>
           </div>
         )}
