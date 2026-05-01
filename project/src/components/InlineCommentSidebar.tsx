@@ -87,6 +87,20 @@ export default function InlineCommentSidebar({
     try {
       const data = await getInlineComments(sceneId);
       setComments(data);
+      
+      const commentsWithReplies = data.filter((c: InlineComment) => (c.reply_count || 0) > 0);
+      const repliesPromises = commentsWithReplies.map(async (c: InlineComment) => {
+        try {
+          const replies = await getInlineCommentReplies(c.id);
+          return { commentId: c.id, replies };
+        } catch {
+          return { commentId: c.id, replies: [] };
+        }
+      });
+      const repliesResults = await Promise.all(repliesPromises);
+      const newRepliesMap: Record<string, InlineCommentReply[]> = {};
+      repliesResults.forEach(r => { newRepliesMap[r.commentId] = r.replies; });
+      setRepliesMap(newRepliesMap);
     } catch (err) {
       console.error('[InlineComments] Failed to load:', err);
     } finally {
@@ -338,12 +352,21 @@ export default function InlineCommentSidebar({
                       <Trash2 className="w-3 h-3" />
                     </button>
                   )}
-                  <button onClick={() => toggleReplies(comment.id, comment.user?.pen_name || comment.author_name)} className="text-xs flex items-center gap-0.5 hover:opacity-80" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <button 
+                    onClick={() => {
+                      if (comment.reply_count && comment.reply_count > 0) {
+                        const input = document.getElementById(`reply-input-${comment.id}`);
+                        input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }} 
+                    className="text-xs flex items-center gap-0.5 hover:opacity-80" 
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                  >
                     <Reply className="w-3 h-3" /> {(comment.reply_count || 0)}
                   </button>
                 </div>
 
-                {expandedReplies.has(comment.id) && (repliesMap[comment.id] || []).length > 0 && (
+                {(repliesMap[comment.id] || []).length > 0 && (
                   <div className="mt-2 space-y-1.5" style={{ borderLeft: isRTL ? 'none' : '2px solid var(--color-border)', borderRight: isRTL ? '2px solid var(--color-border)' : 'none', paddingLeft: isRTL ? 0 : 8, paddingRight: isRTL ? 8 : 0 }}>
                     {(repliesMap[comment.id] || []).map(reply => (
                       <div key={reply.id}>
@@ -359,8 +382,8 @@ export default function InlineCommentSidebar({
                   </div>
                 )}
 
-                {expandedReplies.has(comment.id) && canComment && (
-                  <div className="mt-2 relative">
+                {canComment && (
+                  <div className="mt-2 relative" id={`reply-input-${comment.id}`}>
                     <textarea
                       ref={el => { replyRefs.current[comment.id] = el; }}
                       value={replyTexts[comment.id] || ''}
