@@ -42,14 +42,14 @@ BEGIN
   -- Extract @mentions from content
   -- Matches @name patterns (alphanumeric, underscores, hyphens, and spaces up to a delimiter)
   FOR v_word IN 
-    SELECT regexp_matches(p_content, '@([\p{L}\p{N}_\-\s]+)', 'g')
+    SELECT (regexp_matches(p_content, '@\\[([^\\]]+)\\]', 'g'))[1]
   LOOP
     v_mention_name := trim(v_word);
     
     -- Try to find user by pen_name, first_name, or email prefix
     SELECT u.id INTO v_user_id
     FROM users u
-    WHERE LOWER(COALESCE(NULLIF(u.pen_name, ''), NULLIF(u.first_name, ''), split_part(u.email, '@', 1))) = LOWER(v_mention_name)
+    WHERE LOWER(u.pen_name) = LOWER(v_mention_name)
     LIMIT 1;
 
     -- Also check project collaborators
@@ -59,7 +59,7 @@ BEGIN
       JOIN users u ON u.id = pc.user_id
       WHERE pc.project_id = p_project_id
         AND pc.status = 'active'
-        AND LOWER(COALESCE(NULLIF(u.pen_name, ''), NULLIF(u.first_name, ''), split_part(u.email, '@', 1))) = LOWER(v_mention_name)
+        AND LOWER(u.pen_name) = LOWER(v_mention_name)
       LIMIT 1;
     END IF;
 
@@ -69,7 +69,7 @@ BEGIN
       FROM projects p
       JOIN users u ON u.id = p.user_id
       WHERE p.id = p_project_id
-        AND LOWER(COALESCE(NULLIF(u.pen_name, ''), NULLIF(u.first_name, ''), split_part(u.email, '@', 1))) = LOWER(v_mention_name);
+        AND LOWER(u.pen_name) = LOWER(v_mention_name);
     END IF;
 
     -- Don't notify yourself

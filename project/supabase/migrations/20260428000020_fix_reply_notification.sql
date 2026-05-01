@@ -8,7 +8,8 @@ CREATE OR REPLACE FUNCTION public.create_reply_notification(
   p_project_title text,
   p_scene_title text,
   p_cta_link text,
-  p_comment_type text DEFAULT 'general'
+  p_comment_type text DEFAULT 'general',
+  p_content text DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
