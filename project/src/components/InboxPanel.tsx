@@ -538,7 +538,11 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
                           )}
                         </div>
                       ) : (
-                        <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                        <p 
+                          className="text-xs leading-relaxed" 
+                          style={{ color: 'var(--color-text-secondary)' }}
+                          dir={isRtl ? 'rtl' : 'ltr'}
+                        >
                           {displayMessage(n) || displayTitle(n)}
                         </p>
                       )}

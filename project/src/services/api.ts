@@ -1928,7 +1928,11 @@ export async function addComment(
           p_cta_link: ctaLink,
           p_comment_type: 'general',
         });
-        if (replyErr) console.error('[Reply] Notification error:', replyErr);
+        if (replyErr) {
+          console.error('[Reply] Notification error:', replyErr);
+        } else {
+          console.log('[Reply] Notification sent to:', parentComment.user_id);
+        }
       } catch (replyCatchErr) {
         console.error('[Reply] Notification catch:', replyCatchErr);
       }
@@ -1948,7 +1952,7 @@ export async function addComment(
     if (rpcErr) {
       console.error('[Mention] RPC error:', rpcErr.message, rpcErr);
     } else {
-      console.log('[Mention] RPC success', rpcData);
+      console.log('[Mention] RPC success, notifications created:', rpcData);
     }
   }
 
@@ -2107,7 +2111,7 @@ export async function addInlineCommentReply(
 
   if (parentComment && parentComment.user_id !== user.id) {
     const ctaLink = `/project/${parentComment.project_id}/scene/${parentComment.scene_id}?comments=true&comment_id=${parentComment.id}&comment_type=inline`;
-    await supabase.rpc('create_reply_notification', {
+    const { error: inlineReplyErr } = await supabase.rpc('create_reply_notification', {
       p_comment_id: parentComment.id,
       p_reply_author_id: user.id,
       p_project_id: parentComment.project_id,
@@ -2118,6 +2122,28 @@ export async function addInlineCommentReply(
       p_cta_link: ctaLink,
       p_comment_type: 'inline',
     });
+    if (inlineReplyErr) {
+      console.error('[Inline Reply] Notification error:', inlineReplyErr);
+    } else {
+      console.log('[Inline Reply] Notification sent to:', parentComment.user_id);
+    }
+  }
+
+  if (content.includes('@')) {
+    console.log('[Inline Mention] Sending RPC for reply:', reply.id, 'content:', content);
+    const { error: mentionErr, data: mentionData } = await supabase.rpc('create_mention_notifications', {
+      p_comment_id: reply.id,
+      p_content: content,
+      p_project_id: parentComment.project_id,
+      p_scene_id: parentComment.scene_id,
+      p_author_id: user.id,
+      p_comment_type: 'inline',
+    });
+    if (mentionErr) {
+      console.error('[Inline Mention] RPC error:', mentionErr.message, mentionErr);
+    } else {
+      console.log('[Inline Mention] RPC success, notifications created:', mentionData);
+    }
   }
 
   return { comment: reply, parentComment };
