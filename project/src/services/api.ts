@@ -2086,7 +2086,7 @@ export async function addInlineCommentReply(
 
   const { data: parentComment, error: parentError } = await supabase
     .from('inline_comments')
-    .select('*, user:users!inner(id, pen_name, first_name)')
+    .select('*')
     .eq('id', commentId)
     .single();
 
@@ -2094,6 +2094,13 @@ export async function addInlineCommentReply(
     console.error('[Reply] Parent comment not found:', parentError);
     return { comment: reply, parentComment: null };
   }
+
+  const { data: parentUser } = await supabase
+    .from('users')
+    .select('id, pen_name, first_name, email')
+    .eq('id', parentComment.user_id)
+    .single();
+  parentComment.user = parentUser || null;
 
   const { data: projectData } = await supabase
     .from('projects')
