@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import { api, getChapter, getScenes, createScene, updateSceneOrder, createTask, deleteScene, toggleChapterActive, toggleSceneActive, toggleSceneCompleted, getMyCollaboratorRoleForProject, requestItemDeletion } from '../services/api';
+import { api, getChapter, getScenes, createScene, createDoublePage, updateSceneOrder, createTask, deleteScene, toggleChapterActive, toggleSceneActive, toggleSceneCompleted, getMyCollaboratorRoleForProject, requestItemDeletion } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { Project, Chapter, Scene } from '../types';
 import { getProjectTypeConfig, formatSceneHeader } from '../utils/projectTypeConfig';
@@ -246,10 +246,22 @@ export default function ChapterView() {
     });
   };
 
-  const handleSaveScene = async (sceneData: { title: string; summary?: string; hook?: string }) => {
+  const handleSaveScene = async (sceneData: { title: string; summary?: string; hook?: string; page_type?: 'single' | 'double' }) => {
     if (!chapterId) return;
     try {
-      await createScene(chapterId, sceneData);
+      const isRTL = language === 'ar';
+      
+      if (sceneData.page_type === 'double') {
+        await createDoublePage(
+          chapterId,
+          sceneData.title,
+          sceneData.title + ' (2)',
+          isRTL
+        );
+      } else {
+        await createScene(chapterId, sceneData);
+      }
+      
       await loadScenes();
       setShowSceneModal(false);
     } catch (error) {
@@ -685,6 +697,16 @@ export default function ChapterView() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{scene.title}</h4>
+                          {scene.page_type === 'double' && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded" style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+                              {language === 'ar' ? 'صفحة مزدوجة' : 'Double Page'}
+                            </span>
+                          )}
+                          {scene.page_group_id && (
+                            <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                              {language === 'ar' ? '(صفحة ' + scene.page_order + ')' : '(Page ' + scene.page_order + ')'}
+                            </span>
+                          )}
                           {sceneAiScores[index + 1] && (
                             <div className="relative inline-block">
                               <button

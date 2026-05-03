@@ -454,6 +454,9 @@ export async function createScene(chapterId: string, sceneData: {
   voice_tone?: string | null;
   has_silence_marker?: boolean;
   page_number?: number | null;
+  page_type?: 'single' | 'double';
+  page_group_id?: string | null;
+  page_order?: number | null;
 }) {
   const { data: existingScenes, error: fetchError } = await supabase
     .from('scenes')
@@ -487,11 +490,85 @@ export async function createScene(chapterId: string, sceneData: {
       voice_tone: sceneData.voice_tone || null,
       has_silence_marker: sceneData.has_silence_marker || false,
       page_number: sceneData.page_number || null,
+      page_type: sceneData.page_type || 'single',
+      page_group_id: sceneData.page_group_id || null,
+      page_order: sceneData.page_order || 1,
     }])
     .select()
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function createDoublePage(chapterId: string, title1: string, title2: string, isRTL: boolean = false): Promise<{ scenes: any[], page_group_id: string }> {
+  const { data: existingScenes, error: fetchError } = await supabase
+    .from('scenes')
+    .select('position')
+    .eq('chapter_id', chapterId)
+    .is('deleted_at', null)
+    .order('position', { ascending: false })
+    .limit(1);
+
+  if (fetchError) throw fetchError;
+
+  const nextPosition = existingScenes && existingScenes.length > 0
+    ? existingScenes[0].position + 1
+    : 1;
+
+  const pageGroupId = crypto.randomUUID();
+  
+  const scenes = [
+    {
+      chapter_id: chapterId,
+      title: title1,
+      summary: '',
+      position: nextPosition,
+      word_count: 0,
+      page_type: 'double',
+      page_group_id: pageGroupId,
+      page_order: isRTL ? 2 : 1,
+    },
+    {
+      chapter_id: chapterId,
+      title: title2,
+      summary: '',
+      position: nextPosition + 1,
+      word_count: 0,
+      page_type: 'double',
+      page_group_id: pageGroupId,
+      page_order: isRTL ? 1 : 2,
+    }
+  ];
+
+  const { data, error } = await supabase
+    .from('scenes')
+    .insert(scenes)
+    .select();
+
+  if (error) throw error;
+  return { scenes: data, page_group_id: pageGroupId };
+}
+
+export async function getScenesByPageGroup(pageGroupId: string): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('scenes')
+    .select('*')
+    .eq('page_group_id', pageGroupId)
+    .is('deleted_at', null)
+    .order('page_order', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getProjectType(projectId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('type')
+    .eq('id', projectId)
+    .single();
+  if (error) return null;
+  return data?.type || null;
 }
 
 export async function getProjectTypeSettings(): Promise<ProjectTypeSetting[]> {

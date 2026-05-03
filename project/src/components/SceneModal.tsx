@@ -19,6 +19,7 @@ interface SceneData {
   voice_tone?: string | null;
   has_silence_marker?: boolean;
   page_number?: number | null;
+  page_type?: 'single' | 'double';
 }
 
 interface SceneModalProps {
@@ -76,6 +77,9 @@ export default function SceneModal({
   const [voiceTone, setVoiceTone] = useState('');
   const [hasSilenceMarker, setHasSilenceMarker] = useState(false);
   const [pageNumber, setPageNumber] = useState('');
+  const [pageType, setPageType] = useState<'single' | 'double'>('single');
+  
+  const isChildrenStory = projectType === 'children_story';
 
   const getUnitLabel = () => language === 'ar' ? typeConfig.unitLabelAr : typeConfig.unitLabelEn;
 
@@ -182,6 +186,7 @@ export default function SceneModal({
         }),
         ...(typeConfig.hasChildrenFields && {
           page_number: pageNumber ? parseInt(pageNumber) : null,
+          page_type: isChildrenStory ? pageType : undefined,
         }),
       });
       onClose();
@@ -306,11 +311,43 @@ export default function SceneModal({
           )}
 
           {typeConfig.hasChildrenFields && (
-            <div>
-              <label className="block text-sm font-medium mb-2" style={labelStyle}>
-                {language === 'ar' ? 'رقم الصفحة (تخطيط مزدوج)' : 'Page Number (Dual Spread)'}
-              </label>
-              <input type="number" min="1" className={inputClass} style={fieldStyle} value={pageNumber} onChange={(e) => setPageNumber(e.target.value)} placeholder={language === 'ar' ? 'رقم الصفحة' : 'Page number'} />
+            <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
+                {language === 'ar' ? 'نوع الصفحة' : 'Page Type'}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={`flex items-center justify-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${pageType === 'single' ? 'ring-2 ring-[var(--color-accent)]' : ''}`} style={{ backgroundColor: pageType === 'single' ? 'var(--color-muted)' : 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                  <input type="radio" name="pageType" value="single" checked={pageType === 'single'} onChange={() => setPageType('single')} className="sr-only" />
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {language === 'ar' ? 'صفحة فردية' : 'Single Page'}
+                  </span>
+                </label>
+                <label className={`flex items-center justify-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${pageType === 'double' ? 'ring-2 ring-[var(--color-accent)]' : ''}`} style={{ backgroundColor: pageType === 'double' ? 'var(--color-muted)' : 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                  <input type="radio" name="pageType" value="double" checked={pageType === 'double'} onChange={() => setPageType('double')} className="sr-only" />
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {language === 'ar' ? 'صفحة مزدوجة' : 'Double Page'}
+                  </span>
+                </label>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={labelStyle}>
+                  {language === 'ar' ? 'رقم الصفحة' : 'Page Number'}
+                </label>
+                <input type="number" min="1" className={inputClass} style={fieldStyle} value={pageNumber} onChange={(e) => setPageNumber(e.target.value)} placeholder={language === 'ar' ? 'رقم الصفحة' : 'Page number'} />
+              </div>
+              {pageType === 'double' && (
+                <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {language === 'ar' 
+                    ? 'ستحتاج لإدخال صفحتين للمشهد المزدوج' 
+                    : 'You will need to add two scenes for the double page'}
+                </p>
+              )}
             </div>
           )}
 
