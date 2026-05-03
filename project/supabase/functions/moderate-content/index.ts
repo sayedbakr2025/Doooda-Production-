@@ -173,7 +173,7 @@ Deno.serve(async (req: Request) => {
 
       let apiKey: string | null = null;
       let baseUrl = "https://api.deepseek.com/v1";
-      let modelId = "deepseek-chat";
+      let modelId = "deepseek-reasoner";
       let personaPrompt: string | undefined;
 
       if (deepseekApiKey) {

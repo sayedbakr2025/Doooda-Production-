@@ -27,7 +27,7 @@ async function callAIProvider(
   if (deepseekApiKey) {
     apiKey = deepseekApiKey;
     baseUrl = "https://api.deepseek.com/v1";
-    model = "deepseek-chat";
+    model = "deepseek-reasoner";
   } else {
     const { data: provider } = await supabase
       .from("ai_providers")

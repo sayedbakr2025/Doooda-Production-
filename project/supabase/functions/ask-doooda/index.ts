@@ -510,7 +510,7 @@ Deno.serve(async (req: Request) => {
         "Authorization": `Bearer ${deepseekApiKey}`,
       },
       body: JSON.stringify({
-        model: "deepseek-chat",
+        model: "deepseek-reasoner",
         messages: finalMessages,
         temperature: 0.7,
         max_tokens: maxTokens,

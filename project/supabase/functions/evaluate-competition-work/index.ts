@@ -74,7 +74,7 @@ async function callDeepSeek(prompt: string): Promise<string> {
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: "deepseek-reasoner",
       messages: [
         {
           role: "system",
