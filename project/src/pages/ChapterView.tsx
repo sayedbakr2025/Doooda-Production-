@@ -28,6 +28,7 @@ interface ContextMenuState {
 export default function ChapterView() {
   const { projectId, chapterId } = useParams<{ projectId: string; chapterId: string }>();
   const { language } = useLanguage();
+  const isRTL = language === 'ar';
   const { theme } = useTheme();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -259,8 +260,6 @@ export default function ChapterView() {
   const handleSaveScene = async (sceneData: { title: string; summary?: string; hook?: string; page_type?: 'single' | 'double' }) => {
     if (!chapterId) return;
     try {
-      const isRTL = language === 'ar';
-      
       if (sceneData.page_type === 'double') {
         await createDoublePage(
           chapterId,
@@ -629,7 +628,7 @@ export default function ChapterView() {
                         className="grid gap-2"
                         style={{ gridTemplateColumns: isRTL ? '1fr 1fr' : '1fr 1fr' }}
                       >
-                        {scenesList.map((s: any, idx: number) => (
+                        {scenesList.map((s: any) => (
                           <button
                             key={s.id}
                             onClick={() => navigate(`/projects/${projectId}/chapters/${chapterId}/scenes/${s.id}`)}

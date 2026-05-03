@@ -132,6 +132,9 @@ export interface Scene {
   voice_tone?: string | null;
   has_silence_marker?: boolean;
   page_number?: number | null;
+  page_type?: 'single' | 'double';
+  page_group_id?: string | null;
+  page_order?: number;
   reading_complexity_score?: number | null;
 }
 

@@ -325,9 +325,9 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
           console.log('[SceneComments] Highlight done');
         }, 4000);
       } else {
-        console.log('[SceneComments] Not found:', commentId);
+        console.log('[SceneComments] Not found:', highlightedCommentId);
       }
-      prevHighlightRef.current = highlightedCommentId;
+      prevHighlightRef.current = highlightedCommentId ?? null;
     }
     
     highlightTimeout.current = setTimeout(tryHighlight, 500);

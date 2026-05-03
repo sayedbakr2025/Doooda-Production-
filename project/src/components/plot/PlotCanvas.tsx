@@ -86,6 +86,7 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({
   hasLevel2,
   language,
   analysis,
+  projectType,
 }) => {
   const { theme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);

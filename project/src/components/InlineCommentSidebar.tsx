@@ -36,7 +36,6 @@ export default function InlineCommentSidebar({
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [showResolved, setShowResolved] = useState(false);
-  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [repliesMap, setRepliesMap] = useState<Record<string, InlineCommentReply[]>>({});
   const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
@@ -45,7 +44,6 @@ export default function InlineCommentSidebar({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
-  const leaveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const canComment = true;
 
@@ -217,24 +215,6 @@ export default function InlineCommentSidebar({
 
   async function handleDelete(id: string) {
     try { await deleteInlineComment(id); loadComments(); onCommentsChanged?.(); } catch {}
-  }
-
-  async function toggleReplies(commentId: string, authorPenName?: string, authorFirstName?: string) {
-    if (expandedReplies.has(commentId)) {
-      setExpandedReplies(prev => { const n = new Set(prev); n.delete(commentId); return n; });
-    } else {
-      setExpandedReplies(prev => new Set(prev).add(commentId));
-      try {
-        const replies = await getInlineCommentReplies(commentId);
-        setRepliesMap(prev => ({ ...prev, [commentId]: replies }));
-        if (authorPenName || authorFirstName) {
-          setReplyTexts(prev => ({
-            ...prev,
-            [commentId]: '@[' + (authorPenName || authorFirstName || 'user') + '] '
-          }));
-        }
-      } catch {}
-    }
   }
 
   async function handleAddReply(commentId: string) {
