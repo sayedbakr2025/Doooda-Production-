@@ -50,13 +50,15 @@ const VOICE_TONES = ['NORMAL', 'WHISPERING', 'SHOUTING', 'CRYING', 'LAUGHING', '
 const SOUND_CUE_TYPES = ['sfx', 'music', 'ambient', 'silence'] as const;
 
 export default function SceneModal({
+  chapterId,
   onClose,
   onSave,
-  language,
+  language = 'ar',
   projectType = 'novel',
 }: SceneModalProps) {
   const typeConfig = getProjectTypeConfig(projectType);
-  const showChildrenFields = true; // Force show for testing
+  console.log('🎨 SceneModal: projectType=', projectType, 'typeConfig.hasChildrenFields=', typeConfig.hasChildrenFields);
+  const showChildrenFields = typeConfig.hasChildrenFields; // Use actual config
   
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
