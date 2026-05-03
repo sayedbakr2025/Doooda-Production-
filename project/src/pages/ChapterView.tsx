@@ -75,7 +75,6 @@ export default function ChapterView() {
     try {
       if (!projectId) return;
       const data = await api.getProject(projectId);
-      console.log('[ChapterView] Project loaded:', data?.project_type, data?.title);
       setProject(data);
     } catch (error) {
       console.error('Failed to load project:', error);
@@ -84,7 +83,6 @@ export default function ChapterView() {
 
   const isBookProject = project?.project_type === 'book';
   const typeConfig = project ? getProjectTypeConfig(project.project_type) : getProjectTypeConfig('novel');
-  console.log('[ChapterView] project_type:', project?.project_type, 'hasChildrenFields:', typeConfig.hasChildrenFields);
 
   const getSceneLabel = () => language === 'ar' ? typeConfig.unitLabelAr : typeConfig.unitLabelEn;
   const getSceneLabelPlural = () => language === 'ar' ? typeConfig.unitLabelPluralAr : typeConfig.unitLabelPluralEn;
@@ -697,14 +695,13 @@ export default function ChapterView() {
           </div>
         )}
 
-        {console.log('[ChapterView] Rendering scenes section, count:', scenes.length, 'hasLevel2:', typeConfig.hasLevel2) || null}
         <div className="rounded-xl shadow-sm p-6" style={{ backgroundColor: 'var(--color-surface)', border: `1px solid var(--color-border-light)` }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
               {getSceneLabelPlural()}
             </h2>
             <button
-              onClick={() => { console.log('[ChapterView] Add button clicked'); setShowSceneModal(true); }}
+              onClick={() => setShowSceneModal(true)}
               className="px-4 py-2 text-white rounded-lg"
               style={{ backgroundColor: 'var(--color-accent)' }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-hover)'}
