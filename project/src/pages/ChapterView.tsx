@@ -41,7 +41,8 @@ export default function ChapterView() {
   const [showSceneModal, setShowSceneModal] = useState(false);
   
   const openSceneModal = () => {
-    console.log('🟢 Opening scene modal, project_type:', project?.project_type);
+    console.log('🟢🟢🟢 Opening scene modal, project_type:', project?.project_type, 'chapterId:', chapterId);
+    alert('Opening modal: project_type=' + project?.project_type);
     setShowSceneModal(true);
   };
   const [showNoteModal, setShowNoteModal] = useState(false);
