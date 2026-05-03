@@ -56,6 +56,11 @@ export default function SceneModal({
   projectType = 'novel',
 }: SceneModalProps) {
   const typeConfig = getProjectTypeConfig(projectType);
+  const showChildrenFields = typeConfig.hasChildrenFields || projectType === 'children_story';
+  
+  if (showChildrenFields) {
+    console.log('🎉 Rendering page type selector! projectType:', projectType);
+  }
 
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
@@ -310,7 +315,7 @@ export default function SceneModal({
             </div>
           )}
 
-          {(typeConfig.hasChildrenFields || projectType === 'children_story') && (
+          {showChildrenFields && (
             <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
                 {language === 'ar' ? 'نوع الصفحة' : 'Page Type'}
