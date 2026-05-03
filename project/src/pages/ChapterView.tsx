@@ -695,6 +695,7 @@ export default function ChapterView() {
           </div>
         )}
 
+        {console.log('[ChapterView] Rendering scenes section, count:', scenes.length, 'hasLevel2:', typeConfig.hasLevel2) || null}
         <div className="rounded-xl shadow-sm p-6" style={{ backgroundColor: 'var(--color-surface)', border: `1px solid var(--color-border-light)` }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
