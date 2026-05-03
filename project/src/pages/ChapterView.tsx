@@ -83,6 +83,11 @@ export default function ChapterView() {
 
   const isBookProject = project?.project_type === 'book';
   const typeConfig = project ? getProjectTypeConfig(project.project_type) : getProjectTypeConfig('novel');
+  const currentProjectType = project?.project_type;
+  
+  if (showSceneModal) {
+    console.log('📝 Opening SceneModal with project_type:', currentProjectType);
+  }
 
   const getSceneLabel = () => language === 'ar' ? typeConfig.unitLabelAr : typeConfig.unitLabelEn;
   const getSceneLabelPlural = () => language === 'ar' ? typeConfig.unitLabelPluralAr : typeConfig.unitLabelPluralEn;
