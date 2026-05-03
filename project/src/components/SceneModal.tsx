@@ -56,9 +56,7 @@ export default function SceneModal({
   projectType = 'novel',
 }: SceneModalProps) {
   const typeConfig = getProjectTypeConfig(projectType);
-  const showChildrenFields = typeConfig.hasChildrenFields || projectType === 'children_story';
-  
-  console.log('🔍 Debug: projectType =', projectType, 'hasChildrenFields =', typeConfig.hasChildrenFields, 'show =', showChildrenFields);
+  const showChildrenFields = true; // Force show for testing
   
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
