@@ -58,7 +58,8 @@ export default function SceneModal({
 }: SceneModalProps) {
   const typeConfig = getProjectTypeConfig(projectType);
   console.log('🎨 SceneModal: projectType=', projectType, 'typeConfig.hasChildrenFields=', typeConfig.hasChildrenFields);
-  const showChildrenFields = typeConfig.hasChildrenFields; // Use actual config
+  // DEBUG: Force show for now
+  const showChildrenFields = true;
   
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
