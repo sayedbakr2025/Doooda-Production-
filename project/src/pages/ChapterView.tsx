@@ -695,13 +695,13 @@ export default function ChapterView() {
           </div>
         )}
 
-        <div className="rounded-xl shadow-sm p-6" style={{ backgroundColor: 'var(--color-surface)', border: `1px solid var(--color-border-light)`, display: typeConfig.hasLevel2 ? undefined : 'none' }}>
+        <div className="rounded-xl shadow-sm p-6" style={{ backgroundColor: 'var(--color-surface)', border: `1px solid var(--color-border-light)` }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
               {getSceneLabelPlural()}
             </h2>
             <button
-              onClick={() => setShowSceneModal(true)}
+              onClick={() => { console.log('[ChapterView] Add button clicked'); setShowSceneModal(true); }}
               className="px-4 py-2 text-white rounded-lg"
               style={{ backgroundColor: 'var(--color-accent)' }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-hover)'}
