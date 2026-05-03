@@ -24,7 +24,7 @@ interface PlotChapterCardProps {
   onDelete: () => void;
   onDragStart: (e: React.MouseEvent) => void;
   onDragEnd: (e: React.MouseEvent) => void;
-  onAddScene: () => void;
+  onAddScene: (pageType?: 'single' | 'double') => void;
   isDragging: boolean;
   containerLabel: string;
   unitLabel: string;
@@ -32,6 +32,7 @@ interface PlotChapterCardProps {
   hasLevel2: boolean;
   language: 'ar' | 'en';
   analysisScore?: SceneAnalysisScore;
+  projectType?: string;
 }
 
 const PlotChapterCard: React.FC<PlotChapterCardProps> = ({
@@ -46,15 +47,18 @@ const PlotChapterCard: React.FC<PlotChapterCardProps> = ({
   hasLevel2,
   language,
   analysisScore,
+  projectType,
 }) => {
   const { theme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showPageTypeMenu, setShowPageTypeMenu] = useState(false);
   const analysisIconRef = useRef<HTMLButtonElement>(null);
   const [editedTitle, setEditedTitle] = useState(chapter.title);
   const [editedSummary, setEditedSummary] = useState(chapter.summary);
 
   const isRTL = language === 'ar';
+  const isChildrenStory = projectType === 'children_story';
 
   const handleSave = () => {
     onUpdate({
@@ -274,20 +278,70 @@ const PlotChapterCard: React.FC<PlotChapterCardProps> = ({
       </label>
 
       {hasLevel2 && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddScene();
-          }}
-          className={`w-full flex items-center justify-center gap-2 py-2 rounded border-2 border-dashed transition-colors ${
-            theme === 'dark'
-              ? 'border-gray-600 hover:border-blue-500 text-gray-400 hover:text-blue-400'
-              : 'border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600'
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          <span className="text-xs font-medium">{addUnitLabel}</span>
-        </button>
+        isChildrenStory ? (
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPageTypeMenu(!showPageTypeMenu);
+              }}
+              className={`w-full flex items-center justify-center gap-2 py-2 rounded border-2 border-dashed transition-colors ${
+                theme === 'dark'
+                  ? 'border-gray-600 hover:border-purple-500 text-gray-400 hover:text-purple-400'
+                  : 'border-gray-300 hover:border-purple-400 text-gray-600 hover:text-purple-600'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-xs font-medium">{addUnitLabel}</span>
+            </button>
+            {showPageTypeMenu && (
+              <div 
+                className="absolute bottom-full left-0 right-0 mb-1 rounded-lg shadow-lg overflow-hidden z-10"
+                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddScene('single');
+                    setShowPageTypeMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs hover:opacity-80 flex items-center gap-2"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  <span>📄</span>
+                  {isRTL ? 'صفحة فردية' : 'Single Page'}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddScene('double');
+                    setShowPageTypeMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs hover:opacity-80 flex items-center gap-2"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  <span>📖</span>
+                  {isRTL ? 'صفحة مزدوجة' : 'Double Page'}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddScene();
+            }}
+            className={`w-full flex items-center justify-center gap-2 py-2 rounded border-2 border-dashed transition-colors ${
+              theme === 'dark'
+                ? 'border-gray-600 hover:border-blue-500 text-gray-400 hover:text-blue-400'
+                : 'border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600'
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-xs font-medium">{addUnitLabel}</span>
+          </button>
+        )
       )}
 
       {showAnalysis && analysisScore && analysisIconRef.current && createPortal(

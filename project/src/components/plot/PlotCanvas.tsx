@@ -450,7 +450,7 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({
                 onDelete={() => onDeleteChapter(chapter.id)}
                 onDragStart={(e) => handleChapterDragStart(chapter.id, e)}
                 onDragEnd={() => {}}
-                onAddScene={() => onAddScene(chapter.id)}
+                onAddScene={(pageType) => onAddScene(chapter.id, pageType)}
                 isDragging={isDragging}
                 containerLabel={containerLabel}
                 unitLabel={unitLabel}
@@ -458,6 +458,7 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({
                 hasLevel2={hasLevel2}
                 language={language}
                 analysisScore={!hasLevel2 ? getChapterAnalysisScore(chapter) : undefined}
+                projectType={projectType}
               />
             </div>
           );
