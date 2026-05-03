@@ -826,6 +826,7 @@ const PlotEditor: React.FC = () => {
         hasLevel2={typeConfig.hasLevel2}
         language={language}
         analysis={analysis}
+        projectType={mainProject?.project_type}
       />
 
       {/* Analyze Button */}

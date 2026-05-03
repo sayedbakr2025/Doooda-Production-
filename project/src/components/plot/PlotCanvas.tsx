@@ -52,13 +52,14 @@ interface PlotCanvasProps {
   onDeleteScene: (sceneId: string, chapterId: string) => void;
   onReorderChapters: (chapters: PlotChapter[]) => void;
   onReorderScenes: (chapterId: string, scenes: PlotScene[]) => void;
-  onAddScene: (chapterId: string) => void;
+  onAddScene: (chapterId: string, pageType?: 'single' | 'double') => void;
   containerLabel: string;
   unitLabel: string;
   addUnitLabel: string;
   hasLevel2: boolean;
   language: 'ar' | 'en';
   analysis?: any;
+  projectType?: string;
 }
 
 const CHAPTER_WIDTH = 300;
