@@ -58,10 +58,8 @@ export default function SceneModal({
   const typeConfig = getProjectTypeConfig(projectType);
   const showChildrenFields = typeConfig.hasChildrenFields || projectType === 'children_story';
   
-  if (showChildrenFields) {
-    console.log('🎉 Rendering page type selector! projectType:', projectType);
-  }
-
+  console.log('🔍 Debug: projectType =', projectType, 'hasChildrenFields =', typeConfig.hasChildrenFields, 'show =', showChildrenFields);
+  
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [hook, setHook] = useState('');
