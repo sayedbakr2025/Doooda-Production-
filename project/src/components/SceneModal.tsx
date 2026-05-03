@@ -55,9 +55,8 @@ export default function SceneModal({
   language,
   projectType = 'novel',
 }: SceneModalProps) {
-  console.log('[SceneModal] projectType:', projectType);
+  console.log('[SceneModal] projectType:', projectType, 'hasChildrenFields:', getProjectTypeConfig(projectType).hasChildrenFields);
   const typeConfig = getProjectTypeConfig(projectType);
-  console.log('[SceneModal] typeConfig.hasChildrenFields:', typeConfig.hasChildrenFields);
 
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
