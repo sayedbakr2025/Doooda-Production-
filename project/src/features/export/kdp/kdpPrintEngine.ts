@@ -300,5 +300,39 @@ export function buildPrintCss(spec: KdpPrintLayoutSpec, isRTL: boolean, showRunn
       .chapter { page-break-before: right; }
       body { color: #000000 !important; }
     }
+
+    .double-page-spread {
+      display: flex;
+      flex-direction: row;
+      gap: 0.5in;
+      page-break-inside: avoid;
+      margin: 1em 0;
+    }
+
+    .double-page-left,
+    .double-page-right {
+      flex: 1;
+      padding: 0.25in;
+      border: 1px solid #cccccc;
+      background-color: #fafafa;
+    }
+
+    .double-page-left {
+      border-right: none;
+    }
+
+    .double-page-right {
+      border-left: none;
+    }
+
+    [dir="rtl"] .double-page-left {
+      border-right: 1px solid #cccccc;
+      border-left: none;
+    }
+
+    [dir="rtl"] .double-page-right {
+      border-left: 1px solid #cccccc;
+      border-right: none;
+    }
   `;
 }

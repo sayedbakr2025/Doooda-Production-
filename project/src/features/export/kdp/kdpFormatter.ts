@@ -118,7 +118,36 @@ export function renderKdpPrintHTML(
       chapterHtml += textToParagraphs(ch.content);
     }
 
+    const processedSceneIds = new Set<string>();
+    
     scenes.forEach((sc) => {
+      if (processedSceneIds.has(sc.id)) return;
+      processedSceneIds.add(sc.id);
+
+      if (sc.page_type === 'double' && sc.page_group_id) {
+        const pairedScene = scenes.find(s => 
+          s.page_group_id === sc.page_group_id && 
+          s.id !== sc.id && 
+          !processedSceneIds.has(s.id)
+        );
+        
+        if (pairedScene) {
+          processedSceneIds.add(pairedScene.id);
+          chapterHtml += `<div class="double-page-spread">`;
+          const leftPage = isRTL ? pairedScene : sc;
+          const rightPage = isRTL ? sc : pairedScene;
+          
+          if (leftPage.content?.trim()) {
+            chapterHtml += `<div class="double-page-left">${textToParagraphs(leftPage.content)}</div>`;
+          }
+          if (rightPage.content?.trim()) {
+            chapterHtml += `<div class="double-page-right">${textToParagraphs(rightPage.content)}</div>`;
+          }
+          chapterHtml += `</div>`;
+          return;
+        }
+      }
+
       if (sc.content && sc.content.trim()) {
         chapterHtml += textToParagraphs(sc.content);
       }

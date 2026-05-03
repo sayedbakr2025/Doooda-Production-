@@ -56,6 +56,7 @@ interface PlotScene {
   build_up_score?: number | null;
   scene_purpose?: string | null;
   ai_comment?: string | null;
+  page_type?: 'single' | 'double';
 }
 
 const PlotEditor: React.FC = () => {
@@ -232,11 +233,12 @@ const PlotEditor: React.FC = () => {
     markAnalysisOutdatedIfExists();
   };
 
-  const handleAddScene = (chapterId: string) => {
+  const handleAddScene = (chapterId: string, pageType: 'single' | 'double' = 'single') => {
     const chapterScenes = scenes.get(chapterId) || [];
     const currentTypeConfig = getProjectTypeConfig(
       (mainProject?.project_type as any) ?? 'novel'
     );
+    const isChildrenStory = mainProject?.project_type === 'children_story';
     const newScene: PlotScene = {
       id: `temp-${Date.now()}`,
       chapter_id: chapterId,
@@ -251,6 +253,7 @@ const PlotEditor: React.FC = () => {
       has_climax: false,
       system_notes: null,
       user_notes: null,
+      ...(isChildrenStory && { page_type: pageType }),
     };
 
     const newScenes = new Map(scenes);
@@ -424,6 +427,8 @@ const PlotEditor: React.FC = () => {
       let chaptersData: any[];
       let scenesData: any[];
 
+      const isChildrenStory = mainProject?.project_type === 'children_story';
+      
       if (!typeConfig.hasLevel2) {
         chaptersData = [];
         scenesData = chapters.map(ch => ({
@@ -435,6 +440,7 @@ const PlotEditor: React.FC = () => {
           tension_level: ch.tension_level || 5,
           pace_level: ch.pace_level || 5,
           has_climax: ch.has_climax,
+          ...(isChildrenStory && { page_type: 'single' }),
         }));
       } else {
         chaptersData = chapters.map(ch => ({
@@ -452,7 +458,7 @@ const PlotEditor: React.FC = () => {
           if (!chapter) return;
 
           chapterScenes.forEach(scene => {
-            scenesData.push({
+            const sceneData: any = {
               chapter_index: chapter.order_index,
               order_index: scene.order_index,
               title: scene.title,
@@ -461,7 +467,11 @@ const PlotEditor: React.FC = () => {
               tension_level: scene.tension_level || 5,
               pace_level: scene.pace_level || 5,
               has_climax: scene.has_climax,
-            });
+            };
+            if (isChildrenStory && scene.page_type) {
+              sceneData.page_type = scene.page_type;
+            }
+            scenesData.push(sceneData);
           });
         });
       }

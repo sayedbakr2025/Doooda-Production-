@@ -597,28 +597,83 @@ export default function ChapterView() {
               </h2>
             </div>
             <div className="space-y-3">
-              {scenes.map((scene) => (
-                <button
-                  key={scene.id}
-                  onClick={() => navigate(`/projects/${projectId}/chapters/${chapterId}/scenes/${scene.id}`)}
-                  className="w-full text-right px-4 py-3 rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    textAlign: language === 'ar' ? 'right' : 'left',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--color-accent)'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--color-border)'}
-                >
-                  <span className="font-medium">{language === 'ar' ? 'اكتب المشهد' : 'Write Scene'}</span>
-                  {scene.word_count > 0 && (
-                    <span className="text-sm mr-2 ml-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      — {scene.word_count} {language === 'ar' ? 'كلمة' : 'words'}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {(() => {
+                const processedIds = new Set<string>();
+                return scenes.map((scene) => {
+                  if (processedIds.has(scene.id)) return null;
+                  processedIds.add(scene.id);
+                  
+                  if (scene.page_type === 'double' && scene.page_group_id) {
+                    const pairedScene = scenes.find(s => 
+                      s.page_group_id === scene.page_group_id && 
+                      s.id !== scene.id && 
+                      !processedIds.has(s.id)
+                    );
+                    if (pairedScene) processedIds.add(pairedScene.id);
+                    
+                    const scenesList = [scene, pairedScene].filter(Boolean);
+                    
+                    return (
+                      <div 
+                        key={scene.page_group_id}
+                        className="grid gap-2"
+                        style={{ gridTemplateColumns: isRTL ? '1fr 1fr' : '1fr 1fr' }}
+                      >
+                        {scenesList.map((s: any, idx: number) => (
+                          <button
+                            key={s.id}
+                            onClick={() => navigate(`/projects/${projectId}/chapters/${chapterId}/scenes/${s.id}`)}
+                            className="w-full text-right px-4 py-3 rounded-lg transition-colors relative"
+                            style={{
+                              backgroundColor: 'var(--color-bg-tertiary)',
+                              border: '1px solid #8b5cf6',
+                              color: 'var(--color-text-primary)',
+                              textAlign: isRTL ? 'right' : 'left',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#a78bfa'}
+                            onMouseLeave={(e) => e.currentTarget.style.borderColor = '#8b5cf6'}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#8b5cf6' }}>
+                                {language === 'ar' ? 'صفحة ' + s.page_order : 'Page ' + s.page_order}
+                              </span>
+                            </div>
+                            <span className="font-medium">{s.title}</span>
+                            {s.word_count > 0 && (
+                              <span className="text-sm mr-2 ml-2" style={{ color: 'var(--color-text-secondary)' }}>
+                                — {s.word_count} {language === 'ar' ? 'كلمة' : 'words'}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <button
+                      key={scene.id}
+                      onClick={() => navigate(`/projects/${projectId}/chapters/${chapterId}/scenes/${scene.id}`)}
+                      className="w-full text-right px-4 py-3 rounded-lg transition-colors"
+                      style={{
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                        textAlign: language === 'ar' ? 'right' : 'left',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--color-accent)'}
+                      onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--color-border)'}
+                    >
+                      <span className="font-medium">{language === 'ar' ? 'اكتب المشهد' : 'Write Scene'}</span>
+                      {scene.word_count > 0 && (
+                        <span className="text-sm mr-2 ml-2" style={{ color: 'var(--color-text-secondary)' }}>
+                          — {scene.word_count} {language === 'ar' ? 'كلمة' : 'words'}
+                        </span>
+                      )}
+                    </button>
+                  );
+                });
+              })()}
             </div>
           </div>
         )}
