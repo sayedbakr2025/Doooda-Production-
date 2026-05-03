@@ -50,7 +50,7 @@ const VOICE_TONES = ['NORMAL', 'WHISPERING', 'SHOUTING', 'CRYING', 'LAUGHING', '
 const SOUND_CUE_TYPES = ['sfx', 'music', 'ambient', 'silence'] as const;
 
 export default function SceneModal({
-  chapterId,
+  chapterId: _chapterId,
   onClose,
   onSave,
   language = 'ar',
