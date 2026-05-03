@@ -38,6 +38,11 @@ export default function ChapterView() {
   const [loading, setLoading] = useState(true);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [showSceneModal, setShowSceneModal] = useState(false);
+  
+  const openSceneModal = () => {
+    console.log('🟢 Opening scene modal, project_type:', project?.project_type);
+    setShowSceneModal(true);
+  };
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [chapterAiScore, setChapterAiScore] = useState<SceneAnalysisScore | null>(null);
@@ -225,7 +230,7 @@ export default function ChapterView() {
     const options = [
       {
         label: getAddSceneLabel(),
-        onClick: () => setShowSceneModal(true),
+        onClick: openSceneModal,
       },
       {
         label: language === 'ar' ? 'إضافة ملاحظة' : 'Add Note',
@@ -689,7 +694,7 @@ export default function ChapterView() {
               {language === 'ar' ? 'ابدأ الكتابة عن طريق إنشاء محتوى للمشهد' : 'Start writing by creating scene content'}
             </p>
             <button
-              onClick={() => setShowSceneModal(true)}
+              onClick={openSceneModal}
               className="px-6 py-3 text-white rounded-lg"
               style={{ backgroundColor: 'var(--color-accent)' }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-hover)'}
@@ -706,7 +711,7 @@ export default function ChapterView() {
               {getSceneLabelPlural()}
             </h2>
             <button
-              onClick={() => setShowSceneModal(true)}
+              onClick={openSceneModal}
               className="px-4 py-2 text-white rounded-lg"
               style={{ backgroundColor: 'var(--color-accent)' }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-hover)'}
