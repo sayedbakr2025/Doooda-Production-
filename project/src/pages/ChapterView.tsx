@@ -75,6 +75,7 @@ export default function ChapterView() {
     try {
       if (!projectId) return;
       const data = await api.getProject(projectId);
+      console.log('[ChapterView] Project loaded:', data?.project_type, data?.title);
       setProject(data);
     } catch (error) {
       console.error('Failed to load project:', error);
@@ -83,6 +84,7 @@ export default function ChapterView() {
 
   const isBookProject = project?.project_type === 'book';
   const typeConfig = project ? getProjectTypeConfig(project.project_type) : getProjectTypeConfig('novel');
+  console.log('[ChapterView] project_type:', project?.project_type, 'hasChildrenFields:', typeConfig.hasChildrenFields);
 
   const getSceneLabel = () => language === 'ar' ? typeConfig.unitLabelAr : typeConfig.unitLabelEn;
   const getSceneLabelPlural = () => language === 'ar' ? typeConfig.unitLabelPluralAr : typeConfig.unitLabelPluralEn;
