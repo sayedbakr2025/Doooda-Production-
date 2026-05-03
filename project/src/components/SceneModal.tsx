@@ -216,9 +216,9 @@ export default function SceneModal({
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* TEST: Force show children fields section */}
-          <div style={{background: 'red', color: 'white', padding: '10px', textAlign: 'center'}}>
-            TEST: showChildrenFields = {String(showChildrenFields)}
+          {/* DEBUG: Force show */}
+          <div className="bg-red-600 text-white p-4 text-center font-bold">
+            DEBUG: showChildrenFields = {String(showChildrenFields)}
           </div>
           
           {error && (
