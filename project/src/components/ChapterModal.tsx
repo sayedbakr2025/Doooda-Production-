@@ -34,7 +34,6 @@ export default function ChapterModal({
   const [summary, setSummary] = useState('');
   const [hook, setHook] = useState('');
   const [pageType, setPageType] = useState<'single' | 'double'>('single');
-  const [pageNumber, setPageNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +54,6 @@ export default function ChapterModal({
         summary: summary.trim() || undefined,
         hook: hasChildrenFields ? (hook.trim() || undefined) : undefined,
         page_type: hasChildrenFields ? pageType : undefined,
-        page_number: hasChildrenFields && pageNumber ? parseInt(pageNumber, 10) : undefined,
       });
       onClose();
     } catch (error) {
@@ -120,20 +118,6 @@ export default function ChapterModal({
                     {language === 'ar' ? 'صفحة مزدوجة' : 'Double Page'}
                   </span>
                 </label>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  {language === 'ar' ? 'رقم الصفحة' : 'Page Number'}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  className="w-full px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
-                  style={inputStyle}
-                  value={pageNumber}
-                  onChange={(e) => setPageNumber(e.target.value)}
-                  placeholder={language === 'ar' ? 'رقم الصفحة' : 'Page number'}
-                />
               </div>
               {pageType === 'double' && (
                 <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
