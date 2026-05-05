@@ -786,6 +786,7 @@ const handleContextMenu = (e: React.MouseEvent, contextType: 'logline' | 'chapte
             language={language}
             containerLabelAr={chapterTypeConfig?.containerLabelAr}
             containerLabelEn={chapterTypeConfig?.containerLabelEn}
+            projectType={project?.project_type}
           />
         );
       })()}
