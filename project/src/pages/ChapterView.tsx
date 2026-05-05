@@ -687,7 +687,7 @@ export default function ChapterView() {
           </div>
         )}
 
-        {!typeConfig.hasLevel2 && scenes.length === 0 && (
+        {!typeConfig.hasLevel2 && scenes.length === 0 && !typeConfig.hasChildrenFields && (
           <div className="rounded-xl shadow-sm p-6 mb-6 text-center" style={{ backgroundColor: 'var(--color-surface)', border: `1px solid var(--color-border-light)` }}>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
               {language === 'ar' ? 'ابدأ الكتابة عن طريق إنشاء محتوى للمشهد' : 'Start writing by creating scene content'}
@@ -704,6 +704,7 @@ export default function ChapterView() {
           </div>
         )}
 
+        {!typeConfig.hasChildrenFields && (
         <div className="rounded-xl shadow-sm p-6" style={{ backgroundColor: 'var(--color-surface)', border: `1px solid var(--color-border-light)` }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -913,6 +914,7 @@ export default function ChapterView() {
             </span>
           </div>
         </div>
+        )}
       </div>
 
       {contextMenu && (
