@@ -70,6 +70,22 @@ interface AnalysisData {
     build_up_score: number;
     has_climax?: boolean;
     scene_purpose?: 'conflict' | 'setup' | 'payoff' | 'transition';
+    classification?: string;
+    classification_label_ar?: string;
+    classification_label_en?: string;
+    tags?: string[];
+    tags_ar?: string[];
+    tags_en?: string[];
+    reasons_ar?: string[];
+    reasons_en?: string[];
+    narrative_dimensions?: {
+      plot_progression: number;
+      character_development: number;
+      information_value: number;
+      emotional_function: number;
+      conflict_presence: number;
+      narrative_necessity: number;
+    };
     recommendation: string;
   }>;
   global_structure?: {
@@ -92,6 +108,11 @@ interface AnalysisData {
     status: string;
   }>;
   structural_warnings?: string[];
+  critic_ui_warnings?: Array<{
+    type: string;
+    message: string;
+    indices: number[];
+  }>;
   strengths?: string[];
   key_issues?: string[];
   recommendations?: string[];
@@ -1050,7 +1071,7 @@ const PlotAnalysisView: React.FC<PlotAnalysisViewProps> = ({
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}>
                     <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                    {language === 'ar' ? 'مشاهد حشوية' : 'Filler Scenes'}
+                    {language === 'ar' ? 'مقاطع حشوية محتملة' : 'Potential Filler Scenes'}
                   </h3>
                   <ul className="space-y-1">
                     {analysis.filler_scenes.map((filler, index) => (

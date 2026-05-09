@@ -41,6 +41,15 @@ interface PlotScene {
   build_up_score?: number | null;
   scene_purpose?: string | null;
   ai_comment?: string | null;
+  classification?: string | null;
+  classification_label_ar?: string | null;
+  classification_label_en?: string | null;
+  tags?: string[] | null;
+  tags_ar?: string[] | null;
+  tags_en?: string[] | null;
+  reasons_ar?: string[] | null;
+  reasons_en?: string[] | null;
+  narrative_dimensions?: any;
 }
 
 interface PlotCanvasProps {
@@ -354,34 +363,52 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({
       comment: score.comment,
       has_climax: score.has_climax,
       scene_purpose: score.scene_purpose,
+      classification: score.classification,
+      classification_label_ar: score.classification_label_ar,
+      classification_label_en: score.classification_label_en,
+      tags: score.tags,
+      tags_ar: score.tags_ar,
+      tags_en: score.tags_en,
+      reasons_ar: score.reasons_ar,
+      reasons_en: score.reasons_en,
+      narrative_dimensions: score.narrative_dimensions,
     };
   };
 
   const getSceneAnalysisScore = (chapter: PlotChapter, scene: PlotScene): SceneAnalysisScore | undefined => {
+    const analysisScore = analysis?.scene_scores?.find(
+      (s: any) => s.chapter_index === chapter.order_index && s.scene_index === scene.order_index
+    );
+
     if (
       scene.ai_tension == null &&
       scene.ai_pace == null &&
       scene.causality_score == null
     ) {
-      if (!analysis?.scene_scores) return undefined;
-      const score = analysis.scene_scores.find(
-        (s: any) => s.chapter_index === chapter.order_index && s.scene_index === scene.order_index
-      );
-      if (!score) return undefined;
+      if (!analysisScore) return undefined;
       return {
-        ai_tension: score.ai_tension ?? 0.5,
-        ai_pace: score.ai_pace ?? 0.5,
-        writer_tension: score.writer_tension,
-        writer_pace: score.writer_pace,
-        accuracy_score: score.accuracy_score,
-        causality_score: score.causality_score ?? 0.5,
-        dramatic_progress_score: score.dramatic_progress_score ?? 0.5,
-        filler_ratio: score.filler_ratio ?? 0,
-        build_up_score: score.build_up_score ?? 0.5,
-        recommendation: score.recommendation ?? '',
-        comment: score.comment,
-        has_climax: score.has_climax,
-        scene_purpose: score.scene_purpose,
+        ai_tension: analysisScore.ai_tension ?? 0.5,
+        ai_pace: analysisScore.ai_pace ?? 0.5,
+        writer_tension: analysisScore.writer_tension,
+        writer_pace: analysisScore.writer_pace,
+        accuracy_score: analysisScore.accuracy_score,
+        causality_score: analysisScore.causality_score ?? 0.5,
+        dramatic_progress_score: analysisScore.dramatic_progress_score ?? 0.5,
+        filler_ratio: analysisScore.filler_ratio ?? 0,
+        build_up_score: analysisScore.build_up_score ?? 0.5,
+        recommendation: analysisScore.recommendation ?? '',
+        comment: analysisScore.comment,
+        has_climax: analysisScore.has_climax,
+        scene_purpose: analysisScore.scene_purpose,
+        classification: analysisScore.classification,
+        classification_label_ar: analysisScore.classification_label_ar,
+        classification_label_en: analysisScore.classification_label_en,
+        tags: analysisScore.tags,
+        tags_ar: analysisScore.tags_ar,
+        tags_en: analysisScore.tags_en,
+        reasons_ar: analysisScore.reasons_ar,
+        reasons_en: analysisScore.reasons_en,
+        narrative_dimensions: analysisScore.narrative_dimensions,
       };
     }
     return {
@@ -394,9 +421,18 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({
       dramatic_progress_score: scene.dramatic_progress_score ?? 0.5,
       filler_ratio: scene.filler_ratio ?? 0,
       build_up_score: scene.build_up_score ?? 0.5,
-      recommendation: scene.ai_comment ?? '',
-      comment: scene.ai_comment,
-      scene_purpose: scene.scene_purpose,
+      recommendation: scene.ai_comment ?? analysisScore?.recommendation ?? '',
+      comment: scene.ai_comment ?? analysisScore?.comment,
+      scene_purpose: scene.scene_purpose ?? analysisScore?.scene_purpose,
+      classification: scene.classification ?? analysisScore?.classification,
+      classification_label_ar: scene.classification_label_ar ?? analysisScore?.classification_label_ar,
+      classification_label_en: scene.classification_label_en ?? analysisScore?.classification_label_en,
+      tags: scene.tags ?? analysisScore?.tags,
+      tags_ar: scene.tags_ar ?? analysisScore?.tags_ar,
+      tags_en: scene.tags_en ?? analysisScore?.tags_en,
+      reasons_ar: scene.reasons_ar ?? analysisScore?.reasons_ar,
+      reasons_en: scene.reasons_en ?? analysisScore?.reasons_en,
+      narrative_dimensions: scene.narrative_dimensions ?? analysisScore?.narrative_dimensions,
     };
   };
 

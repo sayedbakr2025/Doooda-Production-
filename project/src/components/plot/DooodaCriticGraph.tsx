@@ -16,6 +16,7 @@ import {
 import { useTheme } from '../../contexts/ThemeContext';
 import { AlertTriangle, Zap, Swords, Box, Target, RefreshCw } from 'lucide-react';
 import { getProjectTypeConfig } from '../../utils/projectTypeConfig';
+import { getClassificationLabel, type CriticUiWarning, type NarrativeDimensions } from '../../utils/criticNarrative';
 import type { ProjectType } from '../../types';
 
 ChartJS.register(
@@ -47,6 +48,15 @@ interface SceneScore {
   comment?: string;
   has_climax?: boolean;
   scene_purpose?: 'conflict' | 'setup' | 'payoff' | 'transition';
+  classification?: string;
+  classification_label_ar?: string;
+  classification_label_en?: string;
+  tags?: string[];
+  tags_ar?: string[];
+  tags_en?: string[];
+  reasons_ar?: string[];
+  reasons_en?: string[];
+  narrative_dimensions?: NarrativeDimensions;
 }
 
 interface ChapterScore {
@@ -89,6 +99,7 @@ interface PlotAnalysisResponse {
     status: string;
   }>;
   structural_warnings?: string[];
+  critic_ui_warnings?: CriticUiWarning[];
   strengths?: string[];
   key_issues?: string[];
   recommendations?: string[];
@@ -116,6 +127,15 @@ interface PlotScene {
   build_up_score?: number | null;
   scene_purpose?: string | null;
   ai_comment?: string | null;
+  classification?: string | null;
+  classification_label_ar?: string | null;
+  classification_label_en?: string | null;
+  tags?: string[] | null;
+  tags_ar?: string[] | null;
+  tags_en?: string[] | null;
+  reasons_ar?: string[] | null;
+  reasons_en?: string[] | null;
+  narrative_dimensions?: NarrativeDimensions | null;
 }
 
 interface DooodaCriticGraphProps {
@@ -254,6 +274,15 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
           scene_purpose: analysisScore?.scene_purpose,
           recommendation: analysisScore?.recommendation ?? '',
           comment: analysisScore?.comment,
+          classification: analysisScore?.classification,
+          classification_label_ar: analysisScore?.classification_label_ar,
+          classification_label_en: analysisScore?.classification_label_en,
+          tags: analysisScore?.tags,
+          tags_ar: analysisScore?.tags_ar,
+          tags_en: analysisScore?.tags_en,
+          reasons_ar: analysisScore?.reasons_ar,
+          reasons_en: analysisScore?.reasons_en,
+          narrative_dimensions: analysisScore?.narrative_dimensions,
         });
       });
     } else {
@@ -295,6 +324,15 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
             scene_purpose: (scene.scene_purpose as any) ?? analysisScore?.scene_purpose,
             recommendation: scene.ai_comment ?? analysisScore?.recommendation ?? '',
             comment: scene.ai_comment ?? analysisScore?.comment,
+            classification: scene.classification ?? analysisScore?.classification,
+            classification_label_ar: scene.classification_label_ar ?? analysisScore?.classification_label_ar,
+            classification_label_en: scene.classification_label_en ?? analysisScore?.classification_label_en,
+            tags: scene.tags ?? analysisScore?.tags,
+            tags_ar: scene.tags_ar ?? analysisScore?.tags_ar,
+            tags_en: scene.tags_en ?? analysisScore?.tags_en,
+            reasons_ar: scene.reasons_ar ?? analysisScore?.reasons_ar,
+            reasons_en: scene.reasons_en ?? analysisScore?.reasons_en,
+            narrative_dimensions: scene.narrative_dimensions ?? analysisScore?.narrative_dimensions,
           });
         });
       });
@@ -319,6 +357,15 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
           scene_purpose: s.scene_purpose,
           recommendation: s.recommendation ?? '',
           comment: s.comment,
+          classification: s.classification,
+          classification_label_ar: s.classification_label_ar,
+          classification_label_en: s.classification_label_en,
+          tags: s.tags,
+          tags_ar: s.tags_ar,
+          tags_en: s.tags_en,
+          reasons_ar: s.reasons_ar,
+          reasons_en: s.reasons_en,
+          narrative_dimensions: s.narrative_dimensions,
         });
       });
     }
@@ -537,6 +584,14 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
 
     return detected;
   }, [displayScenes, language, projectType]);
+
+  const effectiveWarnings = useMemo(() => {
+    if (analysis.critic_ui_warnings && analysis.critic_ui_warnings.length > 0) {
+      return analysis.critic_ui_warnings;
+    }
+
+    return warnings.filter((warning) => warning.type !== 'filler_cluster');
+  }, [analysis.critic_ui_warnings, warnings]);
 
   const labels = displayScenes.map((scene, idx) => {
     if (typeConfig.hasLevel2 === false) {
@@ -770,7 +825,7 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
         });
       }
 
-      warnings.forEach((warning) => {
+      effectiveWarnings.forEach((warning) => {
         if (warning.indices.length > 0) {
           const startX = xScale.getPixelForValue(warning.indices[0]);
           const endX = xScale.getPixelForValue(warning.indices[warning.indices.length - 1]);
@@ -804,7 +859,7 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
     },
   }), [
     theme, language, projectType, actBreakpoints, midpointIndex, climaxIndex,
-    displayScenes, warnings, emotionalPeakIndices, dialogueDensities, episodeGroups, activeTvEpisode
+    displayScenes, effectiveWarnings, emotionalPeakIndices, dialogueDensities, episodeGroups, activeTvEpisode
   ]);
 
   const datasets = useMemo(() => {
@@ -828,19 +883,19 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
         backgroundColor: getColor('red', 0.1),
         pointBackgroundColor: displayScenes.map((s, idx) => {
           if (idx === climaxIndex) return getColor('red', 1);
-          if (s.filler_ratio > 0.7) return getColor('red', 1);
+          if (s.classification === 'potential_filler') return getColor('red', 1);
           return getColor('red', 0.8);
         }),
         pointBorderColor: displayScenes.map((s, idx) =>
-          idx === midpointIndex ? getColor('gold', 1) : s.filler_ratio > 0.7 ? getColor('red', 1) : '#fff'
+          idx === midpointIndex ? getColor('gold', 1) : s.classification === 'potential_filler' ? getColor('red', 1) : '#fff'
         ),
         pointBorderWidth: displayScenes.map((s, idx) => {
           if (isChildrenType(projectType) && emotionalPeakIndices.has(idx)) return 3;
-          return idx === midpointIndex ? 3 : s.filler_ratio > 0.7 ? 3 : 2;
+          return idx === midpointIndex ? 3 : s.classification === 'potential_filler' ? 3 : 2;
         }),
         pointRadius: displayScenes.map((s, idx) => {
           if (isChildrenType(projectType) && emotionalPeakIndices.has(idx)) return 9;
-          return idx === climaxIndex ? 10 : s.filler_ratio > 0.7 ? 8 : isChildrenType(projectType) ? 6 : 5;
+          return idx === climaxIndex ? 10 : s.classification === 'potential_filler' ? 8 : isChildrenType(projectType) ? 6 : 5;
         }),
         pointHoverRadius: 10,
         tension: isChildrenType(projectType) ? 0.6 : 0.4,
@@ -1276,7 +1331,7 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
         </button>
       </div>
 
-      {warnings.length > 0 && (
+      {effectiveWarnings.length > 0 && (
         <div
           className={`p-2.5 rounded-lg border-l-4 border-orange-500 ${
             theme === 'dark' ? 'bg-orange-900 bg-opacity-20' : 'bg-orange-50'
@@ -1289,7 +1344,7 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
                 {language === 'ar' ? 'تحذيرات بنيوية' : 'Structural Warnings'}
               </h4>
               <ul className="space-y-0.5">
-                {warnings.map((warning, idx) => (
+                {effectiveWarnings.map((warning, idx) => (
                   <li key={idx} className={`text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     {warning.message} ({language === 'ar' ? 'المشاهد' : 'Scenes'} {warning.indices.join(', ')})
                   </li>
@@ -1451,11 +1506,16 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
                       : `${typeConfig.containerLabelEn} ${currentScene.chapter_index}`))
                 }
               </h4>
-              <div className="flex items-center gap-1">
-                {currentScene.scene_purpose && (
+	              <div className="flex items-center gap-1 flex-wrap justify-end">
+	                {currentScene.classification && (
+	                  <div className={`px-2 py-1 text-xs rounded-md font-semibold ${currentScene.classification === 'potential_filler' ? 'bg-red-700 text-white' : currentScene.classification === 'weak_impact' ? 'bg-orange-500 text-white' : 'bg-blue-600 text-white'}`}>
+	                    {getClassificationLabel(currentScene.classification, language)}
+	                  </div>
+	                )}
+	                {currentScene.scene_purpose && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-gray-600 text-white text-xs rounded-md">
                     {getScenePurposeIcon(currentScene.scene_purpose)}
-                    <span>{getScenePurposeLabel(currentScene.scene_purpose)}</span>
+	                    <span>{getScenePurposeLabel(currentScene.scene_purpose)}</span>
                   </div>
                 )}
                 {isChildrenType(projectType) && emotionalPeakIndices.has(customTooltip.sceneIndex) && (
@@ -1463,7 +1523,7 @@ const DooodaCriticGraph: React.FC<DooodaCriticGraphProps> = ({
                     {language === 'ar' ? 'ذروة عاطفية' : 'Emotional Peak'}
                   </div>
                 )}
-                {currentScene.filler_ratio > 0.6 && (
+	                {currentScene.classification === 'potential_filler' && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs rounded-md">
                     <AlertTriangle className="w-3 h-3" />
                     {language === 'ar' ? 'حشو' : 'Filler'}

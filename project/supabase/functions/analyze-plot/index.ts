@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { applyNarrativeDiagnostics } from "./narrativeDiagnostics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -721,15 +722,54 @@ Deno.serve(async (req: Request) => {
     }> : [];
 
     if (sceneScores.length > 0) {
-      const tensions = sceneScores.map(s => s.ai_tension ?? 0);
-      const fillers = sceneScores.map(s => s.filler_ratio ?? 0);
-      const conflicts = sceneScores.map(s => s.conflict_intensity_score ?? 0);
+      const diagnostics = applyNarrativeDiagnostics({
+        sceneScores: sceneScores as Array<{
+          chapter_index: number;
+          scene_index: number;
+          writer_tension?: number;
+          ai_tension?: number;
+          writer_pace?: number;
+          ai_pace?: number;
+          accuracy_score?: number;
+          causality_score?: number;
+          dramatic_progress_score?: number;
+          filler_ratio?: number;
+          conflict_intensity_score?: number;
+          setup_payoff_tag?: string;
+          build_up_score?: number;
+          has_climax?: boolean;
+          scene_purpose?: string;
+          recommendation?: string;
+          comment?: string;
+        }>,
+        scenes,
+        language,
+        projectType: type,
+        log: (message, payload) => {
+          if (payload !== undefined) {
+            console.log(message, JSON.stringify(payload));
+            return;
+          }
+          console.log(message);
+        },
+      });
+
+      analysis.scene_scores = diagnostics.scene_scores;
+      analysis.filler_scenes = diagnostics.filler_scenes;
+      analysis.structural_warnings = diagnostics.structural_warnings;
+      analysis.critic_ui_warnings = diagnostics.ui_warnings;
+      analysis.critic_debug = diagnostics.debug_summary;
+
+      const normalizedSceneScores = diagnostics.scene_scores;
+      const tensions = normalizedSceneScores.map(s => s.ai_tension ?? 0);
+      const fillers = normalizedSceneScores.map(s => s.filler_ratio ?? 0);
+      const conflicts = normalizedSceneScores.map(s => s.conflict_intensity_score ?? 0);
       const mean = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
       const tensionMean = mean(tensions);
       const variance = mean(tensions.map(t => Math.pow(t - tensionMean, 2)));
 
-      const setupScenes = sceneScores.filter(s => s.setup_payoff_tag === 'setup');
-      const payoffScenes = sceneScores.filter(s => s.setup_payoff_tag === 'payoff');
+      const setupScenes = normalizedSceneScores.filter(s => s.setup_payoff_tag === 'setup');
+      const payoffScenes = normalizedSceneScores.filter(s => s.setup_payoff_tag === 'payoff');
       const aiPairs = Array.isArray((analysis.additional_metrics as Record<string, unknown>)?.setup_payoff_pairs)
         ? (analysis.additional_metrics as Record<string, unknown>).setup_payoff_pairs
         : setupScenes.slice(0, payoffScenes.length).map((s, i) => ({
@@ -747,6 +787,7 @@ Deno.serve(async (req: Request) => {
         conflict_density_score: Math.round(mean(conflicts) * 100) / 100,
         emotional_volatility_index: Math.round(Math.min(1, Math.sqrt(variance) * 2) * 100) / 100,
         unresolved_elements_count: Array.isArray(analysis.unresolved_elements) ? analysis.unresolved_elements.length : 0,
+        critic_debug: diagnostics.debug_summary,
       };
     }
 
