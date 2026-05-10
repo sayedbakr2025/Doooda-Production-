@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { loadConversationHistory, persistConversationMessages } from "../_shared/conversationMemory.ts";
+import { callDeepSeekChatCompletion, isDevelopmentMode } from "../_shared/deepseekModels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +48,8 @@ const AI_LEAK_PATTERNS = [
 const DEFAULT_SYSTEM_EN = `You are doooda, a friendly writing companion. Help writers clarify ideas, improve flow, and develop their work. Be concise. Reply in the writer's language.`;
 
 const DEFAULT_SYSTEM_AR = `أنت دووودة، رفيق كتابة ودود. ساعد الكاتب في توضيح أفكاره وتحسين نصه. كن موجزاً. أجب بلغة الكاتب.`;
+
+const CHAT_HISTORY_LIMIT = 20;
 
 function sanitizeResponse(text: string): string {
   let result = text;
@@ -144,7 +148,7 @@ interface CharacterContext {
 type ProjectType = 'novel' | 'short_story' | 'long_story' | 'book' | 'film_script' | 'tv_series' | 'theatre_play' | 'radio_series' | 'children_story';
 
 interface RequestBody {
-  messages: Array<{ role: "user" | "doooda"; content: string }>;
+  messages: Array<{ role: "user" | "doooda" | "assistant" | "system"; content: string }>;
   language: "ar" | "en";
   mode?: "explain" | "review" | "idea";
   context?: string;
@@ -154,6 +158,31 @@ interface RequestBody {
   genres?: string[];
   tone?: string;
   project_id?: string;
+  conversation_id?: string;
+}
+
+function mapMessageRole(role: RequestBody["messages"][number]["role"]): "system" | "user" | "assistant" {
+  if (role === "doooda" || role === "assistant") return "assistant";
+  if (role === "system") return "system";
+  return "user";
+}
+
+function isUuid(value: string | undefined): value is string {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getSafetyAndContinuityPrompt(lang: "ar" | "en"): string {
+  if (lang === "ar") {
+    return `استمر في المحادثة بوصفها حواراً متصلاً، واستفد من الرسائل السابقة لفهم الإشارات المختصرة مثل "ليش؟" و"وضح أكثر" و"ماذا تقصد؟".
+النقاشات التعليمية والأدبية مسموحة، بما فيها الصحة النفسية، بناء الشخصيات، الصدمات، والدوافع النفسية، ما دامت تُناقش باحترام وبدون وصم.
+لا ترفض إلا إذا كان الطلب يتضمن تشجيعاً صريحاً على إيذاء النفس، أو تعليمات غير قانونية قابلة للتنفيذ، أو كراهية/تطرفاً، أو تحرشاً موجهاً، أو معلومات طبية خطيرة ومضللة.
+إذا كان الموضوع حساساً، فأجب باحترام وواقعية وبأسلوب هادئ بدون وصم أو تهويل.`;
+  }
+
+  return `Treat this as a continuous conversation and use earlier messages to resolve short follow-ups like "why?", "explain more", and "what do you mean?".
+Educational and literary discussion is allowed, including mental health, character psychology, trauma, and motivation, as long as it is handled respectfully and without stigma.
+Only refuse when the user asks for explicit self-harm encouragement, actionable illegal instructions, hate or extremism, targeted harassment, or dangerous medical misinformation.
+For sensitive topics, answer respectfully, factually, and calmly without stigmatizing mental illness.`;
 }
 
 function getGenreToneSystemAddition(genres: string[] | undefined, tone: string | undefined, lang: string): string {
@@ -343,6 +372,8 @@ Deno.serve(async (req: Request) => {
       systemPrompt = lang === "ar" ? DEFAULT_SYSTEM_AR : DEFAULT_SYSTEM_EN;
     }
 
+    systemPrompt += `\n\n---\n\n${getSafetyAndContinuityPrompt(lang)}`;
+
     if (body.characterContext) {
       const { character, dialogue } = body.characterContext;
 
@@ -445,30 +476,61 @@ Deno.serve(async (req: Request) => {
       systemPrompt += `\n\n---\n\n${trimmedCtx}`;
     }
 
+    const normalizedIncomingMessages = body.messages.map((message) => ({
+      role: mapMessageRole(message.role),
+      content: message.content,
+    }));
+
+    const lastUserMessage = [...normalizedIncomingMessages]
+      .reverse()
+      .find((message) => message.role === "user")?.content || "";
+
+    if (!lastUserMessage) {
+      return new Response(
+        JSON.stringify({ error: lang === "ar" ? "لا توجد رسالة مستخدم صالحة" : "No valid user message found" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const validConversationId = isUuid(body.conversation_id) ? body.conversation_id : null;
+    let historyMessages = normalizedIncomingMessages
+      .slice(0, -1)
+      .filter((message) => message.role !== "system")
+      .slice(-CHAT_HISTORY_LIMIT);
+
+    if (config?.session_memory_enabled !== false && validConversationId) {
+      const persistedHistory = await loadConversationHistory(
+        supabase,
+        validConversationId,
+        user.id,
+        CHAT_HISTORY_LIMIT,
+      );
+
+      if (persistedHistory.length > 0) {
+        historyMessages = persistedHistory;
+      }
+    }
+
+    console.log("[ask-doooda] conversation:", validConversationId ?? "none", "| loaded_history:", historyMessages.length);
+
     let finalMessages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt }
     ];
-
-    const chatMessages = body.messages.map((m) => ({
-      role: m.role === "doooda" ? "assistant" : "user",
-      content: m.content,
-    }));
 
     const tokenBudget = planFeatures?.doooda_context_budget || (userPlan === 'free' ? 800 : 2000);
     const selectedMessages: Array<{ role: string; content: string }> = [];
     let tokensUsed = 0;
 
-    for (let i = chatMessages.length - 1; i >= 0; i--) {
-      const msg = chatMessages[i];
+    for (let i = historyMessages.length - 1; i >= 0; i--) {
+      const msg = historyMessages[i];
       const msgTokens = estimateTokens(msg.content);
       if (tokensUsed + msgTokens > tokenBudget) break;
       selectedMessages.unshift(msg);
       tokensUsed += msgTokens;
     }
 
-    finalMessages = finalMessages.concat(selectedMessages);
+    finalMessages = finalMessages.concat(selectedMessages, [{ role: "user", content: lastUserMessage }]);
 
-    const lastUserMessage = chatMessages.filter(m => m.role === "user").pop()?.content || "";
     const hasContext = !!(body.selectedText || body.context || body.characterContext);
 
     const maxTokens = resolveAdaptiveMaxTokens(lastUserMessage, body.mode, hasContext, planFeatures);
@@ -503,18 +565,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const aiResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${deepseekApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "deepseek-reasoner",
-        messages: finalMessages,
-        temperature: 0.7,
-        max_tokens: maxTokens,
-      }),
+    const { response: aiResponse, modelUsed } = await callDeepSeekChatCompletion({
+      apiKey: deepseekApiKey,
+      feature: "ask_doooda",
+      messages: finalMessages.map((message) => ({
+        role: message.role as "system" | "user" | "assistant",
+        content: message.content,
+      })),
+      temperature: 0.7,
+      maxTokens,
+      logPrefix: "[AI]",
     });
 
     if (!aiResponse.ok) {
@@ -557,7 +617,7 @@ Deno.serve(async (req: Request) => {
         p_user_id: billingUserId,
         p_feature: "ask_doooda",
         p_provider: "deepseek",
-        p_model: "deepseek-chat",
+        p_model: modelUsed,
         p_prompt_tokens: promptTokens,
         p_completion_tokens: completionTokens,
         p_multiplier: MULTIPLIER,
@@ -566,7 +626,9 @@ Deno.serve(async (req: Request) => {
           mode: body.mode || null,
           has_selected_text: !!body.selectedText,
           has_context: !!body.context,
-          message_count: body.messages.length,
+          message_count: finalMessages.length,
+          history_messages_loaded: selectedMessages.length,
+          conversation_id: validConversationId,
           adaptive_max_tokens: maxTokens,
         },
         p_response_metadata: {
@@ -633,14 +695,42 @@ Deno.serve(async (req: Request) => {
           ? `${finalReply}\n\n⚠️ توكنزك قربت تخلص (متبقي ${newBalance}).`
           : `${finalReply}\n\n⚠️ Tokens running low (${newBalance} remaining).`;
       }
+
+      if (validConversationId) {
+        await persistConversationMessages(supabase, validConversationId, user.id, [
+          { role: "user", content: lastUserMessage },
+          { role: "assistant", content: lowMsg },
+        ]);
+      }
+
       return new Response(
-        JSON.stringify({ reply: lowMsg, blocked: false, type: "TOKENS_LOW", tokens_left: newBalance }),
+        JSON.stringify({
+          reply: lowMsg,
+          blocked: false,
+          type: "TOKENS_LOW",
+          tokens_left: newBalance,
+          conversation_id: validConversationId,
+          ...(isDevelopmentMode() ? { model: modelUsed } : {}),
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    if (validConversationId) {
+      await persistConversationMessages(supabase, validConversationId, user.id, [
+        { role: "user", content: lastUserMessage },
+        { role: "assistant", content: finalReply },
+      ]);
+    }
+
     return new Response(
-      JSON.stringify({ reply: finalReply, blocked: false, tokens_left: newBalance }),
+      JSON.stringify({
+        reply: finalReply,
+        blocked: false,
+        tokens_left: newBalance,
+        conversation_id: validConversationId,
+        ...(isDevelopmentMode() ? { model: modelUsed } : {}),
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

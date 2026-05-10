@@ -107,7 +107,7 @@ export default function AdminProjectTypes() {
                         type="text"
                         value={modelInput}
                         onChange={(e) => setModelInput(e.target.value)}
-                        placeholder="e.g. gpt-4o-mini, deepseek-chat (blank = default)"
+                        placeholder="e.g. gpt-4o-mini, deepseek-v4-flash (blank = default)"
                         className="flex-1 px-3 py-1.5 text-sm rounded-lg focus:outline-none focus:ring-2"
                         style={{
                           backgroundColor: 'var(--color-bg-secondary)',

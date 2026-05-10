@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { getDeepSeekModel } from "../_shared/deepseekModels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,7 @@ async function callAIProvider(
   if (deepseekApiKey) {
     apiKey = deepseekApiKey;
     baseUrl = "https://api.deepseek.com/v1";
-    model = "deepseek-reasoner";
+    model = getDeepSeekModel("ask_doooda");
   } else {
     const { data: provider } = await supabase
       .from("ai_providers")

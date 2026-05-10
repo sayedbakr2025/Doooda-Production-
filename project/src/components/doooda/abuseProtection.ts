@@ -84,6 +84,25 @@ const SELF_HARM_PATTERNS = [
   /i('m|\s+am)\s+going\s+to\s+hurt\s+myself/i,
 ];
 
+const WRITING_CONTEXT_PATTERNS = [
+  /\b(story|novel|scene|chapter|character|dialogue|plot|script|fiction|poem|poetry|narrative|writer|writing)\b/i,
+  /\b(قصة|رواية|مشهد|فصل|شخصية|حوار|حبكة|سيناريو|نص|سرد|كاتب|كتابة|خيال|روايتي|شخصيتي)\b/,
+];
+
+const EDUCATIONAL_CONTEXT_PATTERNS = [
+  /\b(explain|analysis|analyze|meaning|research|study|educational|psychology|mental health|trauma|motivation|symptom)\b/i,
+  /\b(اشرح|تحليل|حلل|معنى|بحث|دراسة|تعليمي|نفسي|صحة نفسية|صدمة|دافع|أعراض)\b/,
+];
+
+const ACTIONABLE_HARM_REQUEST_PATTERNS = [
+  /\b(how\s+to|step[- ]by[- ]step|exact(ly)?|real\s+instructions?|best\s+way|easiest\s+way|undetectable|dose|recipe)\b/i,
+  /\b(ازاي|كيف|خطوات|بالتفصيل|طريقة|وصفة|جرعة|بدون ما ينكشف|بشكل حقيقي)\b/,
+];
+
+function isCreativeOrEducationalContext(text: string): boolean {
+  return matchesAny(text, WRITING_CONTEXT_PATTERNS) || matchesAny(text, EDUCATIONAL_CONTEXT_PATTERNS);
+}
+
 function matchesAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((p) => p.test(text));
 }
@@ -185,7 +204,9 @@ export function checkAbuse(text: string, lang: ResponseLang = 'ar'): AbuseResult
   const normalized = text.trim();
   if (!normalized) return { category: 'none', level: 'none', intercepted: false, response: null };
 
-  if (matchesAny(normalized, SELF_HARM_PATTERNS)) {
+  const creativeOrEducational = isCreativeOrEducationalContext(normalized);
+
+  if (matchesAny(normalized, SELF_HARM_PATTERNS) && !creativeOrEducational) {
     return {
       category: 'self_harm',
       level: 'critical',
@@ -194,7 +215,7 @@ export function checkAbuse(text: string, lang: ResponseLang = 'ar'): AbuseResult
     };
   }
 
-  if (matchesAny(normalized, HARM_REQUEST_PATTERNS)) {
+  if (matchesAny(normalized, HARM_REQUEST_PATTERNS) && (!creativeOrEducational || matchesAny(normalized, ACTIONABLE_HARM_REQUEST_PATTERNS))) {
     trackAbuse();
     return {
       category: 'harm_request',
@@ -212,6 +233,10 @@ export function checkAbuse(text: string, lang: ResponseLang = 'ar'): AbuseResult
       intercepted: true,
       response: pickRandom(REDIRECT_RESPONSES, lang),
     };
+  }
+
+  if (creativeOrEducational) {
+    return { category: 'none', level: 'none', intercepted: false, response: null };
   }
 
   if (matchesAny(normalized, THREAT_PATTERNS)) {

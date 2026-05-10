@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { callDeepSeekChatCompletion } from "../_shared/deepseekModels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,28 +68,23 @@ async function callDeepSeek(prompt: string): Promise<string> {
   const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
   if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not configured");
 
-  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "deepseek-reasoner",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert literary evaluator. Analyze creative works based on given criteria and provide detailed, fair assessments. Always respond in the same language as the work summary provided. Respond with pure JSON only, no markdown.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.3,
-      max_tokens: 2000,
-      response_format: { type: "json_object" },
-    }),
+  const { response } = await callDeepSeekChatCompletion({
+    apiKey,
+    feature: "critic",
+    messages: [
+      {
+        role: "system",
+        content: "You are an expert literary evaluator. Analyze creative works based on given criteria and provide detailed, fair assessments. Always respond in the same language as the work summary provided. Respond with pure JSON only, no markdown.",
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+    temperature: 0.3,
+    maxTokens: 2000,
+    responseFormat: { type: "json_object" },
+    logPrefix: "[Critic]",
   });
 
   if (!response.ok) {

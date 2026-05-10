@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { applyNarrativeDiagnostics } from "./narrativeDiagnostics.ts";
+import { callDeepSeekChatCompletion, DEEPSEEK_MODELS } from "../_shared/deepseekModels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -387,45 +388,25 @@ function getChunkOutputTokens(chunkSize: number): number {
   return 7000;
 }
 
-async function callDeepSeek(apiKey: string, systemPrompt: string, userPrompt: string, maxTokens: number): Promise<{ content: string; usage: { prompt_tokens: number; completion_tokens: number } }> {
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => abortController.abort(), 120000);
-
-  let response: Response;
-  try {
-    response = await fetch("https://api.deepseek.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "deepseek-reasoner",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.4,
-        max_tokens: maxTokens,
-        response_format: { type: "json_object" },
-      }),
-      signal: abortController.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    let msg = `DeepSeek API error: ${response.status}`;
-    try { const d = JSON.parse(errorText); if (d.error?.message) msg = d.error.message; } catch (_) { /* ignore */ }
-    throw new Error(msg);
-  }
+async function callDeepSeek(apiKey: string, systemPrompt: string, userPrompt: string, maxTokens: number): Promise<{ content: string; usage: { prompt_tokens: number; completion_tokens: number }; modelUsed: string }> {
+  const { response, modelUsed } = await callDeepSeekChatCompletion({
+    apiKey,
+    feature: "critic",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    temperature: 0.4,
+    maxTokens,
+    responseFormat: { type: "json_object" },
+    logPrefix: "[Critic]",
+  });
 
   const data = await response.json();
   return {
     content: data.choices[0].message.content,
     usage: data.usage,
+    modelUsed,
   };
 }
 
@@ -641,6 +622,7 @@ Deno.serve(async (req: Request) => {
     let analysis: Record<string, unknown>;
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
+    let modelUsed = "";
 
     const useChunking = scenes.length > CHUNK_SIZE;
 
@@ -652,6 +634,7 @@ Deno.serve(async (req: Request) => {
       console.log('[analyze-plot] single-pass | user:', user.id, '| scenes:', scenes.length, '| max_tokens:', MAX_OUTPUT_TOKENS);
 
       const result = await callDeepSeek(deepseekApiKey, systemPrompt, userPrompt, MAX_OUTPUT_TOKENS);
+      modelUsed = result.modelUsed;
       totalPromptTokens += result.usage.prompt_tokens || 0;
       totalCompletionTokens += result.usage.completion_tokens || 0;
 
@@ -677,6 +660,7 @@ Deno.serve(async (req: Request) => {
         console.log(`[analyze-plot] chunk ${ci + 1}/${chunks.length} | scenes: ${chunk.length}`);
 
         const chunkResult = await callDeepSeek(deepseekApiKey, chunkSystemPrompt, chunkUserPrompt, chunkMaxTokens);
+        modelUsed = chunkResult.modelUsed;
         totalPromptTokens += chunkResult.usage.prompt_tokens || 0;
         totalCompletionTokens += chunkResult.usage.completion_tokens || 0;
 
@@ -691,6 +675,7 @@ Deno.serve(async (req: Request) => {
 
       console.log(`[analyze-plot] global analysis | scenes: ${scenes.length}`);
       const globalResult = await callDeepSeek(deepseekApiKey, globalSystemPrompt, globalUserPrompt, globalMaxTokens);
+      modelUsed = globalResult.modelUsed;
       totalPromptTokens += globalResult.usage.prompt_tokens || 0;
       totalCompletionTokens += globalResult.usage.completion_tokens || 0;
 
@@ -795,7 +780,7 @@ Deno.serve(async (req: Request) => {
       p_user_id: user.id,
       p_feature: "analyze_plot",
       p_provider: "deepseek",
-      p_model: "deepseek-chat",
+      p_model: modelUsed || DEEPSEEK_MODELS.fallback,
       p_prompt_tokens: totalPromptTokens,
       p_completion_tokens: totalCompletionTokens,
       p_multiplier: MULTIPLIER,

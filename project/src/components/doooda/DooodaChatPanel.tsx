@@ -122,6 +122,10 @@ interface OpenDooodaDetail {
 
 type ChatMode = 'ask_doooda' | 'support';
 
+function buildConversationStorageKey(userId: string, chatMode: ChatMode, projectId?: string | null) {
+  return ['doooda', 'conversation', userId, chatMode, projectId || 'global'].join(':');
+}
+
 export default function DooodaChatPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -134,6 +138,7 @@ export default function DooodaChatPanel() {
   const [writingCtx, setWritingCtx] = useState<WritingContext | null>(null);
   const [tokensBalance, setTokensBalance] = useState<number | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>('ask_doooda');
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [supportTicket, setSupportTicket] = useState<SupportTicket | null>(null);
   const [ticketList, setTicketList] = useState<SupportTicket[]>([]);
   const [showTicketList, setShowTicketList] = useState(false);
@@ -144,6 +149,9 @@ export default function DooodaChatPanel() {
   const access = useDooodaAccess();
 
   const activeLang: SessionLang = sessionLang ?? (language as SessionLang);
+  const conversationStorageKey = user && chatMode === 'ask_doooda'
+    ? buildConversationStorageKey(user.id, chatMode, writingCtx?.projectId)
+    : null;
 
   const contextLevel: ContextLevel | null = writingCtx ? resolveContextLevel(writingCtx) : null;
 
@@ -160,6 +168,23 @@ export default function DooodaChatPanel() {
       setTimeout(() => inputRef.current?.focus(), 220);
     }
   }, [isOpen, inputDisabled]);
+
+  useEffect(() => {
+    if (!conversationStorageKey) {
+      setConversationId(null);
+      return;
+    }
+
+    const storedId = localStorage.getItem(conversationStorageKey);
+    if (storedId) {
+      setConversationId(storedId);
+      return;
+    }
+
+    const nextId = crypto.randomUUID();
+    localStorage.setItem(conversationStorageKey, nextId);
+    setConversationId(nextId);
+  }, [conversationStorageKey]);
 
   useEffect(() => {
     if (isOpen) {
@@ -190,6 +215,22 @@ export default function DooodaChatPanel() {
     }, 200);
   }, []);
 
+  const ensureConversationId = useCallback((projectId?: string | null) => {
+    if (!user || chatMode !== 'ask_doooda') return null;
+
+    const storageKey = buildConversationStorageKey(user.id, chatMode, projectId);
+    const existingId = localStorage.getItem(storageKey);
+    if (existingId) {
+      setConversationId(existingId);
+      return existingId;
+    }
+
+    const nextId = crypto.randomUUID();
+    localStorage.setItem(storageKey, nextId);
+    setConversationId(nextId);
+    return nextId;
+  }, [chatMode, user]);
+
   const switchToAskDoooda = useCallback(() => {
     if (chatMode === 'ask_doooda') return;
     setChatMode('ask_doooda');
@@ -219,6 +260,8 @@ export default function DooodaChatPanel() {
   }, [chatMode, user]);
 
   const openPanel = useCallback(async (detail?: OpenDooodaDetail) => {
+    const nextProjectId = detail?.writingContext?.projectId ?? null;
+
     if (detail?.writingContext) {
       if (!detail.writingContext.characterContext && detail.selectedText && detail.writingContext.projectId) {
         const characterContext = await buildCharacterContext(
@@ -233,6 +276,13 @@ export default function DooodaChatPanel() {
     }
 
     if (detail?.source === 'context-menu' && detail.selectedText) {
+      if (user && chatMode === 'ask_doooda') {
+        const nextConversationId = crypto.randomUUID();
+        const storageKey = buildConversationStorageKey(user.id, 'ask_doooda', nextProjectId);
+        localStorage.setItem(storageKey, nextConversationId);
+        setConversationId(nextConversationId);
+      }
+
       const detectedLang = detectTextLanguage(detail.selectedText);
       if (detectedLang) setSessionLang(detectedLang);
 
@@ -247,6 +297,7 @@ export default function DooodaChatPanel() {
       setInput('');
       setInputDisabled(false);
     } else if (messages.length === 0) {
+      ensureConversationId(nextProjectId);
       setContextText(null);
       setSessionLang(null);
       setMessages([{
@@ -259,7 +310,7 @@ export default function DooodaChatPanel() {
     }
     setIsClosing(false);
     setIsOpen(true);
-  }, [language, messages.length]);
+  }, [chatMode, ensureConversationId, language, messages.length, user]);
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
@@ -487,12 +538,14 @@ export default function DooodaChatPanel() {
     setInputDisabled(true);
 
     try {
+      const activeConversationId = conversationId ?? ensureConversationId(writingCtx?.projectId);
       const response = await askDoooda(
         trimmed,
         currentLang,
         contextText || undefined,
         resolvedMode,
-        writingCtx || undefined
+        writingCtx || undefined,
+        activeConversationId || undefined
       );
 
       if (response.status === 402 || response.type === 'LIMIT_REACHED') {

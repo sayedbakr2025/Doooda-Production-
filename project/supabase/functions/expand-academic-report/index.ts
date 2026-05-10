@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { callDeepSeekChatCompletion } from "../_shared/deepseekModels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -162,28 +163,18 @@ Deno.serve(async (req: Request) => {
       ? `اكتب تقريراً أكاديمياً شاملاً لهذا التحليل:\n${JSON.stringify(summaryContext)}\nأخرج JSON فقط.`
       : `Write a comprehensive academic report for this analysis:\n${JSON.stringify(summaryContext)}\nOutput JSON only.`;
 
-    const deepseekResponse = await fetch("https://api.deepseek.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${deepseekApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "deepseek-reasoner",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
-      }),
+    const { response: deepseekResponse, modelUsed } = await callDeepSeekChatCompletion({
+      apiKey: deepseekApiKey,
+      feature: "critic",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.5,
+      maxTokens: 4000,
+      responseFormat: { type: "json_object" },
+      logPrefix: "[Critic]",
     });
-
-    if (!deepseekResponse.ok) {
-      const errorText = await deepseekResponse.text();
-      throw new Error(`DeepSeek API error: ${deepseekResponse.status} - ${errorText}`);
-    }
 
     const openaiData = await deepseekResponse.json();
     const reportText: string = openaiData.choices[0].message.content;
@@ -206,7 +197,7 @@ Deno.serve(async (req: Request) => {
       p_user_id: user.id,
       p_feature: "expand_academic_report",
       p_provider: "deepseek",
-      p_model: "deepseek-chat",
+      p_model: modelUsed,
       p_prompt_tokens: promptTokens,
       p_completion_tokens: completionTokens,
       p_multiplier: MULTIPLIER,

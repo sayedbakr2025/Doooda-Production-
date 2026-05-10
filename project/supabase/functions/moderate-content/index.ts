@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { getDeepSeekModel } from "../_shared/deepseekModels.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,6 +39,19 @@ const TOXIC_PATTERNS = [
   /\b(أحمق|غبي|تافه|مجنون|اخرس|اغرب|كلب|خنزير)\b/g,
 ];
 
+const ALLOWED_DISCUSSION_PATTERNS = [
+  /\b(story|novel|scene|chapter|character|dialogue|plot|fiction|screenplay|poem|writing|writer)\b/gi,
+  /\b(قصة|رواية|مشهد|فصل|شخصية|حوار|حبكة|خيال|سيناريو|قصيدة|كتابة|كاتب)\b/g,
+  /\b(mental health|psychology|trauma|depression|anxiety|therapy|bipolar|ptsd|character arc|motivation)\b/gi,
+  /\b(الصحة النفسية|نفسي|صدمة|اكتئاب|قلق|علاج|اضطراب|شخصية|دافع)\b/g,
+  /\b(explain|educational|analysis|research|meaning|what does it mean)\b/gi,
+  /\b(اشرح|تعليمي|تحليل|بحث|معنى|ماذا يعني)\b/g,
+];
+
+function isAllowedCreativeEducationalContent(content: string): boolean {
+  return ALLOWED_DISCUSSION_PATTERNS.some((pattern) => pattern.test(content));
+}
+
 function runHeuristicChecks(
   content: string,
   recentPosts: string[],
@@ -45,6 +59,7 @@ function runHeuristicChecks(
 ): ModerationResult {
   const flags = { spam: false, toxic: false, duplicate: false, off_topic: false };
   const reasons: string[] = [];
+  const allowCreativeEducational = isAllowedCreativeEducationalContent(content);
 
   for (const pattern of SPAM_PATTERNS) {
     if (pattern.test(content)) {
@@ -55,7 +70,7 @@ function runHeuristicChecks(
   }
 
   for (const pattern of TOXIC_PATTERNS) {
-    if (pattern.test(content)) {
+    if (!allowCreativeEducational && pattern.test(content)) {
       flags.toxic = true;
       reasons.push("toxic_language");
       break;
@@ -78,6 +93,7 @@ function runHeuristicChecks(
   }
 
   const isLikelyOffTopic =
+    !allowCreativeEducational &&
     content.trim().split(/\s+/).length < 3 &&
     !["general", "feedback", "request_feedback"].includes(category);
   if (isLikelyOffTopic) {
@@ -102,9 +118,15 @@ async function callAI(
   personaPrompt?: string
 ): Promise<{ flagged: boolean; flags: Partial<ModerationResult["flags"]>; reason: string }> {
   const systemPrompt = personaPrompt ||
-    `أنت دووودة، رفيق كتابة ومحكّم محتوى لمجتمع كُتّاب. مهمتك تحليل المحتوى بهدوء وموضوعية. لا تذكر أبداً أنك AI أو نموذج لغوي.`;
+    `أنت دووودة، رفيق كتابة ومحكّم محتوى لمجتمع كُتّاب. حلّل المحتوى بهدوء وموضوعية.
+لا تجرّم أو توصم المرض النفسي.
+النقاشات التعليمية والأدبية والخيالية مسموحة، بما فيها الصحة النفسية وبناء الشخصيات والصدمة والدوافع النفسية.
+لا ارفض إلا المحتوى الضار فعلاً مثل: التشجيع الصريح على إيذاء النفس، التعليمات غير القانونية القابلة للتنفيذ، الكراهية أو التطرف، التحرش الموجّه، أو المعلومات الطبية الخطيرة والمضللة.
+أجب بصيغة JSON فقط.`;
 
   const userPrompt = `حلّل النص التالي لمجتمع كتابة. أجب بـ JSON فقط بدون أي نص إضافي.
+اسمح بالنقاشات التعليمية والأدبية والخيالية والصحة النفسية المحترمة.
+إذا كان المحتوى الضار موجوداً فضعه تحت toxic=true.
 الشكل: {"spam":bool,"toxic":bool,"duplicate":bool,"off_topic":bool}
 
 النص: ${content.substring(0, 400)}`;
@@ -173,46 +195,50 @@ Deno.serve(async (req: Request) => {
 
       let apiKey: string | null = null;
       let baseUrl = "https://api.deepseek.com/v1";
-      let modelId = "deepseek-reasoner";
+      let modelId = getDeepSeekModel("ask_doooda");
       let personaPrompt: string | undefined;
+      const allowCreativeEducational = isAllowedCreativeEducationalContent(content);
 
-      if (deepseekApiKey) {
-        apiKey = deepseekApiKey;
-      } else {
-        const { data: provider } = await supabase
-          .from("ai_providers")
-          .select("api_key, base_url, model_id, provider_config")
+      if (!allowCreativeEducational) {
+        if (deepseekApiKey) {
+          apiKey = deepseekApiKey;
+        } else {
+          const { data: provider } = await supabase
+            .from("ai_providers")
+            .select("api_key, base_url, model_id, provider_config")
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (provider?.api_key && provider?.base_url) {
+            apiKey = provider.api_key;
+            baseUrl = provider.base_url;
+            modelId = provider.provider_config?.moderation_model || provider.model_id || "gpt-4o-mini";
+          }
+        }
+
+        const { data: persona } = await supabase
+          .from("doooda_persona_versions")
+          .select("persona_prompt_ar, guardrails_ar")
           .eq("is_active", true)
           .maybeSingle();
 
-        if (provider?.api_key && provider?.base_url) {
-          apiKey = provider.api_key;
-          baseUrl = provider.base_url;
-          modelId = provider.provider_config?.moderation_model || provider.model_id || "gpt-4o-mini";
+        if (persona) {
+          personaPrompt = `${persona.persona_prompt_ar}\n\n${persona.guardrails_ar}`;
         }
-      }
 
-      const { data: persona } = await supabase
-        .from("doooda_persona_versions")
-        .select("persona_prompt_ar, guardrails_ar")
-        .eq("is_active", true)
-        .maybeSingle();
+        if (apiKey) {
+          console.log("[AI MODEL]", modelId);
+          const aiCheck = await callAI(content, apiKey, baseUrl, modelId, personaPrompt);
 
-      if (persona) {
-        personaPrompt = `${persona.persona_prompt_ar}\n\n${persona.guardrails_ar}`;
-      }
-
-      if (apiKey) {
-        const aiCheck = await callAI(content, apiKey, baseUrl, modelId, personaPrompt);
-
-        if (aiCheck.flagged) {
-          finalResult = {
-            status: "pending_review",
-            flags: { ...heuristic.flags, ...aiCheck.flags } as ModerationResult["flags"],
-            reason: [heuristic.reason !== "clean" ? heuristic.reason : "", aiCheck.reason]
-              .filter(Boolean)
-              .join(", "),
-          };
+          if (aiCheck.flagged) {
+            finalResult = {
+              status: "pending_review",
+              flags: { ...heuristic.flags, ...aiCheck.flags } as ModerationResult["flags"],
+              reason: [heuristic.reason !== "clean" ? heuristic.reason : "", aiCheck.reason]
+                .filter(Boolean)
+                .join(", "),
+            };
+          }
         }
       }
     }

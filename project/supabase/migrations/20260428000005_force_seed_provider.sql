@@ -16,7 +16,7 @@ UPDATE doooda_config SET is_enabled = true;
 -- 4. Insert DeepSeek provider with placeholder key
 -- Admin must set the real API key via admin panel
 INSERT INTO ai_providers (provider_name, model_name, api_key_encrypted, is_enabled, is_active, is_default)
-VALUES ('deepseek', 'deepseek-chat', 'sk-placeholder-set-via-admin', true, true, true)
+VALUES ('deepseek', 'deepseek-v4-flash', 'sk-placeholder-set-via-admin', true, true, true)
 ON CONFLICT DO NOTHING;
 
 -- 5. Ensure DeepSeek is active

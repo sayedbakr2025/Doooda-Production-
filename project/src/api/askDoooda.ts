@@ -6,7 +6,8 @@ export async function askDoooda(
   language: "ar" | "en",
   contextOrSelectedText?: string,
   mode?: "explain" | "review" | "idea",
-  writingContext?: WritingContext
+  writingContext?: WritingContext,
+  conversationId?: string
 ) {
   console.log('[askDoooda] Calling edge function:', {
     messageLength: message.length,
@@ -25,6 +26,7 @@ export async function askDoooda(
     genres?: string[];
     tone?: string;
     project_id?: string;
+    conversation_id?: string;
     characterContext?: {
       character: {
         id: string;
@@ -85,6 +87,10 @@ export async function askDoooda(
 
   if (writingContext?.projectId) {
     payload.project_id = writingContext.projectId;
+  }
+
+  if (conversationId) {
+    payload.conversation_id = conversationId;
   }
 
   if (writingContext?.characterContext) {

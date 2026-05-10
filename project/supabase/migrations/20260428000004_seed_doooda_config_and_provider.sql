@@ -12,7 +12,7 @@ UPDATE doooda_config SET is_enabled = true WHERE is_enabled IS NULL OR is_enable
 -- 2. Insert a DeepSeek provider if none exists
 -- The actual API key must be set via the admin panel
 INSERT INTO ai_providers (provider_name, model_name, api_key_encrypted, is_enabled, is_active, is_default)
-VALUES ('deepseek', 'deepseek-chat', '', true, true, true)
+VALUES ('deepseek', 'deepseek-v4-flash', '', true, true, true)
 ON CONFLICT DO NOTHING;
 
 -- Ensure at least one provider is active
