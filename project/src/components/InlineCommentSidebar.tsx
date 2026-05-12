@@ -361,7 +361,7 @@ export default function InlineCommentSidebar({
                   <button 
                     onClick={() => {
                       // Auto-mention the comment author when clicking reply
-                      const authorName = comment.pen_name || comment.display_name || comment.user_id?.slice(0, 8) || 'user';
+                      const authorName = comment.author_name || comment.user_id?.slice(0, 8) || 'user';
                       setReplyTexts(prev => ({ ...prev, [comment.id]: '@[' + authorName + '] ' }));
                       // Focus the reply input
                       setTimeout(() => {
