@@ -1380,18 +1380,6 @@ const handleContextMenu = (e: React.MouseEvent) => {
             <div className="flex items-center gap-1 pr-2" style={{ borderRight: `1px solid var(--editor-toolbar-border)` }}>
               <button
                 onClick={() => {
-                  setTextAlign('left');
-                  applyFormatting('justifyLeft');
-                }}
-                className="p-2 rounded" style={{ backgroundColor: textAlign === 'left' ? 'var(--editor-toolbar-active)' : 'transparent', color: 'var(--editor-toolbar-text)' }} onMouseEnter={(e) => { if (textAlign !== 'left') e.currentTarget.style.backgroundColor = 'var(--editor-toolbar-hover)' }} onMouseLeave={(e) => { if (textAlign !== 'left') e.currentTarget.style.backgroundColor = 'transparent' }}
-                title={language === 'ar' ? 'محاذاة لليسار' : 'Align Left'}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h10M4 18h16" />
-                </svg>
-              </button>
-              <button
-                onClick={() => {
                   setTextAlign('center');
                   applyFormatting('justifyCenter');
                 }}
@@ -1412,6 +1400,18 @@ const handleContextMenu = (e: React.MouseEvent) => {
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M10 12h10M4 18h16" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setTextAlign('left');
+                  applyFormatting('justifyLeft');
+                }}
+                className="p-2 rounded" style={{ backgroundColor: textAlign === 'left' ? 'var(--editor-toolbar-active)' : 'transparent', color: 'var(--editor-toolbar-text)' }} onMouseEnter={(e) => { if (textAlign !== 'left') e.currentTarget.style.backgroundColor = 'var(--editor-toolbar-hover)' }} onMouseLeave={(e) => { if (textAlign !== 'left') e.currentTarget.style.backgroundColor = 'transparent' }}
+                title={language === 'ar' ? 'محاذاة لليسار' : 'Align Left'}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h10M4 18h16" />
                 </svg>
               </button>
               <button
