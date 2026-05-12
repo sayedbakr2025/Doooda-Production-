@@ -170,7 +170,8 @@ export default function InlineCommentSidebar({
     const lastAtIndex = val.lastIndexOf('@');
     if (lastAtIndex >= 0) {
       const textAfterAt = val.slice(lastAtIndex + 1);
-      if (!textAfterAt.includes(' ') && textAfterAt.length > 0) {
+      // Show dropdown if: no space OR empty (just typed @)
+      if (!textAfterAt.includes(' ') || textAfterAt.length === 0) {
         if (commentId) setShowMentions(commentId);
         else setShowMentions('new');
         setMentionFilter(textAfterAt);
