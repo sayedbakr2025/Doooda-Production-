@@ -109,7 +109,13 @@ export default function InlineCommentSidebar({
   useEffect(() => { loadComments(); }, [loadComments]);
 
   useEffect(() => {
-    getProjectCollaborators(projectId).then(setCollaborators).catch(() => {});
+    console.log('[Mentions] Loading collaborators for project:', projectId);
+    getProjectCollaborators(projectId).then((collabs) => {
+      console.log('[Mentions] Loaded collaborators:', collabs.length);
+      setCollaborators(collabs);
+    }).catch((err) => {
+      console.error('[Mentions] Error loading collaborators:', err);
+    });
   }, [projectId]);
 
   useEffect(() => {
@@ -127,6 +133,7 @@ export default function InlineCommentSidebar({
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, commentId?: string) {
     const text = commentId ? (replyTexts[commentId] || '') : newComment;
     if (e.key === '@') {
+      console.log('[Mentions] @ pressed, commentId:', commentId);
       setShowMentions(commentId || 'new');
       setMentionFilter('');
     }
