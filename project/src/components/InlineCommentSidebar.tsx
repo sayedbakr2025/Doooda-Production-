@@ -382,13 +382,32 @@ export default function InlineCommentSidebar({
                 {(repliesMap[comment.id] || []).length > 0 && (
                   <div className="mt-2 space-y-1.5" style={{ borderLeft: isRTL ? 'none' : '2px solid var(--color-border)', borderRight: isRTL ? '2px solid var(--color-border)' : 'none', paddingLeft: isRTL ? 0 : 8, paddingRight: isRTL ? 8 : 0 }}>
                     {(repliesMap[comment.id] || []).map(reply => (
-                      <div key={reply.id}>
-                        <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          {reply.author_name || reply.user_id.slice(0, 8)}
-                        </span>
-                        <span className="ms-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                          {new Date(reply.created_at).toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
-                        </span>
+                      <div key={reply.id} className="pl-2" style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                            {reply.author_name || reply.user_id.slice(0, 8)}
+                          </span>
+                          <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                            {new Date(reply.created_at).toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                          <button 
+                            onClick={() => {
+                              const authorName = reply.author_name || reply.user_id?.slice(0, 8) || 'user';
+                              setReplyTexts(prev => ({ ...prev, [comment.id]: '@[' + authorName + '] ' }));
+                              setTimeout(() => {
+                                const textarea = replyRefs.current[comment.id];
+                                if (textarea) {
+                                  textarea.focus();
+                                  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+                                }
+                              }, 0);
+                            }}
+                            className="text-xs hover:opacity-70"
+                            style={{ color: 'var(--color-accent)' }}
+                          >
+                            {isRTL ? 'رد' : 'Reply'}
+                          </button>
+                        </div>
                         <p className="whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{renderMentionText(reply.content)}</p>
                       </div>
                     ))}
