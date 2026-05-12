@@ -233,12 +233,10 @@ onContentChange: (html) => setContent(html),
       if (el) {
         console.log('[Comment] Found element, scrolling:', el);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add(commentType === 'inline' ? 'mention-highlight-inline' : 'mention-highlight');
-        console.log('[Comment] Added highlight class, will remove in 3s');
+        console.log('[Comment] Will clear highlight in 3s');
         setTimeout(() => {
-          el?.classList.remove('mention-highlight', 'mention-highlight-inline');
           setHighlightedCommentId(null);
-          console.log('[Comment] Removed highlight and cleared state');
+          console.log('[Comment] Cleared highlight state');
         }, 3000);
       } else {
         console.log('[Comment] Element not found for:', commentId);
