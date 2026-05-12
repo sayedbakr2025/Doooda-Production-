@@ -185,11 +185,15 @@ export default function InlineCommentSidebar({
   }
 
   function insertMention(name: string, commentId?: string) {
+    console.log('[Mentions] insertMention called, name:', name, 'commentId:', commentId);
     const text = commentId ? (replyTexts[commentId] || '') : newComment;
     const lastAtIndex = text.lastIndexOf('@');
     if (lastAtIndex >= 0) {
       const newText = text.slice(0, lastAtIndex) + '@[' + name + '] ';
-      if (commentId) setReplyTexts(prev => ({ ...prev, [commentId]: newText }));
+      if (commentId) {
+        console.log('[Mentions] Setting reply text for commentId:', commentId, 'text:', newText);
+        setReplyTexts(prev => ({ ...prev, [commentId]: newText }));
+      }
       else setNewComment(newText);
     }
     setShowMentions(null);
@@ -356,10 +360,17 @@ export default function InlineCommentSidebar({
                   )}
                   <button 
                     onClick={() => {
-                      if (comment.reply_count && comment.reply_count > 0) {
-                        const input = document.getElementById(`reply-input-${comment.id}`);
-                        input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
+                      // Auto-mention the comment author when clicking reply
+                      const authorName = comment.pen_name || comment.display_name || comment.user_id?.slice(0, 8) || 'user';
+                      setReplyTexts(prev => ({ ...prev, [comment.id]: '@[' + authorName + '] ' }));
+                      // Focus the reply input
+                      setTimeout(() => {
+                        const textarea = replyRefs.current[comment.id];
+                        if (textarea) {
+                          textarea.focus();
+                          textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+                        }
+                      }, 0);
                     }} 
                     className="text-xs flex items-center gap-0.5 hover:opacity-80" 
                     style={{ color: 'var(--color-text-tertiary)' }}
