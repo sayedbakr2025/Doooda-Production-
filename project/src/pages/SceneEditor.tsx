@@ -183,15 +183,18 @@ onContentChange: (html) => setContent(html),
     const commentId = searchParams.get('comment_id');
     const commentType = searchParams.get('comment_type');
     const highlightType = searchParams.get('highlight_type');
-    console.log('[Comment] Processing URL params:', { openComments, commentId, commentType, highlightType });
+    const parentCommentId = searchParams.get('parent_comment_id');
+    console.log('[Comment] Processing URL params:', { openComments, commentId, commentType, highlightType, parentCommentId });
     if (openComments) {
       setShowComments(true);
       setCommentTab(commentType === 'inline' ? 'inline' : 'general');
       if (commentId) {
-        console.log('[Comment] Will highlight:', commentId, 'highlightType:', highlightType);
-        setHighlightedCommentId(commentId);
+        // For replies, highlight the parent comment instead
+        const targetCommentId = highlightType === 'reply' && parentCommentId ? parentCommentId : commentId;
+        console.log('[Comment] Will highlight:', targetCommentId, 'original:', commentId, 'highlightType:', highlightType);
+        setHighlightedCommentId(targetCommentId);
         if (highlightType === 'reply') {
-          setParentCommentIdForHighlight(searchParams.get('parent_comment_id'));
+          setParentCommentIdForHighlight(parentCommentId);
         }
         setTimeout(() => {
           window.history.replaceState({}, '', window.location.pathname);
