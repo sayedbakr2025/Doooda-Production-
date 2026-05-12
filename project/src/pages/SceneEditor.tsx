@@ -233,14 +233,23 @@ onContentChange: (html) => setContent(html),
       if (el) {
         console.log('[Comment] Found element, scrolling:', el);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        console.log('[Comment] Will clear highlight in 3s');
+        console.log('[Comment] Will clear highlight in 3s, current highlightedCommentId:', highlightedCommentId);
         setTimeout(() => {
+          console.log('[Comment] Clearing highlight state now');
           setHighlightedCommentId(null);
           console.log('[Comment] Cleared highlight state');
         }, 3000);
       } else {
-        console.log('[Comment] Element not found for:', commentId);
-        setHighlightedCommentId(null);
+        console.log('[Comment] Element not found for:', commentId, 'will try again in 500ms');
+        setTimeout(() => {
+          console.log('[Comment] Retrying to find element');
+          const retryEl = document.querySelector(`[data-comment-id="${commentId}"]`) as HTMLElement;
+          if (retryEl) {
+            console.log('[Comment] Found on retry, scrolling');
+            retryEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          setHighlightedCommentId(null);
+        }, 500);
       }
     }, 800);
   }, [highlightedCommentId, inlineComments, searchParams]);
