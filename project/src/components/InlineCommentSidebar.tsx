@@ -109,13 +109,16 @@ export default function InlineCommentSidebar({
   useEffect(() => { loadComments(); }, [loadComments]);
 
   useEffect(() => {
-    console.log('[Mentions] Loading collaborators for project:', projectId);
-    getProjectCollaborators(projectId).then((collabs) => {
-      console.log('[Mentions] Loaded collaborators:', collabs.length);
-      setCollaborators(collabs);
-    }).catch((err) => {
-      console.error('[Mentions] Error loading collaborators:', err);
-    });
+    console.log('[Mentions] Component mounted, projectId:', projectId);
+    if (projectId) {
+      console.log('[Mentions] Loading collaborators for project:', projectId);
+      getProjectCollaborators(projectId).then((collabs) => {
+        console.log('[Mentions] Loaded collaborators:', collabs.length, collabs);
+        setCollaborators(collabs);
+      }).catch((err) => {
+        console.error('[Mentions] Error loading collaborators:', err);
+      });
+    }
   }, [projectId]);
 
   useEffect(() => {
@@ -129,6 +132,7 @@ export default function InlineCommentSidebar({
       (c.email || '').toLowerCase().includes(mentionFilter.toLowerCase())
     )
   );
+  console.log('[Mentions] filteredCollaborators:', filteredCollaborators.length, 'showMentions:', showMentions);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, commentId?: string) {
     const text = commentId ? (replyTexts[commentId] || '') : newComment;
