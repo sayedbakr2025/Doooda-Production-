@@ -242,8 +242,8 @@ onContentChange: (html) => setContent(html),
         }, 3000);
       } else {
         console.log('[Comment] Element not found for:', commentId);
+        setHighlightedCommentId(null);
       }
-      setHighlightedCommentId(null);
     }, 800);
   }, [highlightedCommentId, inlineComments, searchParams]);
 
