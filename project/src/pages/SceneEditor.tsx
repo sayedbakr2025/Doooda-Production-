@@ -237,7 +237,8 @@ onContentChange: (html) => setContent(html),
         console.log('[Comment] Added highlight class, will remove in 3s');
         setTimeout(() => {
           el?.classList.remove('mention-highlight', 'mention-highlight-inline');
-          console.log('[Comment] Removed highlight');
+          setHighlightedCommentId(null);
+          console.log('[Comment] Removed highlight and cleared state');
         }, 3000);
       } else {
         console.log('[Comment] Element not found for:', commentId);
