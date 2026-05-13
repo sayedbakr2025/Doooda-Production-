@@ -233,16 +233,24 @@ onContentChange: (html) => setContent(html),
           }
         });
       }
-      if (el) {
-        console.log('[Comment] Found element, scrolling:', el);
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        console.log('[Comment] Will clear highlight in 3s, current highlightedCommentId:', highlightedCommentId);
-        setTimeout(() => {
-          console.log('[Comment] Clearing highlight state now');
-          setHighlightedCommentId(null);
-          console.log('[Comment] Cleared highlight state');
-        }, 3000);
+// Open comments panel if not already open
+      if (!searchParams.get('comments')) {
+        setShowComments(true);
+      }
+      
+      // Scroll to comments area
+      console.log('[Comment] Scrolling to comments area');
+      const commentsContainer = document.querySelector('[class*="comments"]') as HTMLElement;
+      if (commentsContainer) {
+        commentsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      
+      console.log('[Comment] Will clear highlight in 3s');
+      setTimeout(() => {
+        setHighlightedCommentId(null);
+      }, 3000);
         // Even if element not found in sidebar, scroll to comments section
         console.log('[Comment] Element not found, scrolling to comments tab');
         const commentsTab = document.getElementById('comments-panel') || document.querySelector('[data-comments-section]');
