@@ -50,8 +50,14 @@ export function useCommentNavigation(options: UseCommentNavigationOptions) {
       maxRetries: 5,
       retryDelay: 300,
       maxTimeoutMs: 8000,
-      sceneReadyCheck: () => sceneReady,
-      commentsReadyCheck: () => commentsReady,
+      sceneReadyCheck: () => {
+        const ready = sceneReady;
+        return ready;
+      },
+      commentsReadyCheck: () => {
+        const ready = commentsReady;
+        return ready;
+      },
       expandThread: (commentId: string) => {
         console.log('[Orchestrator] Expand thread:', commentId);
       },
