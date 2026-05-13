@@ -243,6 +243,18 @@ onContentChange: (html) => setContent(html),
           console.log('[Comment] Cleared highlight state');
         }, 3000);
       } else {
+        // Even if element not found in sidebar, scroll to comments section
+        console.log('[Comment] Element not found, scrolling to comments tab');
+        const commentsTab = document.getElementById('comments-panel') || document.querySelector('[data-comments-section]');
+        if (commentsTab) {
+          commentsTab.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        console.log('[Comment] Will clear highlight in 3s, current highlightedCommentId:', highlightedCommentId);
+        setTimeout(() => {
+          console.log('[Comment] Clearing highlight state now');
+          setHighlightedCommentId(null);
+          console.log('[Comment] Cleared highlight state');
+        }, 3000);
         console.log('[Comment] Element not found for:', commentId, 'will try again in 500ms');
         setTimeout(() => {
           console.log('[Comment] Retrying to find element');
