@@ -312,7 +312,11 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
       if (el) {
         console.log('[SceneComments] Found! Scrolling...');
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('mention-highlight');
+        
+        // Add flash effect
+        const originalBg = el.style.backgroundColor;
+        el.style.backgroundColor = 'rgba(255, 230, 150, 0.3)';
+        el.style.transition = 'background-color 0.3s ease';
         
         // Ensure parent is visible
         const parentComment = el.closest('[class*="rounded-xl"]');
@@ -321,9 +325,9 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
         }
         
         setTimeout(() => {
-          el.classList.remove('mention-highlight');
+          el.style.backgroundColor = originalBg;
           console.log('[SceneComments] Highlight done');
-        }, 4000);
+        }, 3000);
       } else {
         console.log('[SceneComments] Not found:', highlightedCommentId);
       }
