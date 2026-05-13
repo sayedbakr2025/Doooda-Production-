@@ -28,6 +28,11 @@ export function useCommentNavigation(options: UseCommentNavigationOptions) {
   const processedRef = useRef(false);
   const resultRef = useRef<OrchestratorResult | null>(null);
   const cancelSignalRef = useRef(false);
+  const sceneReadyRef = useRef(sceneReady);
+  const commentsReadyRef = useRef(commentsReady);
+  
+  useEffect(() => { sceneReadyRef.current = sceneReady; }, [sceneReady]);
+  useEffect(() => { commentsReadyRef.current = commentsReady; }, [commentsReady]);
   
   const parseParams = useCallback(() => {
     const search = searchParams.toString();
