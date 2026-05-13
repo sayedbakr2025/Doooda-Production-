@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,6 +27,7 @@ import { useScopeAccess } from '../hooks/useScopeAccess';
 import VoiceToTextButton from '../components/VoiceToTextButton';
 import InlineCommentSidebar from '../components/InlineCommentSidebar';
 import type { InlineComment } from '../types';
+import { useCommentNavigation } from '../hooks/useCommentNavigation';
 
 interface ContextMenuSubOption {
   label: string;
@@ -120,6 +121,30 @@ export default function SceneEditor() {
 
   const currentLock = sceneId ? isSceneLocked(sceneId) : null;
 
+  const handleHighlight = useCallback((commentId: string | null, replyId?: string | null) => {
+    if (commentId) {
+      setHighlightedCommentId(commentId);
+      if (replyId) {
+        setParentCommentIdForHighlight(commentId);
+      }
+      setTimeout(() => {
+        setHighlightedCommentId(null);
+      }, 3000);
+    }
+  }, []);
+
+  useCommentNavigation({
+    searchParams,
+    sceneId,
+    projectId,
+    chapterId,
+    onSetActiveTab: setCommentTab,
+    onOpenComments: setShowComments,
+    onHighlight: handleHighlight,
+    sceneReady: !!scene,
+    commentsReady: true,
+  });
+
   useEffect(() => {
     if (currentLock) setLockDismissed(false);
   }, [currentLock?.userId]);
@@ -179,31 +204,27 @@ onContentChange: (html) => setContent(html),
   }, [sceneId]);
 
   useEffect(() => {
+    const hasNewFormat = searchParams.has('comment') && searchParams.has('type');
+    if (hasNewFormat) return;
+    
     const openComments = searchParams.get('comments') === 'true';
     const commentId = searchParams.get('comment_id');
     const commentType = searchParams.get('comment_type');
     const highlightType = searchParams.get('highlight_type');
     const parentCommentId = searchParams.get('parent_comment_id');
-    console.log('[Comment] Processing URL params:', { openComments, commentId, commentType, highlightType, parentCommentId });
-    if (openComments) {
-      setShowComments(true);
-      setCommentTab(commentType === 'inline' ? 'inline' : 'general');
-      if (commentId) {
-        // For replies, highlight the parent comment instead
-        const targetCommentId = highlightType === 'reply' && parentCommentId ? parentCommentId : commentId;
-        console.log('[Comment] Will highlight:', targetCommentId, 'original:', commentId, 'highlightType:', highlightType);
-        setHighlightedCommentId(targetCommentId);
-        if (highlightType === 'reply') {
-          setParentCommentIdForHighlight(parentCommentId);
-        }
-        setTimeout(() => {
-          window.history.replaceState({}, '', window.location.pathname);
-        }, 3500);
-      } else {
-        window.history.replaceState({}, '', window.location.pathname);
-      }
+    if (!openComments || !commentId) return;
+    
+    console.log('[Comment][Legacy] Processing URL params:', { openComments, commentId, commentType, highlightType, parentCommentId });
+    setCommentTab(commentType === 'inline' ? 'inline' : 'general');
+    const targetCommentId = highlightType === 'reply' && parentCommentId ? parentCommentId : commentId;
+    setHighlightedCommentId(targetCommentId);
+    if (highlightType === 'reply') {
+      setParentCommentIdForHighlight(parentCommentId);
     }
-  }, [searchParams, sceneId]);
+    setTimeout(() => {
+      window.history.replaceState({}, '', window.location.pathname);
+    }, 3500);
+}, [searchParams, sceneId]);
 
   useEffect(() => {
     if (!highlightedCommentId) return;
@@ -211,71 +232,23 @@ onContentChange: (html) => setContent(html),
     const openComments = searchParams.get('comments') === 'true';
     if (!openComments) return;
     
-    const commentType = searchParams.get('comment_type');
-    console.log('[Comment] Processing highlight from URL:', highlightedCommentId, 'type:', commentType);
-    
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       const commentId = highlightedCommentId;
-      console.log('[Comment] Looking for element:', commentId, 'type:', commentType);
-      let el = document.querySelector(`[data-comment-id="${commentId}"]`) as HTMLElement;
-      if (!el) {
-        el = document.getElementById(`comment-${commentId}`) as HTMLElement;
-      }
-      if (!el && commentType === 'inline') {
-        const anchors = document.querySelectorAll('.comment-anchor');
-        anchors.forEach((anchor) => {
-          const anchorEl = anchor as HTMLElement;
-          const start = parseInt(anchorEl.dataset.start || '0');
-          const end = parseInt(anchorEl.dataset.end || '0');
-          if (start && end) {
-            const commentIdEl = anchorEl.closest(`[data-comment-id*="${commentId.slice(0, 8)}"]`) as HTMLElement;
-            if (commentIdEl) el = commentIdEl;
-          }
-        });
-      }
-// Open comments panel if not already open
-      if (!searchParams.get('comments')) {
-        setShowComments(true);
+      const el = document.querySelector(`[data-comment-id="${commentId}"]`) as HTMLElement 
+        || document.getElementById(`comment-${commentId}`) as HTMLElement;
+      
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       
-      // Scroll to comments area
-      console.log('[Comment] Scrolling to comments area');
       const commentsContainer = document.querySelector('[class*="comments"]') as HTMLElement;
       if (commentsContainer) {
         commentsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-      
-      console.log('[Comment] Will clear highlight in 3s');
-      setTimeout(() => {
-        setHighlightedCommentId(null);
-      }, 3000);
-        // Even if element not found in sidebar, scroll to comments section
-        console.log('[Comment] Element not found, scrolling to comments tab');
-        const commentsTab = document.getElementById('comments-panel') || document.querySelector('[data-comments-section]');
-        if (commentsTab) {
-          commentsTab.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        console.log('[Comment] Will clear highlight in 3s, current highlightedCommentId:', highlightedCommentId);
-        setTimeout(() => {
-          console.log('[Comment] Clearing highlight state now');
-          setHighlightedCommentId(null);
-          console.log('[Comment] Cleared highlight state');
-        }, 3000);
-        console.log('[Comment] Element not found for:', commentId, 'will try again in 500ms');
-        setTimeout(() => {
-          console.log('[Comment] Retrying to find element');
-          const retryEl = document.querySelector(`[data-comment-id="${commentId}"]`) as HTMLElement;
-          if (retryEl) {
-            console.log('[Comment] Found on retry, scrolling');
-            retryEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-          setHighlightedCommentId(null);
-        }, 500);
-      }
-    }, 800);
-  }, [highlightedCommentId, inlineComments, searchParams]);
+    }, 500);
+    
+    return () => clearTimeout(timeout);
+  }, [highlightedCommentId, searchParams]);
 
   async function loadInlineComments() {
     if (!sceneId) return;

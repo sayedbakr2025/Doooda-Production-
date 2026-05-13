@@ -4,6 +4,7 @@ import { getInlineComments, addInlineComment, resolveInlineComment, reopenInline
 import type { InlineComment, InlineCommentReply, ProjectCollaborator } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { renderMentionText } from '../utils/mentionText';
+import { useCommentRegistryBatch } from '../hooks/useCommentRegistry';
 
 interface InlineCommentSidebarProps {
   projectId: string;
@@ -44,6 +45,7 @@ export default function InlineCommentSidebar({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const commentRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const canComment = true;
 
@@ -125,6 +127,25 @@ export default function InlineCommentSidebar({
     if (!pendingSelection) return;
     textareaRef.current?.focus();
   }, [pendingSelection]);
+
+  const commentRefCallback = useCallback((id: string) => {
+    return (node: HTMLElement | null) => {
+      if (!node) {
+        commentRefs.current.delete(id);
+        return;
+      }
+      commentRefs.current.set(id, node);
+    };
+  }, []);
+
+  const commentDataList = comments
+    .map(c => ({ id: c.id, type: 'comment' as const, parentId: undefined }));
+
+  useCommentRegistryBatch({
+    comments: commentDataList,
+    elementRefs: commentRefs,
+    enabled: true,
+  });
 
   const filteredCollaborators = collaborators.filter(c =>
     c.user_id !== userId && (
@@ -293,6 +314,7 @@ export default function InlineCommentSidebar({
                 key={comment.id}
                 id={`comment-${comment.id}`}
                 data-comment-id={comment.id}
+                ref={commentRefCallback(comment.id)}
                 className="rounded-lg p-2.5 text-xs transition-all"
                 style={{
                   backgroundColor: isHighlighted ? 'rgba(255, 230, 150, 0.15)' : 'var(--color-surface-hover)',

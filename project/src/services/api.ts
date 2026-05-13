@@ -1991,9 +1991,17 @@ export async function addComment(
 
     const authorName = user.email?.split('@')[0] || 'Someone';
 
-    if (parentComment.user_id !== user.id) {
+if (parentComment.user_id !== user.id) {
       try {
-        const ctaLink = `/project/${projectId}/scene/${sceneId}?comments=true&comment_id=${data.id}&comment_type=general&highlight_type=reply&parent_comment_id=${parentId}`;
+        const parentCommentId = parentComment.id;
+        const replyId = data.id;
+        const { url: ctaLink } = await resolveCommentNavigation({
+          sceneId,
+          commentId: parentCommentId,
+          type: 'general',
+          replyId,
+          parentCommentId,
+        });
         const { error: replyErr } = await supabase.rpc('create_reply_notification', {
           p_comment_id: parentId,
           p_reply_author_id: user.id,
@@ -2195,7 +2203,15 @@ export async function addInlineCommentReply(
   const authorName = userResponse.data.user?.email?.split('@')[0] || 'Someone';
 
   if (parentComment && parentComment.user_id !== user.id) {
-    const ctaLink = `/project/${parentComment.project_id}/scene/${parentComment.scene_id}?comments=true&comment_id=${reply.id}&comment_type=inline&highlight_type=reply&parent_comment_id=${parentComment.id}`;
+    const parentCommentId = parentComment.id;
+    const replyId = reply.id;
+    const { url: ctaLink } = await resolveCommentNavigation({
+      sceneId: parentComment.scene_id,
+      commentId: parentCommentId,
+      type: 'inline',
+      replyId,
+      parentCommentId,
+    });
     const { error: inlineReplyErr } = await supabase.rpc('create_reply_notification', {
       p_comment_id: parentComment.id,
       p_reply_author_id: user.id,
@@ -2461,4 +2477,83 @@ export async function markSupportMessagesRead(
     .eq('sender_type', senderType)
     .eq('read', false);
   if (error) console.error('[markSupportMessagesRead]', error);
+}
+
+export interface CommentNavigationTarget {
+  projectId: string;
+  chapterId: string;
+  sceneId: string;
+  commentId: string;
+  type: 'inline' | 'general';
+  replyId?: string;
+  parentCommentId?: string;
+  open?: boolean;
+}
+
+export interface CommentNavigationParams {
+  sceneId: string;
+  commentId: string;
+  type: 'inline' | 'general';
+  replyId?: string;
+  parentCommentId?: string;
+}
+
+export interface CommentNavigationResult {
+  url: string | null;
+  target: CommentNavigationTarget | null;
+}
+
+export function buildCommentNavigationUrl(target: CommentNavigationTarget): string {
+  const params = new URLSearchParams();
+  params.set('comment', target.commentId);
+  params.set('type', target.type);
+  if (target.replyId) params.set('reply', target.replyId);
+  if (target.parentCommentId) params.set('parent', target.parentCommentId);
+  if (target.open !== false) params.set('open', 'true');
+
+  return `/projects/${target.projectId}/chapters/${target.chapterId}/scenes/${target.sceneId}?${params.toString()}`;
+}
+
+export async function resolveCommentNavigation(
+  params: CommentNavigationParams
+): Promise<CommentNavigationResult> {
+  const { sceneId, commentId, type, replyId, parentCommentId } = params;
+  const { data: scene, error: sceneError } = await supabase
+    .from('scenes')
+    .select('id, chapter_id')
+    .eq('id', sceneId)
+    .single();
+
+  if (sceneError || !scene) {
+    console.error('[Navigation] Scene not found:', sceneId, sceneError);
+    return { url: null, target: null };
+  }
+
+  const chapterId = scene.chapter_id.split('/').pop() || '';
+  const { data: chapter, error: chapterError } = await supabase
+    .from('chapters')
+    .select('project_id')
+    .eq('id', chapterId)
+    .single();
+
+  if (chapterError || !chapter) {
+    console.error('[Navigation] Chapter not found:', chapterId, chapterError);
+    return { url: null, target: null };
+  }
+
+  const target: CommentNavigationTarget = {
+    projectId: chapter.project_id,
+    chapterId,
+    sceneId,
+    commentId,
+    type: type as 'inline' | 'general',
+    replyId,
+    parentCommentId,
+    open: true,
+  };
+
+  return {
+    url: buildCommentNavigationUrl(target),
+    target,
+  };
 }

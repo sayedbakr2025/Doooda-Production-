@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getSceneComments, addComment, resolveComment, reopenComment, deleteComment, getProjectCollaborators } from '../services/api';
 import type { Comment, ProjectCollaborator } from '../types';
 import { renderMentionText } from '../utils/mentionText';
+import { useCommentRegistryBatch } from '../hooks/useCommentRegistry';
 
 interface Props {
   projectId: string;
@@ -43,6 +44,7 @@ interface CommentBubbleProps {
   isRtl: boolean;
   depth: number;
   onRefresh: () => void;
+  commentRefCallback?: (id: string) => (node: HTMLElement | null) => void;
 }
 
 function CommentBubble({
@@ -53,6 +55,7 @@ function CommentBubble({
   currentUserId,
   isRtl,
   depth,
+  commentRefCallback,
   onRefresh,
 }: CommentBubbleProps) {
   const [replying, setReplying] = useState(false);
@@ -108,6 +111,7 @@ function CommentBubble({
       <div
         id={`comment-${comment.id}`}
         data-comment-id={comment.id}
+        ref={commentRefCallback ? commentRefCallback(comment.id) : undefined}
         className="rounded-xl p-3 mb-2"
         style={{
           backgroundColor: isResolved ? 'var(--color-muted)' : 'var(--color-surface)',
@@ -268,6 +272,25 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const commentRefs = useRef<Map<string, HTMLElement>>(new Map());
+
+  const commentRefCallback = useCallback((id: string) => {
+    return (node: HTMLElement | null) => {
+      if (!node) {
+        commentRefs.current.delete(id);
+        return;
+      }
+      commentRefs.current.set(id, node);
+    };
+  }, []);
+
+  const commentDataList = useMemo(() => comments.map(c => ({ id: c.id, type: 'comment' as const, parentId: undefined })), [comments]);
+
+  useCommentRegistryBatch({
+    comments: commentDataList,
+    elementRefs: commentRefs,
+    enabled: true,
+  });
 
   const load = async () => {
     setLoading(true);
@@ -500,6 +523,7 @@ export default function SceneComments({ projectId, sceneId, isOwner, highlighted
               isRtl={isRtl}
               depth={0}
               onRefresh={load}
+              commentRefCallback={commentRefCallback}
             />
           ))
         )}
