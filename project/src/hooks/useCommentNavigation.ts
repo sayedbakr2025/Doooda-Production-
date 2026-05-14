@@ -56,11 +56,11 @@ export function useCommentNavigation(options: UseCommentNavigationOptions) {
       retryDelay: 300,
       maxTimeoutMs: 8000,
       sceneReadyCheck: () => {
-        const ready = sceneReady;
+        const ready = sceneReadyRef.current;
         return ready;
       },
       commentsReadyCheck: () => {
-        const ready = commentsReady;
+        const ready = commentsReadyRef.current;
         return ready;
       },
       expandThread: (commentId: string) => {

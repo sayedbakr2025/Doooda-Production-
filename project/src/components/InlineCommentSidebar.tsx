@@ -46,6 +46,7 @@ export default function InlineCommentSidebar({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const replyRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const commentRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const replyCardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const canComment = true;
 
@@ -138,12 +139,44 @@ export default function InlineCommentSidebar({
     };
   }, []);
 
+  const replyCardRefCallback = useCallback((id: string) => {
+    return (node: HTMLElement | null) => {
+      if (!node) {
+        replyCardRefs.current.delete(id);
+        return;
+      }
+      replyCardRefs.current.set(id, node);
+    };
+  }, []);
+
   const commentDataList = comments
     .map(c => ({ id: c.id, type: 'comment' as const, parentId: undefined }));
 
   useCommentRegistryBatch({
     comments: commentDataList,
     elementRefs: commentRefs,
+    enabled: true,
+  });
+
+  // Register comment card elements as inline anchors so notification
+  // auto-scroll/highlight can locate them via the anchor registry.
+  const inlineAnchorDataList = comments
+    .map(c => ({ id: c.id, type: 'inline' as const, parentId: undefined }));
+
+  useCommentRegistryBatch({
+    comments: inlineAnchorDataList,
+    elementRefs: commentRefs,
+    enabled: true,
+  });
+
+  // Register reply card elements so reply notifications can scroll to them.
+  const replyDataList = Object.entries(repliesMap).flatMap(([commentId, replies]) =>
+    replies.map(r => ({ id: r.id, type: 'reply' as const, parentId: commentId }))
+  );
+
+  useCommentRegistryBatch({
+    comments: replyDataList,
+    elementRefs: replyCardRefs,
     enabled: true,
   });
 
@@ -404,7 +437,7 @@ export default function InlineCommentSidebar({
                 {(repliesMap[comment.id] || []).length > 0 && (
                   <div className="mt-2 space-y-1.5" style={{ borderLeft: isRTL ? 'none' : '2px solid var(--color-border)', borderRight: isRTL ? '2px solid var(--color-border)' : 'none', paddingLeft: isRTL ? 0 : 8, paddingRight: isRTL ? 8 : 0 }}>
                     {(repliesMap[comment.id] || []).map(reply => (
-                      <div key={reply.id} className="pl-2" style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                      <div key={reply.id} ref={replyCardRefCallback(reply.id)} className="pl-2" style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                         <div className="flex items-center gap-2">
                           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                             {reply.author_name || reply.user_id.slice(0, 8)}
