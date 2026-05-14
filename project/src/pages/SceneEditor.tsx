@@ -77,6 +77,7 @@ export default function SceneEditor() {
   const [commentTab, setCommentTab] = useState<'general' | 'inline'>('inline');
   const [inlineComments, setInlineComments] = useState<InlineComment[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null);
   const [parentCommentIdForHighlight, setParentCommentIdForHighlight] = useState<string | null>(null);
   const [pendingSelection, setPendingSelection] = useState<{ start: number; end: number; text: string } | null>(null);
   const [savedSelectionRange, setSavedSelectionRange] = useState<{ start: number; end: number; text: string } | null>(null);
@@ -439,7 +440,9 @@ onContentChange: (html) => setContent(html),
 useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    
+
+    const activeHoverHighlightId = hoveredCommentId ?? highlightedCommentId;
+
     // Remove any temporary highlights we added
     const tempHighlights = Array.from(editor.querySelectorAll('.comment-anchor.highlighted:not([data-comment-id])'));
     tempHighlights.forEach(el => {
@@ -450,7 +453,7 @@ useEffect(() => {
     });
     
     // If no highlighted comment, remove the highlighted class from all anchors
-    if (!highlightedCommentId) {
+    if (!activeHoverHighlightId) {
       const allHighlighted = Array.from(editor.querySelectorAll('.comment-anchor.highlighted'));
       allHighlighted.forEach(el => {
         el.classList.remove('highlighted');
@@ -459,7 +462,7 @@ useEffect(() => {
     }
     
     // Get the comment that's being hovered
-    const comment = inlineComments.find(c => c.id === highlightedCommentId);
+    const comment = inlineComments.find(c => c.id === activeHoverHighlightId);
     
     // Only show highlight if comment has selected_text (i.e., was created on a text selection)
     if (!comment || !comment.selected_text || comment.anchor_start == null || comment.anchor_end == null) return;
@@ -475,7 +478,15 @@ useEffect(() => {
       return;
     }
     
-    // Find the text in editor using anchor offsets and highlight it
+    // CSS-class-first: if anchor span already rendered, just toggle .highlighted
+    // — no DOM restructure means no reflow/scroll jitter on hover.
+    const existingAnchor = editor.querySelector(`.comment-anchor[data-comment-id="${activeHoverHighlightId}"]`) as HTMLElement | null;
+    if (existingAnchor) {
+      existingAnchor.classList.add('highlighted');
+      return;
+    }
+
+    // Fallback: anchor span not yet in DOM — create temporary highlight via Range
     try {
       const textNodes: { node: Text; start: number }[] = [];
       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
@@ -519,7 +530,7 @@ useEffect(() => {
         }
       }
     } catch {}
-  }, [highlightedCommentId, inlineComments]);
+  }, [hoveredCommentId, highlightedCommentId, inlineComments]);
 
   function countWords(text: string): number {
     const withSpaces = text
@@ -1797,8 +1808,8 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   sceneId={sceneId}
                   userId={user.id}
                   isOwner={isOwner}
-                  onHoverComment={setHighlightedCommentId}
-                  highlightedCommentId={highlightedCommentId}
+                  onHoverComment={setHoveredCommentId}
+                  highlightedCommentId={hoveredCommentId ?? highlightedCommentId}
                   pendingSelection={pendingSelection}
                   onClearPending={() => setPendingSelection(null)}
                   onCommentsChanged={loadInlineComments}

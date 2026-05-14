@@ -242,8 +242,10 @@ export default function InlineCommentSidebar({
     console.log('[Mentions] insertMention called, name:', name, 'commentId:', commentId);
     const text = commentId ? (replyTexts[commentId] || '') : newComment;
     const lastAtIndex = text.lastIndexOf('@');
+    let caretPos = 0;
     if (lastAtIndex >= 0) {
       const newText = text.slice(0, lastAtIndex) + '@[' + name + '] ';
+      caretPos = newText.length;
       if (commentId) {
         console.log('[Mentions] Setting reply text for commentId:', commentId, 'text:', newText);
         setReplyTexts(prev => ({ ...prev, [commentId]: newText }));
@@ -253,7 +255,16 @@ export default function InlineCommentSidebar({
     setShowMentions(null);
     setMentionFilter('');
     setTimeout(() => {
-      textareaRef.current?.focus();
+      // Use the reply textarea if inserting into a reply, otherwise the main textarea.
+      // setSelectionRange with a logical index works correctly in both LTR and RTL,
+      // preventing the caret from jumping to position 0 in Arabic textareas.
+      const target = commentId ? replyRefs.current[commentId] : textareaRef.current;
+      if (target) {
+        target.focus();
+        if (caretPos > 0) {
+          target.setSelectionRange(caretPos, caretPos);
+        }
+      }
     }, 0);
   }
 
