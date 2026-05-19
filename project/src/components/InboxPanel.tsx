@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import type { Notification } from '../services/api';
 import { supabase } from '../lib/supabaseClient';
+import { useInboxSound } from '../hooks/useInboxSound';
 
 type Tab = 'all' | 'invitations' | 'news' | 'important';
 
@@ -23,6 +24,7 @@ interface Props {
 export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
   const { language } = useLanguage();
   const isRtl = language === 'ar';
+  const { checkAndPlay } = useInboxSound();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,11 +37,12 @@ export default function InboxPanel({ onClose, onUnreadCountChange }: Props) {
       const data = await getNotifications();
       setNotifications(data);
       onUnreadCountChange(data.filter(n => !n.read).length);
+      checkAndPlay(data);
     } catch {
     } finally {
       setLoading(false);
     }
-  }, [onUnreadCountChange]);
+  }, [onUnreadCountChange, checkAndPlay]);
 
   useEffect(() => {
     load();
