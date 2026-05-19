@@ -3,16 +3,19 @@
  *
  * Plays a soft notification chime when new unread inbox messages arrive.
  *
- * Autoplay policy compliance:
- *   AudioContext is blocked until the user makes a gesture in the current page session.
- *   Solution: set pendingPlay = true, arm capture-phase gesture listeners,
- *   play on the first click/keydown/touchstart.
+ * Autoplay strategy (two-phase):
+ *   Phase 1 — Immediate attempt:
+ *     Create AudioContext + call resume(). If the user already made a gesture
+ *     (e.g. clicked Login), ctx.state becomes 'running' and we play right away.
+ *   Phase 2 — Gesture fallback:
+ *     If ctx stays 'suspended' (fresh page load, no prior gesture), arm
+ *     capture-phase listeners (click / keydown / touchstart). First gesture
+ *     triggers playback.
  *
  * Deduplication:
- *   All state is in-memory (useRef). Resets on page load/refresh — which is
- *   correct: every fresh page load should re-evaluate unread state.
- *   Between rerenders and polling updates within the same load, IDs are tracked
- *   in a Set so the sound never fires twice for the same batch.
+ *   All state is in-memory (useRef). Resets on every page load — correct
+ *   behavior. Between rerenders/polls within the same load, a Set prevents
+ *   duplicate scheduling.
  */
 
 import { useRef, useCallback, useEffect } from 'react';
@@ -20,97 +23,95 @@ import type { Notification } from '../services/api';
 
 // ─── Audio synthesis ───────────────────────────────────────────────────────
 
-function playChime(volume = 0.07): void {
+function buildAndPlay(ctx: AudioContext, volume: number): void {
+  const now = ctx.currentTime;
+
+  const o1 = ctx.createOscillator();
+  const g1 = ctx.createGain();
+  o1.connect(g1); g1.connect(ctx.destination);
+  o1.type = 'sine';
+  o1.frequency.setValueAtTime(880, now);
+  o1.frequency.exponentialRampToValueAtTime(820, now + 0.15);
+  g1.gain.setValueAtTime(0, now);
+  g1.gain.linearRampToValueAtTime(volume, now + 0.012);
+  g1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+  o1.start(now); o1.stop(now + 0.22);
+
+  const o2 = ctx.createOscillator();
+  const g2 = ctx.createGain();
+  o2.connect(g2); g2.connect(ctx.destination);
+  o2.type = 'sine';
+  o2.frequency.setValueAtTime(1320, now + 0.03);
+  g2.gain.setValueAtTime(0, now + 0.03);
+  g2.gain.linearRampToValueAtTime(volume * 0.35, now + 0.05);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+  o2.start(now + 0.03); o2.stop(now + 0.20);
+
+  setTimeout(() => { ctx.close().catch(() => {}); }, 500);
+}
+
+function tryPlayNow(volume: number): boolean {
   try {
     const ctx = new AudioContext();
-
-    const doPlay = () => {
-      const now = ctx.currentTime;
-
-      // Primary bell — 880 Hz → 820 Hz
-      const o1 = ctx.createOscillator();
-      const g1 = ctx.createGain();
-      o1.connect(g1); g1.connect(ctx.destination);
-      o1.type = 'sine';
-      o1.frequency.setValueAtTime(880, now);
-      o1.frequency.exponentialRampToValueAtTime(820, now + 0.15);
-      g1.gain.setValueAtTime(0, now);
-      g1.gain.linearRampToValueAtTime(volume, now + 0.012);
-      g1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-      o1.start(now); o1.stop(now + 0.22);
-
-      // Soft overtone — 1320 Hz, 30 ms offset
-      const o2 = ctx.createOscillator();
-      const g2 = ctx.createGain();
-      o2.connect(g2); g2.connect(ctx.destination);
-      o2.type = 'sine';
-      o2.frequency.setValueAtTime(1320, now + 0.03);
-      g2.gain.setValueAtTime(0, now + 0.03);
-      g2.gain.linearRampToValueAtTime(volume * 0.35, now + 0.05);
-      g2.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
-      o2.start(now + 0.03); o2.stop(now + 0.20);
-
-      setTimeout(() => { ctx.close().catch(() => {}); }, 500);
-    };
-
-    // Try resume in case context is suspended
     if (ctx.state === 'running') {
-      doPlay();
-    } else {
-      ctx.resume().then(() => {
-        if (ctx.state === 'running') doPlay();
-      }).catch(() => {});
+      buildAndPlay(ctx, volume);
+      return true; // played immediately
     }
+    // Try resume — succeeds if a gesture already happened this page session
+    ctx.resume().then(() => {
+      if (ctx.state === 'running') {
+        buildAndPlay(ctx, volume);
+      } else {
+        ctx.close().catch(() => {});
+      }
+    }).catch(() => { ctx.close().catch(() => {}); });
+    // Return false: we don't know yet if resume will succeed
+    return false;
   } catch {
-    // AudioContext not available — silent fail
+    return false;
   }
 }
 
 // ─── Hook ──────────────────────────────────────────────────────────────────
 
 export function useInboxSound() {
-  // All state is in-memory — resets on every page load (correct behavior)
-  const notifiedIdsRef  = useRef<Set<string>>(new Set());
-  const pendingPlayRef  = useRef(false);
-  const armedRef        = useRef(false);   // gesture listeners armed?
-  const volumeRef       = useRef(0.07);
+  const notifiedIdsRef   = useRef<Set<string>>(new Set());
+  const pendingPlayRef   = useRef(false);
+  const armedRef         = useRef(false);
+  const volumeRef        = useRef(0.07);
+  const handlerRef       = useRef<(() => void) | null>(null);
 
-  // ── Gesture handler (fires once, removes all three listener types) ──
-  const gestureHandlerRef = useRef<(() => void) | null>(null);
-
-  const disarmListeners = useCallback(() => {
-    if (gestureHandlerRef.current) {
-      document.removeEventListener('click',      gestureHandlerRef.current, true);
-      document.removeEventListener('keydown',    gestureHandlerRef.current, true);
-      document.removeEventListener('touchstart', gestureHandlerRef.current, true);
-      gestureHandlerRef.current = null;
-    }
+  const disarm = useCallback(() => {
+    if (!handlerRef.current) return;
+    document.removeEventListener('click',      handlerRef.current, true);
+    document.removeEventListener('keydown',    handlerRef.current, true);
+    document.removeEventListener('touchstart', handlerRef.current, true);
+    handlerRef.current = null;
     armedRef.current = false;
   }, []);
 
-  const armListeners = useCallback(() => {
-    if (armedRef.current) return; // already waiting
+  const arm = useCallback(() => {
+    if (armedRef.current) return;
     armedRef.current = true;
 
     const handler = () => {
-      disarmListeners();
+      disarm();
       if (pendingPlayRef.current) {
         pendingPlayRef.current = false;
-        playChime(volumeRef.current);
+        tryPlayNow(volumeRef.current);
       }
     };
 
-    gestureHandlerRef.current = handler;
+    handlerRef.current = handler;
     document.addEventListener('click',      handler, true);
     document.addEventListener('keydown',    handler, true);
     document.addEventListener('touchstart', handler, true);
-  }, [disarmListeners]);
+  }, [disarm]);
 
-  // Cleanup on unmount
-  useEffect(() => () => { disarmListeners(); }, [disarmListeners]);
+  useEffect(() => () => { disarm(); }, [disarm]);
 
   /**
-   * Call every time the notifications array is refreshed.
+   * Call every time the notifications array updates.
    * Safe to call on every rerender / poll / WS event.
    */
   const checkAndPlay = useCallback((notifications: Notification[]) => {
@@ -120,15 +121,27 @@ export function useInboxSound() {
     const newUnread = unread.filter(n => !notifiedIdsRef.current.has(n.id));
     if (newUnread.length === 0) return;
 
-    // Mark new IDs before scheduling to prevent double-scheduling
     newUnread.forEach(n => notifiedIdsRef.current.add(n.id));
 
-    // Slightly quieter on very first call (initial page hydration)
-    volumeRef.current = notifiedIdsRef.current.size === newUnread.length ? 0.05 : 0.07;
+    // Slightly quieter on first call (initial page hydration)
+    const isFirst = notifiedIdsRef.current.size === newUnread.length;
+    volumeRef.current = isFirst ? 0.05 : 0.07;
 
     pendingPlayRef.current = true;
-    armListeners();
-  }, [armListeners]);
+
+    // Phase 1: try to play immediately (works after login click or any prior gesture)
+    tryPlayNow(volumeRef.current);
+
+    // Phase 2: arm gesture listener as fallback
+    // (catches the case where ctx.resume() above didn't unlock in time)
+    arm();
+
+    // Auto-disarm after 30 s if no gesture happens (avoid stale listeners)
+    setTimeout(() => {
+      pendingPlayRef.current = false;
+      disarm();
+    }, 30_000);
+  }, [arm, disarm]);
 
   return { checkAndPlay };
 }
