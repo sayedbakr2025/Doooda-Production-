@@ -9,6 +9,7 @@ import ThemeToggle from './ThemeToggle';
 import AccountMenu from './AccountMenu';
 import InboxPanel from './InboxPanel';
 import { getNotifications } from '../services/api';
+import { useInboxSound } from '../hooks/useInboxSound';
 
 export default function GlobalHeader() {
   const { language } = useLanguage();
@@ -21,6 +22,7 @@ export default function GlobalHeader() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState<{ title: string; message: string } | null>(null);
   const inboxButtonRef = useRef<HTMLDivElement>(null);
+  const { checkAndPlay } = useInboxSound();
 
   useEffect(() => {
     if (!user) {
@@ -74,9 +76,10 @@ export default function GlobalHeader() {
     try {
       const notifications = await getNotifications();
       setUnreadCount(notifications.filter(n => !n.read).length);
+      checkAndPlay(notifications);
     } catch {
     }
-  }, [user]);
+  }, [user, checkAndPlay]);
 
   useEffect(() => {
     loadUnreadCount();
