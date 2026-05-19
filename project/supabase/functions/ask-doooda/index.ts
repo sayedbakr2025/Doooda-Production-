@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
-import { loadConversationHistory, persistConversationMessages } from "../_shared/conversationMemory.ts";
+import { loadConversationHistory, persistConversationMessages, touchSession } from "../_shared/conversationMemory.ts";
 import { callDeepSeekChatCompletion, isDevelopmentMode } from "../_shared/deepseekModels.ts";
 
 const corsHeaders = {
@@ -159,6 +159,7 @@ interface RequestBody {
   tone?: string;
   project_id?: string;
   conversation_id?: string;
+  session_id?: string;
 }
 
 function mapMessageRole(role: RequestBody["messages"][number]["role"]): "system" | "user" | "assistant" {
@@ -493,17 +494,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const validConversationId = isUuid(body.conversation_id) ? body.conversation_id : null;
+    const validSessionId = isUuid(body.session_id) ? body.session_id : null;
     let historyMessages = normalizedIncomingMessages
       .slice(0, -1)
       .filter((message) => message.role !== "system")
       .slice(-CHAT_HISTORY_LIMIT);
 
-    if (config?.session_memory_enabled !== false && validConversationId) {
+    if (config?.session_memory_enabled !== false && (validSessionId || validConversationId)) {
       const persistedHistory = await loadConversationHistory(
         supabase,
-        validConversationId,
+        validConversationId ?? "",
         user.id,
         CHAT_HISTORY_LIMIT,
+        validSessionId ?? undefined,
       );
 
       if (persistedHistory.length > 0) {
@@ -696,11 +699,20 @@ Deno.serve(async (req: Request) => {
           : `${finalReply}\n\n⚠️ Tokens running low (${newBalance} remaining).`;
       }
 
-      if (validConversationId) {
-        await persistConversationMessages(supabase, validConversationId, user.id, [
-          { role: "user", content: lastUserMessage },
-          { role: "assistant", content: lowMsg },
-        ]);
+      if (validConversationId || validSessionId) {
+        await persistConversationMessages(
+          supabase,
+          validConversationId ?? validSessionId!,
+          user.id,
+          [
+            { role: "user", content: lastUserMessage },
+            { role: "assistant", content: lowMsg },
+          ],
+          validSessionId ?? undefined,
+        );
+        if (validSessionId) {
+          await touchSession(supabase, validSessionId, user.id);
+        }
       }
 
       return new Response(
@@ -710,17 +722,27 @@ Deno.serve(async (req: Request) => {
           type: "TOKENS_LOW",
           tokens_left: newBalance,
           conversation_id: validConversationId,
+          session_id: validSessionId,
           ...(isDevelopmentMode() ? { model: modelUsed } : {}),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    if (validConversationId) {
-      await persistConversationMessages(supabase, validConversationId, user.id, [
-        { role: "user", content: lastUserMessage },
-        { role: "assistant", content: finalReply },
-      ]);
+    if (validConversationId || validSessionId) {
+      await persistConversationMessages(
+        supabase,
+        validConversationId ?? validSessionId!,
+        user.id,
+        [
+          { role: "user", content: lastUserMessage },
+          { role: "assistant", content: finalReply },
+        ],
+        validSessionId ?? undefined,
+      );
+      if (validSessionId) {
+        await touchSession(supabase, validSessionId, user.id);
+      }
     }
 
     return new Response(
@@ -729,6 +751,7 @@ Deno.serve(async (req: Request) => {
         blocked: false,
         tokens_left: newBalance,
         conversation_id: validConversationId,
+        session_id: validSessionId,
         ...(isDevelopmentMode() ? { model: modelUsed } : {}),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

@@ -5,6 +5,7 @@ import { t } from '../../utils/translations';
 import { useDooodaAccess } from './useDooodaAccess';
 import { supabase, invokeWithAuth } from '../../lib/supabaseClient';
 import { askDoooda } from '../../api/askDoooda';
+import { createChatSession, archiveChatSession } from '../../api/chatSession';
 import { type WritingModeId, inferWritingMode } from './writingModes';
 import { checkAbuse, resetAbuseTracker } from './abuseProtection';
 
@@ -139,6 +140,7 @@ export default function DooodaChatPanel() {
   const [tokensBalance, setTokensBalance] = useState<number | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>('ask_doooda');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [supportTicket, setSupportTicket] = useState<SupportTicket | null>(null);
   const [ticketList, setTicketList] = useState<SupportTicket[]>([]);
   const [showTicketList, setShowTicketList] = useState(false);
@@ -201,6 +203,10 @@ export default function DooodaChatPanel() {
   }, [isOpen, user]);
 
   const handleClose = useCallback(() => {
+    // Archive the current session (fire-and-forget)
+    if (sessionId) {
+      archiveChatSession(sessionId);
+    }
     setIsClosing(true);
     setTimeout(() => {
       setIsClosing(false);
@@ -212,8 +218,10 @@ export default function DooodaChatPanel() {
       resetAbuseTracker();
       setSessionLang(null);
       setWritingCtx(null);
+      setSessionId(null);
+      setConversationId(null);
     }, 200);
-  }, []);
+  }, [sessionId]);
 
   const ensureConversationId = useCallback((projectId?: string | null) => {
     if (!user || chatMode !== 'ask_doooda') return null;
@@ -275,14 +283,15 @@ export default function DooodaChatPanel() {
       setWritingCtx(detail.writingContext);
     }
 
-    if (detail?.source === 'context-menu' && detail.selectedText) {
-      if (user && chatMode === 'ask_doooda') {
-        const nextConversationId = crypto.randomUUID();
-        const storageKey = buildConversationStorageKey(user.id, 'ask_doooda', nextProjectId);
-        localStorage.setItem(storageKey, nextConversationId);
-        setConversationId(nextConversationId);
-      }
+    // Always create a fresh server-side session on every panel open.
+    // The previous session (if any) was archived in handleClose.
+    if (user && chatMode === 'ask_doooda') {
+      const newSessionId = await createChatSession(nextProjectId);
+      setSessionId(newSessionId);
+      setConversationId(newSessionId);
+    }
 
+    if (detail?.source === 'context-menu' && detail.selectedText) {
       const detectedLang = detectTextLanguage(detail.selectedText);
       if (detectedLang) setSessionLang(detectedLang);
 
@@ -297,7 +306,6 @@ export default function DooodaChatPanel() {
       setInput('');
       setInputDisabled(false);
     } else if (messages.length === 0) {
-      ensureConversationId(nextProjectId);
       setContextText(null);
       setSessionLang(null);
       setMessages([{
@@ -310,7 +318,7 @@ export default function DooodaChatPanel() {
     }
     setIsClosing(false);
     setIsOpen(true);
-  }, [chatMode, ensureConversationId, language, messages.length, user]);
+  }, [chatMode, language, messages.length, user]);
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
@@ -545,7 +553,8 @@ export default function DooodaChatPanel() {
         contextText || undefined,
         resolvedMode,
         writingCtx || undefined,
-        activeConversationId || undefined
+        activeConversationId || undefined,
+        sessionId || undefined,
       );
 
       if (response.status === 402 || response.type === 'LIMIT_REACHED') {

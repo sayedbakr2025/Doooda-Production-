@@ -23,7 +23,7 @@ export async function invokeWithAuth<T = any>(
   functionName: string,
   options?: {
     body?: Record<string, any>;
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+    method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     headers?: Record<string, string>;
   }
 ): Promise<{
