@@ -1,0 +1,108 @@
+import { useState } from 'react';
+import { Star, Trash2 } from 'lucide-react';
+import type { IdeaCard } from '../../types';
+
+interface IdeaCardProps {
+  card: IdeaCard;
+  isRTL: boolean;
+  onUpdate: (updates: Partial<IdeaCard>) => void;
+  onDelete: () => void;
+  onFinalize: () => void;
+  onUnfinalize: () => void;
+}
+
+export default function IdeaCardComponent({ card, isRTL, onUpdate, onDelete, onFinalize, onUnfinalize }: IdeaCardProps) {
+  const [editing, setEditing] = useState(false);
+  const [titleValue, setTitleValue] = useState(card.title);
+
+  const statusStyles: Record<string, React.CSSProperties> = {
+    active: { borderColor: 'var(--color-border)', opacity: 1 },
+    finalized: { borderColor: '#22c55e', boxShadow: '0 0 12px rgba(34, 197, 94, 0.3)', opacity: 1 },
+    dimmed: { borderColor: 'var(--color-border)', opacity: 0.45 },
+  };
+
+  const style = statusStyles[card.status] || statusStyles.active;
+
+  const handleTitleBlur = () => {
+    setEditing(false);
+    if (titleValue !== card.title) {
+      onUpdate({ title: titleValue });
+    }
+  };
+
+  return (
+    <div
+      className="flex-shrink-0 rounded-lg p-3 transition-opacity"
+      style={{
+        width: '180px',
+        minWidth: '180px',
+        backgroundColor: 'var(--color-bg-primary)',
+        border: `2px solid var(--color-border)`,
+        boxShadow: card.status === 'finalized' ? '0 0 12px rgba(34, 197, 94, 0.3)' : 'none',
+        opacity: style.opacity,
+      }}
+    >
+      <div className="flex items-center justify-between gap-1 mb-1">
+        {card.status === 'finalized' && (
+          <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 shrink-0" />
+        )}
+        {editing ? (
+          <input
+            value={titleValue}
+            onChange={e => setTitleValue(e.target.value)}
+            onBlur={handleTitleBlur}
+            onKeyDown={e => { if (e.key === 'Enter') handleTitleBlur(); if (e.key === 'Escape') { setTitleValue(card.title); setEditing(false); } }}
+            className="flex-1 text-sm font-medium px-1 rounded"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-accent)', color: 'var(--color-text-primary)' }}
+            autoFocus
+          />
+        ) : (
+          <span
+            className="flex-1 text-sm font-medium truncate cursor-pointer"
+            style={{ color: 'var(--color-text-primary)' }}
+            onDoubleClick={() => { setEditing(true); setTitleValue(card.title); }}
+            title={card.title}
+          >
+            {card.title}
+          </span>
+        )}
+      </div>
+
+      {card.summary && (
+        <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--color-text-tertiary)' }}>
+          {card.summary}
+        </p>
+      )}
+
+      <div className="flex items-center gap-1 mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+        {card.status === 'active' ? (
+          <button
+            onClick={onFinalize}
+            className="text-xs px-2 py-0.5 rounded font-medium hover:opacity-80"
+            style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}
+            title={isRTL ? 'اعتماد الفكرة' : 'Finalize'}
+          >
+            {isRTL ? 'اعتماد' : 'Finalize'}
+          </button>
+        ) : card.status === 'finalized' ? (
+          <button
+            onClick={onUnfinalize}
+            className="text-xs px-2 py-0.5 rounded font-medium hover:opacity-80"
+            style={{ backgroundColor: 'rgba(234, 179, 8, 0.1)', color: '#eab308' }}
+            title={isRTL ? 'إلغاء الاعتماد' : 'Unfinalize'}
+          >
+            {isRTL ? 'إلغاء' : 'Unfinalize'}
+          </button>
+        ) : null}
+        <button
+          onClick={onDelete}
+          className="ml-auto p-1 rounded hover:opacity-70"
+          style={{ color: 'var(--color-text-tertiary)' }}
+          title={isRTL ? 'حذف' : 'Delete'}
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
