@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Lightbulb, ZoomIn, ZoomOut, AlertTriangle } from 'lucide-react';
+import { Plus, Lightbulb, ZoomIn, ZoomOut, AlertTriangle, Share2 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import type { ProjectType, IdeaBank, IdeaSlot, IdeaCard, IdeaPoll } from '../../types';
 import { getHierarchyLevels, getMaxLevel } from '../../utils/hierarchyConfig';
 import { useLiteraryTypeConfig } from '../../hooks/useLiteraryTypeConfig';
+import { useIdeaBankPermissions } from '../../hooks/useIdeaBankPermissions';
 import {
   getOrCreateIdeaBank,
   getIdeaSlots,
@@ -26,6 +27,7 @@ import {
   voteOnIdea,
 } from '../../services/api';
 import IdeaSlotComponent from './IdeaSlot';
+import IdeaBankShareModal from './IdeaBankShareModal';
 
 interface IdeaBankTabProps {
   projectId: string;
@@ -44,6 +46,8 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
   const [userVotesByCard, setUserVotesByCard] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const { canEdit, canVote, canManageCollaborators, canCreateIdeas, canFinalize, canManagePolls } = useIdeaBankPermissions(ideaBank?.id, projectId);
 
   useEffect(() => {
     loadIdeaBank();
@@ -269,14 +273,26 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
           <button onClick={zoomIn} className="p-1.5 rounded-lg hover:opacity-80" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }} title={isRTL ? 'تكبير' : 'Zoom in'}>
             <ZoomIn className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => handleAddSlot(undefined, 1)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90"
-            style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
-          >
-            <Plus className="w-4 h-4" />
-            {isRTL ? `إضافة ${level1?.singularAr || ''}` : `Add ${level1?.singular || 'Section'}`}
-          </button>
+          {canManageCollaborators && (
+            <button
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <Share2 className="w-4 h-4" />
+              {isRTL ? 'مشاركة' : 'Share'}
+            </button>
+          )}
+          {canCreateIdeas && (
+            <button
+              onClick={() => handleAddSlot(undefined, 1)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90"
+              style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+            >
+              <Plus className="w-4 h-4" />
+              {isRTL ? `إضافة ${level1?.singularAr || ''}` : `Add ${level1?.singular || 'Section'}`}
+            </button>
+          )}
         </div>
       </div>
 
@@ -313,7 +329,11 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
                     levels={levels}
                     maxLevel={maxLevel}
                     isRTL={isRTL}
-                    isOwner={true}
+                    isOwner={canManageCollaborators}
+                    canEdit={canEdit}
+                    canVote={canVote}
+                    canFinalize={canFinalize}
+                    canManagePolls={canManagePolls}
                     onAddChildSlot={(parentId) => handleAddSlot(parentId, 2)}
                     onAddIdea={handleAddIdea}
                     onDeleteSlot={handleDeleteSlot}
@@ -334,6 +354,15 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
           </div>
         )}
       </div>
+
+      {ideaBank && (
+        <IdeaBankShareModal
+          bankId={ideaBank.id}
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          onRefresh={() => {}}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation, IdeaPoll, IdeaVote } from '../types';
+import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation, IdeaPoll, IdeaVote, IdeaBankRole, IdeaBankCollaborator } from '../types';
 
 export { supabase };
 
@@ -3036,4 +3036,125 @@ export async function getUserVote(pollId: string): Promise<string | null> {
     .maybeSingle();
   if (error) throw error;
   return data?.idea_card_id || null;
+}
+
+// ============================================================
+// Idea Bank Sharing & Permissions API (Phase 4)
+// ============================================================
+
+export async function getIdeaBankCollaborators(bankId: string): Promise<IdeaBankCollaborator[]> {
+  const { data, error } = await supabase
+    .from('idea_bank_collaborators')
+    .select('id, idea_bank_id, user_id, role, status, invited_by, created_at')
+    .eq('idea_bank_id', bankId);
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    ideaBankId: row.idea_bank_id,
+    userId: row.user_id,
+    role: row.role,
+    status: row.status,
+    invitedBy: row.invited_by,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function addIdeaBankCollaborator(bankId: string, userId: string, role: IdeaBankRole): Promise<IdeaBankCollaborator> {
+  const { data, error } = await supabase
+    .from('idea_bank_collaborators')
+    .insert({ idea_bank_id: bankId, user_id: userId, role, status: 'active' })
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    ideaBankId: data.idea_bank_id,
+    userId: data.user_id,
+    role: data.role,
+    status: data.status,
+    invitedBy: data.invited_by,
+    createdAt: data.created_at,
+  };
+}
+
+export async function updateIdeaBankCollaborator(collaboratorId: string, updates: { role?: IdeaBankRole; status?: string }): Promise<void> {
+  const updateData: any = {};
+  if (updates.role) updateData.role = updates.role;
+  if (updates.status) updateData.status = updates.status;
+  const { error } = await supabase
+    .from('idea_bank_collaborators')
+    .update(updateData)
+    .eq('id', collaboratorId);
+  if (error) throw error;
+}
+
+export async function removeIdeaBankCollaborator(collaboratorId: string): Promise<void> {
+  const { error } = await supabase
+    .from('idea_bank_collaborators')
+    .delete()
+    .eq('id', collaboratorId);
+  if (error) throw error;
+}
+
+export async function getMyIdeaBankRole(bankId: string): Promise<'owner' | 'editor' | 'voter' | 'viewer' | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: bank } = await supabase
+    .from('idea_banks')
+    .select('project_id')
+    .eq('id', bankId)
+    .single();
+  if (!bank) return null;
+
+  const { data: project } = await supabase
+    .from('projects')
+    .select('user_id')
+    .eq('id', bank.project_id)
+    .single();
+
+  if (project?.user_id === user.id) return 'owner';
+
+  const { data: projectCollab } = await supabase
+    .from('project_collaborators')
+    .select('role')
+    .eq('project_id', bank.project_id)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  let inheritedRole: string | null = null;
+  if (projectCollab) {
+    if (projectCollab.role === 'manager' || projectCollab.role === 'editor') inheritedRole = 'editor';
+    else if (projectCollab.role === 'viewer') inheritedRole = 'viewer';
+  }
+
+  const { data: ibCollab } = await supabase
+    .from('idea_bank_collaborators')
+    .select('role')
+    .eq('idea_bank_id', bankId)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  const explicitRole = ibCollab?.role || null;
+
+  const rolePriority: Record<string, number> = { owner: 4, editor: 3, voter: 2, viewer: 1 };
+  const inherited = inheritedRole ? (rolePriority[inheritedRole] || 0) : 0;
+  const explicit = explicitRole ? (rolePriority[explicitRole] || 0) : 0;
+  const maxPriority = Math.max(inherited, explicit);
+
+  if (maxPriority === 0) return null;
+  const roleMap: Record<number, 'owner' | 'editor' | 'voter' | 'viewer'> = { 4: 'owner', 3: 'editor', 2: 'voter', 1: 'viewer' };
+  return roleMap[maxPriority] || null;
+}
+
+export async function searchUserByEmailForIdeaBank(email: string): Promise<{ id: string; pen_name: string | null; email: string | null } | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, pen_name, email')
+    .ilike('email', email)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { id: data.id, pen_name: data.pen_name, email: data.email } : null;
 }

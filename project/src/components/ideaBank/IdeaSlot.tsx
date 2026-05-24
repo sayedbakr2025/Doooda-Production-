@@ -16,6 +16,10 @@ interface IdeaSlotProps {
   maxLevel: number;
   isRTL: boolean;
   isOwner: boolean;
+  canEdit: boolean;
+  canVote: boolean;
+  canFinalize: boolean;
+  canManagePolls: boolean;
   onAddChildSlot: (parentId: string) => void;
   onAddIdea: (slotId: string) => void;
   onDeleteSlot: (slotId: string) => void;
@@ -43,6 +47,10 @@ export default function IdeaSlotComponent({
   maxLevel,
   isRTL,
   isOwner,
+  canEdit,
+  canVote,
+  canFinalize,
+  canManagePolls,
   onAddChildSlot,
   onAddIdea,
   onDeleteSlot,
@@ -141,14 +149,16 @@ export default function IdeaSlotComponent({
         <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
           {cards.filter(c => c.status !== 'archived').length} {isRTL ? 'فكرة' : 'ideas'}
         </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDeleteSlot(slot.id); }}
-          className="p-1 rounded hover:opacity-70"
-          style={{ color: 'var(--color-text-tertiary)' }}
+        {canEdit && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDeleteSlot(slot.id); }}
+            className="p-1 rounded hover:opacity-70"
+            style={{ color: 'var(--color-text-tertiary)' }}
           title={isRTL ? 'حذف' : 'Delete'}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {expanded && (
@@ -187,10 +197,12 @@ export default function IdeaSlotComponent({
                     onFinalize={() => onFinalizeCard(card.id, slot.id)}
                     onUnfinalize={() => onUnfinalizeCard(card.id, slot.id)}
                     onVote={poll ? () => onVote(poll.id, card.id) : undefined}
+                    canFinalize={canFinalize}
                   />
                 );
               })}
-            <button
+            {canEdit && (
+              <button
               onClick={() => onAddIdea(slot.id)}
               className="flex-shrink-0 flex items-center justify-center gap-1 px-4 py-3 rounded-lg text-sm border-2 border-dashed hover:opacity-80"
               style={{
@@ -203,6 +215,7 @@ export default function IdeaSlotComponent({
               <Plus className="w-4 h-4" />
               {isRTL ? 'فكرة بديلة' : 'Alternative'}
             </button>
+            )}
           </div>
 
           {/* Child Slots (nested) */}
@@ -227,6 +240,10 @@ export default function IdeaSlotComponent({
                       maxLevel={maxLevel}
                       isRTL={isRTL}
                       isOwner={isOwner}
+                      canEdit={canEdit}
+                      canVote={canVote}
+                      canFinalize={canFinalize}
+                      canManagePolls={canManagePolls}
                       onAddChildSlot={() => {}}
                       onAddIdea={onAddIdea}
                       onDeleteSlot={onDeleteSlot}
@@ -247,7 +264,7 @@ export default function IdeaSlotComponent({
           )}
 
           {/* Add Child Slot */}
-          {hasChildren && (
+          {hasChildren && canEdit && (
             <button
               onClick={() => onAddChildSlot(slot.id)}
               className="mt-2 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-80"

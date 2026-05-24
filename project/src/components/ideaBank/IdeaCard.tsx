@@ -14,6 +14,7 @@ interface IdeaCardProps {
   onFinalize: () => void;
   onUnfinalize: () => void;
   onVote?: () => void;
+  canFinalize?: boolean;
 }
 
 export default function IdeaCardComponent({
@@ -28,6 +29,7 @@ export default function IdeaCardComponent({
   onFinalize,
   onUnfinalize,
   onVote,
+  canFinalize = true,
 }: IdeaCardProps) {
   const [editing, setEditing] = useState(false);
   const [titleValue, setTitleValue] = useState(card.title);
@@ -118,7 +120,7 @@ export default function IdeaCardComponent({
 
       {/* Actions */}
       <div className="flex items-center gap-1 mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
-        {card.status === 'active' ? (
+        {canFinalize && card.status === 'active' ? (
           <>
             {pollOpen && onVote && (
               <button
@@ -143,7 +145,7 @@ export default function IdeaCardComponent({
               {isRTL ? 'اعتماد' : 'Finalize'}
             </button>
           </>
-        ) : card.status === 'finalized' ? (
+        ) : canFinalize && card.status === 'finalized' ? (
           <button
             onClick={onUnfinalize}
             className="text-xs px-2 py-0.5 rounded font-medium hover:opacity-80"
