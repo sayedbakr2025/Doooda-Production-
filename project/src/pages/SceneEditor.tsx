@@ -28,6 +28,7 @@ import VoiceToTextButton from '../components/VoiceToTextButton';
 import InlineCommentSidebar from '../components/InlineCommentSidebar';
 import type { InlineComment } from '../types';
 import { useCommentNavigation } from '../hooks/useCommentNavigation';
+import { registerInlineAnchorTarget, unregisterInlineAnchorTarget } from '../utils/commentNavigation';
 
 interface ContextMenuSubOption {
   label: string;
@@ -355,6 +356,8 @@ onContentChange: (html) => setContent(html),
     const editor = editorRef.current;
     const anchors = editor.querySelectorAll('.comment-anchor');
     anchors.forEach(el => {
+      const commentId = el.getAttribute('data-comment-id');
+      if (commentId) unregisterInlineAnchorTarget(commentId);
       const parent = el.parentNode;
       while (el.firstChild) parent?.insertBefore(el.firstChild, el);
       parent?.removeChild(el);
@@ -408,6 +411,7 @@ onContentChange: (html) => setContent(html),
             span.setAttribute('data-comment-id', comment.id);
             span.setAttribute('data-selected-text', comment.selected_text || '');
             range.surroundContents(span);
+            registerInlineAnchorTarget(comment.id, span);
           }
         } catch {}
       });

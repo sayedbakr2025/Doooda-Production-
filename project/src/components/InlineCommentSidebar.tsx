@@ -5,7 +5,6 @@ import type { InlineComment, InlineCommentReply, ProjectCollaborator } from '../
 import { useLanguage } from '../contexts/LanguageContext';
 import { renderMentionText } from '../utils/mentionText';
 import { registerCommentTarget, unregisterCommentTarget, registerReplyTarget, unregisterReplyTarget } from '../utils/commentNavigation';
-import { useCommentRegistryBatch } from '../hooks/useCommentRegistry';
 
 interface InlineCommentSidebarProps {
   projectId: string;
@@ -153,37 +152,6 @@ export default function InlineCommentSidebar({
       registerReplyTarget(replyId, node, parentId);
     };
   }, []);
-
-  const commentDataList = comments
-    .map(c => ({ id: c.id, type: 'comment' as const, parentId: undefined }));
-
-  useCommentRegistryBatch({
-    comments: commentDataList,
-    elementRefs: commentRefs,
-    enabled: true,
-  });
-
-  // Register comment card elements as inline anchors so notification
-  // auto-scroll/highlight can locate them via the anchor registry.
-  const inlineAnchorDataList = comments
-    .map(c => ({ id: c.id, type: 'inline' as const, parentId: undefined }));
-
-  useCommentRegistryBatch({
-    comments: inlineAnchorDataList,
-    elementRefs: commentRefs,
-    enabled: true,
-  });
-
-  // Register reply card elements so reply notifications can scroll to them.
-  const replyDataList = Object.entries(repliesMap).flatMap(([commentId, replies]) =>
-    replies.map(r => ({ id: r.id, type: 'reply' as const, parentId: commentId }))
-  );
-
-  useCommentRegistryBatch({
-    comments: replyDataList,
-    elementRefs: replyCardRefs,
-    enabled: true,
-  });
 
   const filteredCollaborators = collaborators.filter(c =>
     c.user_id !== userId && (
