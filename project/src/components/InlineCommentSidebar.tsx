@@ -4,6 +4,7 @@ import { getInlineComments, addInlineComment, resolveInlineComment, reopenInline
 import type { InlineComment, InlineCommentReply, ProjectCollaborator } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { renderMentionText } from '../utils/mentionText';
+import { registerCommentTarget, unregisterCommentTarget, registerReplyTarget, unregisterReplyTarget } from '../utils/commentNavigation';
 import { useCommentRegistryBatch } from '../hooks/useCommentRegistry';
 
 interface InlineCommentSidebarProps {
@@ -133,19 +134,23 @@ export default function InlineCommentSidebar({
     return (node: HTMLElement | null) => {
       if (!node) {
         commentRefs.current.delete(id);
+        unregisterCommentTarget(id);
         return;
       }
       commentRefs.current.set(id, node);
+      registerCommentTarget(id, node);
     };
   }, []);
 
-  const replyCardRefCallback = useCallback((id: string) => {
+  const replyCardRefCallback = useCallback((replyId: string, parentId: string) => {
     return (node: HTMLElement | null) => {
       if (!node) {
-        replyCardRefs.current.delete(id);
+        replyCardRefs.current.delete(replyId);
+        unregisterReplyTarget(replyId);
         return;
       }
-      replyCardRefs.current.set(id, node);
+      replyCardRefs.current.set(replyId, node);
+      registerReplyTarget(replyId, node, parentId);
     };
   }, []);
 
@@ -448,7 +453,7 @@ export default function InlineCommentSidebar({
                 {(repliesMap[comment.id] || []).length > 0 && (
                   <div className="mt-2 space-y-1.5" style={{ borderLeft: isRTL ? 'none' : '2px solid var(--color-border)', borderRight: isRTL ? '2px solid var(--color-border)' : 'none', paddingLeft: isRTL ? 0 : 8, paddingRight: isRTL ? 8 : 0 }}>
                     {(repliesMap[comment.id] || []).map(reply => (
-                      <div key={reply.id} ref={replyCardRefCallback(reply.id)} className="pl-2" style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
+                      <div key={reply.id} ref={replyCardRefCallback(reply.id, comment.id)} data-reply-id={reply.id} className="pl-2" style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}>
                         <div className="flex items-center gap-2">
                           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                             {reply.author_name || reply.user_id.slice(0, 8)}
