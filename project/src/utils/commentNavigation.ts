@@ -396,6 +396,13 @@ export async function orchestrateCommentNavigation(
           ? scrollElementIntoView(commentElement)
           : config.scrollToComment(state.commentId);
         
+        if (state.type === 'inline') {
+          const anchorElement = commentTargetRegistry.getInlineAnchor(state.commentId);
+          if (anchorElement) {
+            scrollElementIntoView(anchorElement);
+          }
+        }
+        
         console.log(`${NAVIGATION_NAMESPACE} Comment scroll:`, commentScrolled ? 'success' : 'failed');
         
         if (commentScrolled) {
