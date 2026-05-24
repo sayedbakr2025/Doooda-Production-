@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Lightbulb, ZoomIn, ZoomOut, AlertTriangle, Share2 } from 'lucide-react';
+import { Plus, Lightbulb, ZoomIn, ZoomOut, AlertTriangle, Share2, Download } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import type { ProjectType, IdeaBank, IdeaSlot, IdeaCard, IdeaPoll } from '../../types';
 import { getHierarchyLevels, getMaxLevel } from '../../utils/hierarchyConfig';
@@ -30,6 +30,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import IdeaSlotComponent from './IdeaSlot';
 import IdeaBankShareModal from './IdeaBankShareModal';
+import IdeaBankImportModal from './IdeaBankImportModal';
 
 interface IdeaBankTabProps {
   projectId: string;
@@ -49,6 +50,7 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const { canEdit, canVote, canManageCollaborators, canCreateIdeas, canFinalize, canManagePolls } = useIdeaBankPermissions(ideaBank?.id, projectId);
 
   useEffect(() => {
@@ -341,6 +343,14 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
               {isRTL ? 'مشاركة' : 'Share'}
             </button>
           )}
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90"
+            style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+          >
+            <Download className="w-4 h-4" />
+            {isRTL ? 'استيراد إلى المخطط' : 'Import to Plot'}
+          </button>
           {canCreateIdeas && (
             <button
               onClick={() => handleAddSlot(undefined, 1)}
@@ -419,6 +429,15 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
           onRefresh={() => {}}
+        />
+      )}
+
+      {ideaBank && showImportModal && (
+        <IdeaBankImportModal
+          bankId={ideaBank.id}
+          projectId={projectId}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => { setShowImportModal(false); }}
         />
       )}
     </div>

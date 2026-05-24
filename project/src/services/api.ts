@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation, IdeaPoll, IdeaVote, IdeaBankRole, IdeaBankCollaborator } from '../types';
+import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation, IdeaPoll, IdeaVote, IdeaBankRole, IdeaBankCollaborator, IdeaBankImportResult } from '../types';
 
 export { supabase };
 
@@ -3157,4 +3157,28 @@ export async function searchUserByEmailForIdeaBank(email: string): Promise<{ id:
     .maybeSingle();
   if (error) throw error;
   return data ? { id: data.id, pen_name: data.pen_name, email: data.email } : null;
+}
+
+// ============================================================
+// Idea Bank Import API (Phase 6 — Plot Importer)
+// ============================================================
+
+export async function importIdeaBankToPlot(bankId: string, projectId: string): Promise<IdeaBankImportResult> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase.rpc('import_idea_bank_to_plot', {
+    p_idea_bank_id: bankId,
+    p_project_id: projectId,
+    p_user_id: user.id,
+  });
+
+  if (error) throw error;
+
+  return {
+    success: data.success,
+    chaptersCreated: data.chapters_created ?? 0,
+    scenesCreated: data.scenes_created ?? 0,
+    error: data.error ?? undefined,
+  };
 }
