@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation } from '../types';
+import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation, IdeaPoll, IdeaVote } from '../types';
 
 export { supabase };
 
@@ -2857,4 +2857,183 @@ export async function validateIdeaBankImport(bankId: string): Promise<IdeaSlotVa
     canImport: unresolvedSlots.length === 0,
     unresolvedSlots,
   };
+}
+
+// ============================================================
+// Idea Bank Voting API (Phase 3)
+// ============================================================
+
+export async function createPoll(slotId: string): Promise<IdeaPoll> {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('idea_polls')
+    .insert({ slot_id: slotId, created_by: user?.id || null })
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    slotId: data.slot_id,
+    createdBy: data.created_by,
+    isOpen: data.is_open,
+    createdAt: data.created_at,
+    closedAt: data.closed_at,
+  };
+}
+
+export async function closePoll(pollId: string): Promise<IdeaPoll> {
+  const { data, error } = await supabase
+    .from('idea_polls')
+    .update({ is_open: false, closed_at: new Date().toISOString() })
+    .eq('id', pollId)
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    slotId: data.slot_id,
+    createdBy: data.created_by,
+    isOpen: data.is_open,
+    createdAt: data.created_at,
+    closedAt: data.closed_at,
+  };
+}
+
+export async function reopenPoll(pollId: string): Promise<IdeaPoll> {
+  const { data, error } = await supabase
+    .from('idea_polls')
+    .update({ is_open: true, closed_at: null })
+    .eq('id', pollId)
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    slotId: data.slot_id,
+    createdBy: data.created_by,
+    isOpen: data.is_open,
+    createdAt: data.created_at,
+    closedAt: data.closed_at,
+  };
+}
+
+export async function deletePoll(pollId: string): Promise<void> {
+  const { error } = await supabase
+    .from('idea_polls')
+    .delete()
+    .eq('id', pollId);
+  if (error) throw error;
+}
+
+export async function getPollForSlot(slotId: string): Promise<IdeaPoll | null> {
+  const { data, error } = await supabase
+    .from('idea_polls')
+    .select('*')
+    .eq('slot_id', slotId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id,
+    slotId: data.slot_id,
+    createdBy: data.created_by,
+    isOpen: data.is_open,
+    createdAt: data.created_at,
+    closedAt: data.closed_at,
+  };
+}
+
+export async function getPollResults(pollId: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('idea_votes')
+    .select('idea_card_id')
+    .eq('poll_id', pollId);
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  (data || []).forEach((row: any) => {
+    counts[row.idea_card_id] = (counts[row.idea_card_id] || 0) + 1;
+  });
+  return counts;
+}
+
+export async function voteOnIdea(pollId: string, ideaCardId: string): Promise<IdeaVote> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data: existingVote } = await supabase
+    .from('idea_votes')
+    .select('id')
+    .eq('poll_id', pollId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (existingVote) {
+    const { data, error } = await supabase
+      .from('idea_votes')
+      .update({ idea_card_id: ideaCardId })
+      .eq('id', existingVote.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      pollId: data.poll_id,
+      ideaCardId: data.idea_card_id,
+      userId: data.user_id,
+      createdAt: data.created_at,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('idea_votes')
+    .insert({ poll_id: pollId, idea_card_id: ideaCardId, user_id: user.id })
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    pollId: data.poll_id,
+    ideaCardId: data.idea_card_id,
+    userId: data.user_id,
+    createdAt: data.created_at,
+  };
+}
+
+export async function removeVote(pollId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { error } = await supabase
+    .from('idea_votes')
+    .delete()
+    .eq('poll_id', pollId)
+    .eq('user_id', user.id);
+  if (error) throw error;
+}
+
+export async function getPollVotes(pollId: string): Promise<IdeaVote[]> {
+  const { data, error } = await supabase
+    .from('idea_votes')
+    .select('*')
+    .eq('poll_id', pollId);
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    pollId: row.poll_id,
+    ideaCardId: row.idea_card_id,
+    userId: row.user_id,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function getUserVote(pollId: string): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data, error } = await supabase
+    .from('idea_votes')
+    .select('idea_card_id')
+    .eq('poll_id', pollId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.idea_card_id || null;
 }

@@ -1,16 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react';
-import type { IdeaSlot, IdeaCard, HierarchyLevel } from '../../types';
+import { Plus, Trash2, ChevronDown, ChevronRight, CheckCircle, AlertTriangle } from 'lucide-react';
+import type { IdeaSlot, IdeaCard, HierarchyLevel, IdeaPoll } from '../../types';
 import IdeaCardComponent from './IdeaCard';
+import IdeaPollComponent from './IdeaPoll';
 
 interface IdeaSlotProps {
   slot: IdeaSlot;
   cards: IdeaCard[];
   childSlots: IdeaSlot[];
   childCardsBySlot: Record<string, IdeaCard[]>;
+  pollsBySlot: Record<string, IdeaPoll>;
+  voteCountsByCard: Record<string, { count: number; total: number }>;
+  userVotesByCard: Record<string, boolean>;
   levels: HierarchyLevel[];
   maxLevel: number;
   isRTL: boolean;
+  isOwner: boolean;
   onAddChildSlot: (parentId: string) => void;
   onAddIdea: (slotId: string) => void;
   onDeleteSlot: (slotId: string) => void;
@@ -19,6 +24,11 @@ interface IdeaSlotProps {
   onDeleteCard: (cardId: string, slotId: string) => void;
   onFinalizeCard: (cardId: string, slotId: string) => void;
   onUnfinalizeCard: (cardId: string, slotId: string) => void;
+  onCreatePoll: (slotId: string) => void;
+  onClosePoll: (pollId: string) => void;
+  onReopenPoll: (pollId: string) => void;
+  onDeletePoll: (pollId: string) => void;
+  onVote: (pollId: string, ideaCardId: string) => void;
 }
 
 export default function IdeaSlotComponent({
@@ -26,9 +36,13 @@ export default function IdeaSlotComponent({
   cards,
   childSlots,
   childCardsBySlot,
+  pollsBySlot,
+  voteCountsByCard,
+  userVotesByCard,
   levels,
   maxLevel,
   isRTL,
+  isOwner,
   onAddChildSlot,
   onAddIdea,
   onDeleteSlot,
@@ -37,6 +51,11 @@ export default function IdeaSlotComponent({
   onDeleteCard,
   onFinalizeCard,
   onUnfinalizeCard,
+  onCreatePoll,
+  onClosePoll,
+  onReopenPoll,
+  onDeletePoll,
+  onVote,
 }: IdeaSlotProps) {
   const [expanded, setExpanded] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -54,6 +73,8 @@ export default function IdeaSlotComponent({
   const label = isRTL ? levelInfo?.singularAr : levelInfo?.singular;
   const hasChildren = maxLevel > 1 && slot.level === 1;
   const hasFinalized = cards.some(c => c.status === 'finalized');
+  const hasNoIdeas = cards.filter(c => c.status !== 'archived').length === 0;
+  const poll = pollsBySlot[slot.id];
 
   const handleTitleBlur = () => {
     setEditingTitle(false);
@@ -116,8 +137,9 @@ export default function IdeaSlotComponent({
           </span>
         )}
         {hasFinalized && <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#22c55e' }} />}
+        {!hasFinalized && !hasNoIdeas && <span title={isRTL ? 'لا توجد فكرة معتمدة' : 'No finalized idea'}><AlertTriangle className="w-4 h-4 shrink-0" style={{ color: '#f59e0b' }} /></span>}
         <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-          {cards.length} {cards.length === 1 ? (isRTL ? 'فكرة' : 'idea') : (isRTL ? 'أفكار' : 'ideas')}
+          {cards.filter(c => c.status !== 'archived').length} {isRTL ? 'فكرة' : 'ideas'}
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); onDeleteSlot(slot.id); }}
@@ -131,21 +153,43 @@ export default function IdeaSlotComponent({
 
       {expanded && (
         <div className="px-3 pb-3">
+          {/* Poll controls */}
+          <div className="mb-2">
+            <IdeaPollComponent
+              poll={poll}
+              isRTL={isRTL}
+              isOwner={isOwner}
+              onCreatePoll={() => onCreatePoll(slot.id)}
+              onClosePoll={() => poll && onClosePoll(poll.id)}
+              onReopenPoll={() => poll && onReopenPoll(poll.id)}
+              onDeletePoll={() => poll && onDeletePoll(poll.id)}
+            />
+          </div>
+
+          {/* Competing Ideas (horizontal) */}
           <div className="flex gap-3 overflow-x-auto pb-2 pt-1" style={{ direction: isRTL ? 'rtl' : 'ltr' }}>
             {cards
               .filter(c => c.status !== 'archived')
               .sort((a, b) => a.position - b.position)
-              .map(card => (
-                <IdeaCardComponent
-                  key={card.id}
-                  card={card}
-                  isRTL={isRTL}
-                  onUpdate={(updates) => onUpdateCard(card.id, slot.id, updates)}
-                  onDelete={() => onDeleteCard(card.id, slot.id)}
-                  onFinalize={() => onFinalizeCard(card.id, slot.id)}
-                  onUnfinalize={() => onUnfinalizeCard(card.id, slot.id)}
-                />
-              ))}
+              .map(card => {
+                const voteData = voteCountsByCard[card.id] || { count: 0, total: 0 };
+                return (
+                  <IdeaCardComponent
+                    key={card.id}
+                    card={card}
+                    isRTL={isRTL}
+                    voteCount={voteData.count}
+                    totalVotes={voteData.total}
+                    userVoted={userVotesByCard[card.id] || false}
+                    pollOpen={poll?.isOpen || false}
+                    onUpdate={(updates) => onUpdateCard(card.id, slot.id, updates)}
+                    onDelete={() => onDeleteCard(card.id, slot.id)}
+                    onFinalize={() => onFinalizeCard(card.id, slot.id)}
+                    onUnfinalize={() => onUnfinalizeCard(card.id, slot.id)}
+                    onVote={poll ? () => onVote(poll.id, card.id) : undefined}
+                  />
+                );
+              })}
             <button
               onClick={() => onAddIdea(slot.id)}
               className="flex-shrink-0 flex items-center justify-center gap-1 px-4 py-3 rounded-lg text-sm border-2 border-dashed hover:opacity-80"
@@ -161,6 +205,7 @@ export default function IdeaSlotComponent({
             </button>
           </div>
 
+          {/* Child Slots (nested) */}
           {hasChildren && childSlots.length > 0 && (
             <div className="mt-2 space-y-2">
               {childSlots
@@ -175,9 +220,13 @@ export default function IdeaSlotComponent({
                       cards={childCards}
                       childSlots={grandChildSlots}
                       childCardsBySlot={childCardsBySlot}
+                      pollsBySlot={pollsBySlot}
+                      voteCountsByCard={voteCountsByCard}
+                      userVotesByCard={userVotesByCard}
                       levels={levels}
                       maxLevel={maxLevel}
                       isRTL={isRTL}
+                      isOwner={isOwner}
                       onAddChildSlot={() => {}}
                       onAddIdea={onAddIdea}
                       onDeleteSlot={onDeleteSlot}
@@ -186,12 +235,18 @@ export default function IdeaSlotComponent({
                       onDeleteCard={onDeleteCard}
                       onFinalizeCard={onFinalizeCard}
                       onUnfinalizeCard={onUnfinalizeCard}
+                      onCreatePoll={onCreatePoll}
+                      onClosePoll={onClosePoll}
+                      onReopenPoll={onReopenPoll}
+                      onDeletePoll={onDeletePoll}
+                      onVote={onVote}
                     />
                   );
                 })}
             </div>
           )}
 
+          {/* Add Child Slot */}
           {hasChildren && (
             <button
               onClick={() => onAddChildSlot(slot.id)}
