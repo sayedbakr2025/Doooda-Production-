@@ -319,3 +319,133 @@ export interface InlineCommentReply {
   author_name?: string;
   author_email?: string;
 }
+
+// ============================================================
+// Literary Type Hierarchy & Idea Bank Types (Phase 1)
+// ============================================================
+
+export interface HierarchyLevel {
+  level: number;
+  singular: string;
+  plural: string;
+  singularAr: string;
+  pluralAr: string;
+  icon: string;
+}
+
+export interface LiteraryTypeConfig {
+  id: string;
+  projectType: ProjectType;
+  levels: HierarchyLevel[];
+  hasLevel2: boolean;
+  hasScriptFields: boolean;
+  hasSoundFields: boolean;
+  hasChildrenFields: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type IdeaCardStatus = 'active' | 'finalized' | 'dimmed' | 'archived';
+export type IdeaBankRole = 'viewer' | 'voter' | 'editor';
+
+export interface IdeaBank {
+  id: string;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IdeaSlot {
+  id: string;
+  ideaBankId: string;
+  parentSlotId: string | null;
+  level: 1 | 2;
+  position: number;
+  title: string | null;
+  summary: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ideas?: IdeaCard[];
+  childSlots?: IdeaSlot[];
+  poll?: IdeaPoll | null;
+}
+
+export interface IdeaCard {
+  id: string;
+  slotId: string;
+  title: string;
+  summary: string | null;
+  content: string | null;
+  status: IdeaCardStatus;
+  position: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  voteCount?: number;
+  userVote?: boolean;
+  commentCount?: number;
+  createdByName?: string;
+}
+
+export interface IdeaPoll {
+  id: string;
+  slotId: string;
+  createdBy: string | null;
+  isOpen: boolean;
+  createdAt: string;
+  closedAt: string | null;
+}
+
+export interface IdeaVote {
+  id: string;
+  pollId: string;
+  ideaCardId: string;
+  userId: string;
+  createdAt: string;
+}
+
+export interface IdeaComment {
+  id: string;
+  ideaBankId: string;
+  ideaCardId: string;
+  userId: string;
+  content: string;
+  status: 'open' | 'resolved';
+  parentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  userDisplayName?: string;
+  replies?: IdeaComment[];
+}
+
+export interface IdeaBankCollaborator {
+  id: string;
+  ideaBankId: string;
+  userId: string;
+  role: IdeaBankRole;
+  status: 'pending' | 'active' | 'frozen' | 'rejected';
+  invitedBy: string | null;
+  createdAt: string;
+  displayName?: string;
+  penName?: string;
+  email?: string;
+}
+
+export interface IdeaBankImportResult {
+  success: boolean;
+  chaptersCreated: number;
+  scenesCreated: number;
+  error?: string;
+}
+
+export interface IdeaSlotValidation {
+  canImport: boolean;
+  unresolvedSlots: Array<{
+    slotId: string;
+    slotTitle: string | null;
+    level: number;
+    ideaCount: number;
+  }>;
+}
