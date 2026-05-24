@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus } from '../types';
+import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation } from '../types';
 
 export { supabase };
 
@@ -2555,5 +2555,306 @@ export async function resolveCommentNavigation(
   return {
     url: buildCommentNavigationUrl(target),
     target,
+  };
+}
+
+// ============================================================
+// Idea Bank API (Phase 2 — Core)
+// ============================================================
+
+export async function getIdeaBank(projectId: string): Promise<IdeaBank | null> {
+  const { data, error } = await supabase
+    .from('idea_banks')
+    .select('*')
+    .eq('project_id', projectId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { id: data.id, projectId: data.project_id, createdAt: data.created_at, updatedAt: data.updated_at } : null;
+}
+
+export async function createIdeaBank(projectId: string): Promise<IdeaBank> {
+  const { data, error } = await supabase
+    .from('idea_banks')
+    .insert({ project_id: projectId })
+    .select()
+    .single();
+  if (error) throw error;
+  return { id: data.id, projectId: data.project_id, createdAt: data.created_at, updatedAt: data.updated_at };
+}
+
+export async function getOrCreateIdeaBank(projectId: string): Promise<IdeaBank> {
+  const existing = await getIdeaBank(projectId);
+  if (existing) return existing;
+  return createIdeaBank(projectId);
+}
+
+export async function getIdeaSlots(bankId: string): Promise<IdeaSlot[]> {
+  const { data, error } = await supabase
+    .from('idea_slots')
+    .select('*')
+    .eq('idea_bank_id', bankId)
+    .order('position', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(row => ({
+    id: row.id,
+    ideaBankId: row.idea_bank_id,
+    parentSlotId: row.parent_slot_id,
+    level: row.level,
+    position: row.position,
+    title: row.title,
+    summary: row.summary,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function createIdeaSlot(bankId: string, slotData: { title?: string; summary?: string; parentSlotId?: string | null; level?: number; position?: number }): Promise<IdeaSlot> {
+  const insertData: any = {
+    idea_bank_id: bankId,
+    title: slotData.title || null,
+    summary: slotData.summary || null,
+    parent_slot_id: slotData.parentSlotId ?? null,
+    level: slotData.level ?? 1,
+    position: slotData.position ?? 0,
+  };
+  const { data, error } = await supabase
+    .from('idea_slots')
+    .insert(insertData)
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    ideaBankId: data.idea_bank_id,
+    parentSlotId: data.parent_slot_id,
+    level: data.level,
+    position: data.position,
+    title: data.title,
+    summary: data.summary,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function updateIdeaSlot(slotId: string, updates: Partial<IdeaSlot>): Promise<IdeaSlot> {
+  const updateData: any = {};
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.summary !== undefined) updateData.summary = updates.summary;
+  if (updates.position !== undefined) updateData.position = updates.position;
+  if (updates.parentSlotId !== undefined) updateData.parent_slot_id = updates.parentSlotId;
+
+  const { data, error } = await supabase
+    .from('idea_slots')
+    .update(updateData)
+    .eq('id', slotId)
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    ideaBankId: data.idea_bank_id,
+    parentSlotId: data.parent_slot_id,
+    level: data.level,
+    position: data.position,
+    title: data.title,
+    summary: data.summary,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function deleteIdeaSlot(slotId: string): Promise<void> {
+  const { error } = await supabase
+    .from('idea_slots')
+    .delete()
+    .eq('id', slotId);
+  if (error) throw error;
+}
+
+export async function reorderIdeaSlots(_bankId: string, slots: Array<{ id: string; position: number; parentSlotId?: string | null }>): Promise<void> {
+  const updates = slots.map(async (s) => {
+    const updateData: any = { position: s.position };
+    if (s.parentSlotId !== undefined) updateData.parent_slot_id = s.parentSlotId;
+    return supabase
+      .from('idea_slots')
+      .update(updateData)
+      .eq('id', s.id);
+  });
+  await Promise.all(updates);
+}
+
+export async function getIdeaCards(slotId: string): Promise<IdeaCard[]> {
+  const { data, error } = await supabase
+    .from('idea_cards')
+    .select('*')
+    .eq('slot_id', slotId)
+    .is('deleted_at', null)
+    .order('position', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(row => ({
+    id: row.id,
+    slotId: row.slot_id,
+    title: row.title,
+    summary: row.summary,
+    content: row.content,
+    status: row.status,
+    position: row.position,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+  }));
+}
+
+export async function createIdeaCard(slotId: string, cardData: { title: string; summary?: string; content?: string; position?: number }): Promise<IdeaCard> {
+  const { data: { user } } = await supabase.auth.getUser();
+  const insertData: any = {
+    slot_id: slotId,
+    title: cardData.title,
+    summary: cardData.summary || null,
+    content: cardData.content || null,
+    position: cardData.position ?? 0,
+    created_by: user?.id || null,
+  };
+  const { data, error } = await supabase
+    .from('idea_cards')
+    .insert(insertData)
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    slotId: data.slot_id,
+    title: data.title,
+    summary: data.summary,
+    content: data.content,
+    status: data.status,
+    position: data.position,
+    createdBy: data.created_by,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    deletedAt: data.deleted_at,
+  };
+}
+
+export async function updateIdeaCard(ideaId: string, updates: Partial<IdeaCard>): Promise<IdeaCard> {
+  const updateData: any = {};
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.summary !== undefined) updateData.summary = updates.summary;
+  if (updates.content !== undefined) updateData.content = updates.content;
+  if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.position !== undefined) updateData.position = updates.position;
+
+  const { data, error } = await supabase
+    .from('idea_cards')
+    .update(updateData)
+    .eq('id', ideaId)
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    slotId: data.slot_id,
+    title: data.title,
+    summary: data.summary,
+    content: data.content,
+    status: data.status,
+    position: data.position,
+    createdBy: data.created_by,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    deletedAt: data.deleted_at,
+  };
+}
+
+export async function deleteIdeaCard(ideaId: string): Promise<void> {
+  const { error } = await supabase
+    .from('idea_cards')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', ideaId);
+  if (error) throw error;
+}
+
+export async function finalizeIdeaCard(ideaId: string): Promise<IdeaCard> {
+  const { data: card, error: fetchError } = await supabase
+    .from('idea_cards')
+    .select('slot_id')
+    .eq('id', ideaId)
+    .single();
+  if (fetchError) throw fetchError;
+
+  const { error: dimError } = await supabase
+    .from('idea_cards')
+    .update({ status: 'dimmed' })
+    .eq('slot_id', card.slot_id)
+    .neq('id', ideaId)
+    .is('deleted_at', null);
+  if (dimError) throw dimError;
+
+  const updated = await updateIdeaCard(ideaId, { status: 'finalized' });
+  return updated;
+}
+
+export async function unfinalizeIdeaCard(ideaId: string): Promise<IdeaCard> {
+  const { data: card, error: fetchError } = await supabase
+    .from('idea_cards')
+    .select('slot_id')
+    .eq('id', ideaId)
+    .single();
+  if (fetchError) throw fetchError;
+
+  const { error: undimError } = await supabase
+    .from('idea_cards')
+    .update({ status: 'active' })
+    .eq('slot_id', card.slot_id)
+    .is('deleted_at', null);
+  if (undimError) throw undimError;
+
+  const updated = await updateIdeaCard(ideaId, { status: 'active' });
+  return updated;
+}
+
+export async function reorderIdeaCards(_slotId: string, ideas: Array<{ id: string; position: number }>): Promise<void> {
+  const updates = ideas.map(async (item) => {
+    return supabase
+      .from('idea_cards')
+      .update({ position: item.position })
+      .eq('id', item.id);
+  });
+  await Promise.all(updates);
+}
+
+export async function validateIdeaBankImport(bankId: string): Promise<IdeaSlotValidation> {
+  const { data: slots, error: slotsError } = await supabase
+    .from('idea_slots')
+    .select('id, title, level, position')
+    .eq('idea_bank_id', bankId)
+    .order('position', { ascending: true });
+  if (slotsError) throw slotsError;
+
+  const unresolvedSlots: IdeaSlotValidation['unresolvedSlots'] = [];
+
+  for (const slot of slots || []) {
+    const { data: ideas, error: ideasError } = await supabase
+      .from('idea_cards')
+      .select('id, status')
+      .eq('slot_id', slot.id)
+      .is('deleted_at', null);
+    if (ideasError) throw ideasError;
+
+    const hasFinalized = ideas?.some((i: any) => i.status === 'finalized');
+    if (!hasFinalized) {
+      unresolvedSlots.push({
+        slotId: slot.id,
+        slotTitle: slot.title,
+        level: slot.level,
+        ideaCount: ideas?.length || 0,
+      });
+    }
+  }
+
+  return {
+    canImport: unresolvedSlots.length === 0,
+    unresolvedSlots,
   };
 }

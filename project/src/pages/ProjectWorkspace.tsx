@@ -28,6 +28,7 @@ import CollaboratorsPanel from '../components/CollaboratorsPanel';
 import ActivityLogPanel from '../components/ActivityLogPanel';
 import ActiveUsersBar from '../components/ActiveUsersBar';
 import { usePresence } from '../hooks/usePresence';
+import IdeaBankTab from '../components/ideaBank/IdeaBankTab';
 
 interface ContextMenuState {
   x: number;
@@ -45,7 +46,7 @@ export default function ProjectWorkspace() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [characters, setCharacters] = useState<ProjectCharacter[]>([]);
   const [references, setReferences] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'plot' | 'logline' | 'chapters' | 'characters' | 'notes' | 'collaborators' | 'activity'>('plot');
+  const [activeTab, setActiveTab] = useState<'ideabank' | 'plot' | 'logline' | 'chapters' | 'characters' | 'notes' | 'collaborators' | 'activity'>('plot');
   const [showShareModal, setShowShareModal] = useState(false);
   const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -615,7 +616,7 @@ const handleContextMenu = (e: React.MouseEvent, contextType: 'logline' | 'chapte
         <div className="rounded-xl shadow-sm" style={{ backgroundColor: 'var(--color-surface)', border: `1px solid var(--color-border-light)`, overflow: 'visible' }}>
           <div style={{ borderBottom: `1px solid var(--color-border)` }}>
             <nav className="flex">
-              {(['plot', 'logline', 'chapters', 'characters', 'notes', 'collaborators', 'activity'] as const).map((tab) => (
+              {(['ideabank', 'plot', 'logline', 'chapters', 'characters', 'notes', 'collaborators', 'activity'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -641,6 +642,9 @@ const handleContextMenu = (e: React.MouseEvent, contextType: 'logline' | 'chapte
                   }}
                 >
                   {(() => {
+                    if (tab === 'ideabank') {
+                      return language === 'ar' ? 'بنك الأفكار' : 'Idea Bank';
+                    }
                     if (tab === 'collaborators') {
                       return language === 'ar' ? 'المتعاونون' : 'Collaborators';
                     }
@@ -662,6 +666,9 @@ const handleContextMenu = (e: React.MouseEvent, contextType: 'logline' | 'chapte
           </div>
 
           <div className="p-6">
+            {activeTab === 'ideabank' && project && (
+              <IdeaBankTab projectId={project.id} projectType={project.project_type} />
+            )}
             {activeTab === 'plot' && id && (
               <PlotTab
                 projectId={id}
