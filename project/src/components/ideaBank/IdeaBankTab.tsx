@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Lightbulb, ZoomIn, ZoomOut, AlertTriangle, Share2 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import type { ProjectType, IdeaBank, IdeaSlot, IdeaCard, IdeaPoll } from '../../types';
 import { getHierarchyLevels, getMaxLevel } from '../../utils/hierarchyConfig';
 import { useLiteraryTypeConfig } from '../../hooks/useLiteraryTypeConfig';
 import { useIdeaBankPermissions } from '../../hooks/useIdeaBankPermissions';
+import { useIdeaBankRealtime } from '../../hooks/useIdeaBankRealtime';
 import {
   getOrCreateIdeaBank,
   getIdeaSlots,
@@ -26,6 +27,7 @@ import {
   deletePoll as deletePollApi,
   voteOnIdea,
 } from '../../services/api';
+import { supabase } from '../../lib/supabaseClient';
 import IdeaSlotComponent from './IdeaSlot';
 import IdeaBankShareModal from './IdeaBankShareModal';
 
@@ -90,6 +92,7 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
       setPollsBySlot(pollsMap);
       setVoteCountsByCard(voteCountsMap);
       setUserVotesByCard(userVotesMap);
+      slotsLoadedRef.current = true;
     } catch (err) {
       console.error('[IdeaBank] Failed to load:', err);
     } finally {
@@ -119,6 +122,61 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
       setUserVotesByCard(prev => ({ ...prev, ...newVotes }));
     }
   }, [cardsBySlot]);
+
+  // Realtime: subscribe to changes after initial load
+  const slotsLoadedRef = useRef(false);
+  useIdeaBankRealtime(ideaBank?.id, {
+    onCardChange: (card: IdeaCard) => {
+      setCardsBySlot(prev => {
+        const slotCards = prev[card.slotId] || [];
+        const exists = slotCards.some(c => c.id === card.id);
+        if (exists) {
+          return { ...prev, [card.slotId]: slotCards.map(c => c.id === card.id ? card : c) };
+        }
+        return { ...prev, [card.slotId]: [...slotCards, card] };
+      });
+    },
+    onCardDelete: (cardId: string) => {
+      setCardsBySlot(prev => {
+        for (const slotId of Object.keys(prev)) {
+          const slotCards = prev[slotId];
+          if (slotCards.some(c => c.id === cardId)) {
+            return { ...prev, [slotId]: slotCards.filter(c => c.id !== cardId) };
+          }
+        }
+        return prev;
+      });
+    },
+    onVoteChange: (pollId: string) => {
+      const slotEntry = Object.entries(pollsBySlot).find(([, p]) => p.id === pollId);
+      if (slotEntry) {
+        refreshVoteData(slotEntry[0]);
+      }
+    },
+    onPollChange: (poll: IdeaPoll) => {
+      setPollsBySlot(prev => ({ ...prev, [poll.slotId]: poll }));
+    },
+    onPollDelete: (slotId: string) => {
+      setPollsBySlot(prev => {
+        const next = { ...prev };
+        delete next[slotId];
+        return next;
+      });
+    },
+  });
+
+  // Reload slots when slot structure changes (via realtime idea_slots channel)
+  useEffect(() => {
+    if (!ideaBank || !slotsLoadedRef.current) return;
+    const channel = supabase
+      .channel(`idea-bank-slots:${ideaBank.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'idea_slots', filter: `idea_bank_id=eq.${ideaBank.id}` }, async () => {
+        const freshSlots = await getIdeaSlots(ideaBank.id);
+        setSlots(freshSlots);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [ideaBank?.id]);
 
   const handleAddSlot = async (parentSlotId?: string, level?: number) => {
     if (!ideaBank) return;
