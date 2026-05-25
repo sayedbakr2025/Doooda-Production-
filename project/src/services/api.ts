@@ -3266,6 +3266,29 @@ export async function addIdeaComment(
     .eq('id', user.id)
     .single();
 
+  // Parse @mentions and create notifications
+  if (content.includes('@')) {
+    try {
+      const { data: bankData } = await supabase
+        .from('idea_banks')
+        .select('project_id')
+        .eq('id', bankId)
+        .single();
+      if (bankData) {
+        await supabase.rpc('create_idea_mention_notifications', {
+          p_comment_id: data.id,
+          p_content: content,
+          p_project_id: bankData.project_id,
+          p_idea_bank_id: bankId,
+          p_idea_card_id: cardId,
+          p_author_id: user.id,
+        });
+      }
+    } catch (mentionErr) {
+      console.error('[IdeaMention] Failed to create mention notifications:', mentionErr);
+    }
+  }
+
   return {
     ...data,
     ideaBankId: data.idea_bank_id,
@@ -3305,7 +3328,7 @@ export async function deleteIdeaComment(commentId: string): Promise<void> {
 }
 
 // ============================================================
-// Bulk Loading (Stabilization — replaces N+1 queries)
+// Bulk Loading (Stabilization ï¿½ replaces N+1 queries)
 // ============================================================
 
 export interface IdeaBankBulkData {
@@ -3314,15 +3337,17 @@ export interface IdeaBankBulkData {
   pollsBySlot: Record<string, IdeaPoll>;
   voteCountsByCard: Record<string, { count: number; total: number }>;
   userVotesByCard: Record<string, boolean>;
+  commentCountsByCard: Record<string, number>;
 }
 
 export async function loadIdeaBankBulk(bankId: string): Promise<IdeaBankBulkData> {
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [slotsRes, cardsRes, pollsRes] = await Promise.all([
+  const [slotsRes, cardsRes, pollsRes, commentsRes] = await Promise.all([
     supabase.from('idea_slots').select('*').eq('idea_bank_id', bankId).order('position', { ascending: true }),
     supabase.from('idea_cards').select('*, idea_slots!inner(idea_bank_id)').eq('idea_slots.idea_bank_id', bankId).is('deleted_at', null).order('position', { ascending: true }),
     supabase.from('idea_polls').select('*, idea_slots!inner(idea_bank_id)').eq('idea_slots.idea_bank_id', bankId),
+    supabase.from('idea_comments').select('idea_card_id').eq('idea_bank_id', bankId).is('deleted_at', null),
   ]);
 
   if (slotsRes.error) throw slotsRes.error;
@@ -3423,5 +3448,11 @@ export async function loadIdeaBankBulk(bankId: string): Promise<IdeaBankBulkData
     }
   }
 
-  return { slots, cardsBySlot, pollsBySlot, voteCountsByCard, userVotesByCard };
+  const commentCountsByCard: Record<string, number> = {};
+  for (const row of (commentsRes.data || [])) {
+    const cardId = (row as any).idea_card_id;
+    commentCountsByCard[cardId] = (commentCountsByCard[cardId] || 0) + 1;
+  }
+
+  return { slots, cardsBySlot, pollsBySlot, voteCountsByCard, userVotesByCard, commentCountsByCard };
 }

@@ -11,6 +11,7 @@ interface IdeaSlotProps {
   childCardsBySlot: Record<string, IdeaCard[]>;
   pollsBySlot: Record<string, IdeaPoll>;
   voteCountsByCard: Record<string, { count: number; total: number }>;
+  commentCountsByCard: Record<string, number>;
   userVotesByCard: Record<string, boolean>;
   levels: HierarchyLevel[];
   maxLevel: number;
@@ -44,6 +45,7 @@ export default function IdeaSlotComponent({
   childCardsBySlot,
   pollsBySlot,
   voteCountsByCard,
+  commentCountsByCard,
   userVotesByCard,
   levels,
   maxLevel,
@@ -199,6 +201,7 @@ export default function IdeaSlotComponent({
                     voteCount={voteData.count}
                     totalVotes={voteData.total}
                     userVoted={userVotesByCard[card.id] || false}
+                    commentCount={commentCountsByCard[card.id] || 0}
                     pollOpen={poll?.isOpen || false}
                     onUpdate={(updates) => onUpdateCard(card.id, slot.id, updates)}
                     onDelete={() => onDeleteCard(card.id, slot.id)}
@@ -256,9 +259,10 @@ export default function IdeaSlotComponent({
                       cards={childCards}
                       childSlots={grandChildSlots}
                       childCardsBySlot={childCardsBySlot}
-                      pollsBySlot={pollsBySlot}
-                      voteCountsByCard={voteCountsByCard}
-                      userVotesByCard={userVotesByCard}
+pollsBySlot={pollsBySlot}
+                       voteCountsByCard={voteCountsByCard}
+                       commentCountsByCard={commentCountsByCard}
+                       userVotesByCard={userVotesByCard}
                       levels={levels}
                       maxLevel={maxLevel}
                       isRTL={isRTL}

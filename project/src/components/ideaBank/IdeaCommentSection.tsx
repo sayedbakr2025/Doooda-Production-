@@ -12,6 +12,7 @@ interface IdeaCommentSectionProps {
   comments: IdeaCommentType[];
   canEdit: boolean;
   onRefresh: () => void;
+  initialCount?: number;
 }
 
 const IdeaCommentItem: React.FC<{
@@ -143,6 +144,7 @@ const IdeaCommentSection: React.FC<IdeaCommentSectionProps> = ({
   comments,
   canEdit,
   onRefresh,
+  initialCount = 0,
 }) => {
   const { language } = useLanguage();
   const { theme } = useTheme();
@@ -172,7 +174,7 @@ const IdeaCommentSection: React.FC<IdeaCommentSectionProps> = ({
     }
   };
 
-  const commentCount = comments.length;
+  const commentCount = Math.max(initialCount, comments.length);
 
   return (
     <div className="mt-2">

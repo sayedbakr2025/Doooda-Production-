@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Star, Trash2, ThumbsUp, GripVertical } from 'lucide-react';
 import type { IdeaCard as IdeaCardType, IdeaComment as IdeaCommentType } from '../../types';
 import { getIdeaCardComments } from '../../services/api';
@@ -13,6 +13,7 @@ interface IdeaCardProps {
   totalVotes?: number;
   userVoted?: boolean;
   pollOpen?: boolean;
+  commentCount?: number;
   onUpdate: (updates: Partial<IdeaCardType>) => void;
   onDelete: () => void;
   onFinalize: () => void;
@@ -25,11 +26,12 @@ interface IdeaCardProps {
   onDragEnd?: (e: React.DragEvent) => void;
 }
 
-export default function IdeaCardComponent({
+export default React.memo(function IdeaCardComponent({
   card,
   isRTL,
   bankId,
   canEdit,
+  commentCount = 0,
   voteCount = 0,
   totalVotes = 0,
   userVoted = false,
@@ -82,6 +84,8 @@ const refreshComments = useCallback(async () => {
       onDragStart={isDraggable && canEdit ? onDragStart : undefined}
       onDragOver={isDraggable && canEdit ? onDragOver : undefined}
       onDragEnd={isDraggable && canEdit ? onDragEnd : undefined}
+      role="article"
+      aria-label={card.title}
       style={{
         width: '180px',
         minWidth: '180px',
@@ -203,7 +207,8 @@ const refreshComments = useCallback(async () => {
         comments={comments}
         canEdit={canEdit}
         onRefresh={refreshComments}
+        initialCount={commentCount}
       />
     </div>
   );
-}
+});

@@ -49,6 +49,7 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
   const [pollsBySlot, setPollsBySlot] = useState<Record<string, IdeaPoll>>({});
   const [voteCountsByCard, setVoteCountsByCard] = useState<Record<string, { count: number; total: number }>>({});
   const [userVotesByCard, setUserVotesByCard] = useState<Record<string, boolean>>({});
+  const [commentCountsByCard, setCommentCountsByCard] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -71,6 +72,7 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
       setPollsBySlot(data.pollsBySlot);
       setVoteCountsByCard(data.voteCountsByCard);
       setUserVotesByCard(data.userVotesByCard);
+      setCommentCountsByCard(data.commentCountsByCard);
       slotsLoadedRef.current = true;
     } catch (err) {
       console.error('[IdeaBank] Failed to load:', err);
@@ -418,8 +420,21 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
 
   if (loading || configLoading) {
     return (
-      <div className="flex items-center justify-center h-64" style={{ color: 'var(--color-text-tertiary)' }}>
-        {isRTL ? 'جاري التحميل...' : 'Loading...'}
+      <div className="flex flex-col gap-4 p-6" style={{ direction: isRTL ? 'rtl' : 'ltr' }}>
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+          <div className="h-6 w-40 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+        </div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="rounded-lg p-4 animate-pulse" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+            <div className="h-5 w-32 rounded mb-3" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+            <div className="flex gap-3">
+              {[1, 2, 3].map(j => (
+                <div key={j} className="w-44 h-24 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -516,6 +531,7 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
                     childCardsBySlot={cardsBySlot}
                     pollsBySlot={pollsBySlot}
                     voteCountsByCard={voteCountsByCard}
+                    commentCountsByCard={commentCountsByCard}
                     userVotesByCard={userVotesByCard}
                     levels={levels}
                     maxLevel={maxLevel}
