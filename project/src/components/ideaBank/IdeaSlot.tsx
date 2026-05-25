@@ -34,6 +34,7 @@ interface IdeaSlotProps {
   onReopenPoll: (pollId: string) => void;
   onDeletePoll: (pollId: string) => void;
   onVote: (pollId: string, ideaCardId: string) => void;
+  onReorderCards?: (slotId: string, cardIds: string[]) => void;
 }
 
 export default function IdeaSlotComponent({
@@ -66,10 +67,12 @@ export default function IdeaSlotComponent({
   onReopenPoll,
   onDeletePoll,
   onVote,
+  onReorderCards,
 }: IdeaSlotProps) {
   const [expanded, setExpanded] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(slot.title || '');
+  const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -183,7 +186,7 @@ export default function IdeaSlotComponent({
             {cards
               .filter(c => c.status !== 'archived')
               .sort((a, b) => a.position - b.position)
-              .map(card => {
+              .map((card, index) => {
                 const voteData = voteCountsByCard[card.id] || { count: 0, total: 0 };
                 return (
                   <IdeaCardComponent
@@ -192,6 +195,7 @@ export default function IdeaSlotComponent({
                     isRTL={isRTL}
                     bankId={bankId}
                     canEdit={canEdit}
+                    draggable={onReorderCards !== undefined}
                     voteCount={voteData.count}
                     totalVotes={voteData.total}
                     userVoted={userVotesByCard[card.id] || false}
@@ -202,6 +206,21 @@ export default function IdeaSlotComponent({
                     onUnfinalize={() => onUnfinalizeCard(card.id, slot.id)}
                     onVote={poll ? () => onVote(poll.id, card.id) : undefined}
                     canFinalize={canFinalize}
+                    onDragStart={() => { setDraggedCardIndex(index); }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDragEnd={() => {
+                      if (draggedCardIndex !== null && draggedCardIndex !== index && onReorderCards) {
+                        const sorted = cards.filter(c => c.status !== 'archived').sort((a, b) => a.position - b.position);
+                        const reordered = [...sorted];
+                        const [moved] = reordered.splice(draggedCardIndex, 1);
+                        reordered.splice(index, 0, moved);
+                        onReorderCards(slot.id, reordered.map(c => c.id));
+                      }
+                      setDraggedCardIndex(null);
+                    }}
                   />
                 );
               })}

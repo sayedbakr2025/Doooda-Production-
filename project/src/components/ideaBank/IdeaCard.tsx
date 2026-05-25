@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Star, Trash2, ThumbsUp } from 'lucide-react';
+import { Star, Trash2, ThumbsUp, GripVertical } from 'lucide-react';
 import type { IdeaCard as IdeaCardType, IdeaComment as IdeaCommentType } from '../../types';
 import { getIdeaCardComments } from '../../services/api';
 import IdeaCommentSection from './IdeaCommentSection';
@@ -19,6 +19,10 @@ interface IdeaCardProps {
   onUnfinalize: () => void;
   onVote?: () => void;
   canFinalize?: boolean;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
 export default function IdeaCardComponent({
@@ -36,6 +40,10 @@ export default function IdeaCardComponent({
   onUnfinalize,
   onVote,
   canFinalize = true,
+  draggable: isDraggable = false,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
 }: IdeaCardProps) {
   const [editing, setEditing] = useState(false);
   const [titleValue, setTitleValue] = useState(card.title);
@@ -70,6 +78,10 @@ const refreshComments = useCallback(async () => {
   return (
     <div
       className="flex-shrink-0 rounded-lg p-3 transition-opacity"
+      draggable={isDraggable && canEdit}
+      onDragStart={isDraggable && canEdit ? onDragStart : undefined}
+      onDragOver={isDraggable && canEdit ? onDragOver : undefined}
+      onDragEnd={isDraggable && canEdit ? onDragEnd : undefined}
       style={{
         width: '180px',
         minWidth: '180px',
@@ -77,9 +89,13 @@ const refreshComments = useCallback(async () => {
         border: `2px solid ${style.borderColor}`,
         boxShadow: card.status === 'finalized' ? '0 0 12px rgba(34, 197, 94, 0.3)' : 'none',
         opacity: style.opacity,
+        cursor: isDraggable && canEdit ? 'grab' : undefined,
       }}
     >
       <div className="flex items-center justify-between gap-1 mb-1">
+        {isDraggable && canEdit && (
+          <GripVertical className="w-3.5 h-3.5 shrink-0 cursor-grab" style={{ color: 'var(--color-text-tertiary)' }} />
+        )}
         {card.status === 'finalized' && (
           <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 shrink-0" />
         )}

@@ -26,6 +26,8 @@ import {
   reopenPoll,
   deletePoll as deletePollApi,
   voteOnIdea,
+  reorderIdeaSlots,
+  reorderIdeaCards,
 } from '../../services/api';
 import { supabase } from '../../lib/supabaseClient';
 import IdeaSlotComponent from './IdeaSlot';
@@ -51,6 +53,7 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
   const [zoom, setZoom] = useState(1);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
   const { canEdit, canVote, canManageCollaborators, canCreateIdeas, canFinalize, canManagePolls } = useIdeaBankPermissions(ideaBank?.id, projectId);
 
   useEffect(() => {
@@ -292,6 +295,41 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
     }
   };
 
+  const handleReorderCards = async (slotId: string, cardIds: string[]) => {
+    await reorderIdeaCards(slotId, cardIds.map((id, index) => ({ id, position: index })));
+    const freshSlots = await getIdeaSlots(ideaBank!.id);
+    setSlots(freshSlots);
+  };
+
+  const handleReorderSlots = async (parentSlotId: string | null, slotIds: string[]) => {
+    await reorderIdeaSlots(ideaBank!.id, slotIds.map((id, index) => ({ id, position: index, parentSlotId })));
+    const freshSlots = await getIdeaSlots(ideaBank!.id);
+    setSlots(freshSlots);
+  };
+
+  const handleSlotDragStart = (slotId: string) => {
+    setDraggedSlotId(slotId);
+  };
+
+  const handleSlotDrop = (targetSlotId: string) => {
+    if (!draggedSlotId || draggedSlotId === targetSlotId) {
+      setDraggedSlotId(null);
+      return;
+    }
+    const currentTopLevel = topLevelSlots.map(s => s.id);
+    const fromIndex = currentTopLevel.indexOf(draggedSlotId);
+    const toIndex = currentTopLevel.indexOf(targetSlotId);
+    if (fromIndex === -1 || toIndex === -1) {
+      setDraggedSlotId(null);
+      return;
+    }
+    const reordered = [...currentTopLevel];
+    reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, draggedSlotId);
+    handleReorderSlots(null, reordered);
+    setDraggedSlotId(null);
+  };
+
   const topLevelSlots = slots.filter(s => !s.parentSlotId);
   const zoomIn = () => setZoom(prev => Math.min(prev + 0.15, 2));
   const zoomOut = () => setZoom(prev => Math.max(prev - 0.15, 0.4));
@@ -385,7 +423,16 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
                 const childSlots = slots.filter(s => s.parentSlotId === slot.id);
                 const slotCards = cardsBySlot[slot.id] || [];
                 return (
-                  <IdeaSlotComponent
+                  <div
+                    key={slot.id}
+                    draggable={canEdit}
+                    onDragStart={canEdit ? () => handleSlotDragStart(slot.id) : undefined}
+                    onDragOver={canEdit ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } : undefined}
+                    onDrop={canEdit ? () => handleSlotDrop(slot.id) : undefined}
+                    onDragEnd={() => setDraggedSlotId(null)}
+                    style={{ opacity: draggedSlotId === slot.id ? 0.5 : 1, transition: 'opacity 0.2s' }}
+                  >
+                    <IdeaSlotComponent
                     key={slot.id}
                     slot={slot}
                     cards={slotCards}
@@ -416,7 +463,9 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
                     onReopenPoll={handleReopenPoll}
                     onDeletePoll={handleDeletePoll}
                     onVote={handleVote}
+                    onReorderCards={handleReorderCards}
                   />
+                </div>
                 );
               })}
             </div>
