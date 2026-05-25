@@ -20,6 +20,7 @@ interface IdeaSlotProps {
   canVote: boolean;
   canFinalize: boolean;
   canManagePolls: boolean;
+  bankId: string;
   onAddChildSlot: (parentId: string) => void;
   onAddIdea: (slotId: string) => void;
   onDeleteSlot: (slotId: string) => void;
@@ -51,6 +52,7 @@ export default function IdeaSlotComponent({
   canVote,
   canFinalize,
   canManagePolls,
+  bankId,
   onAddChildSlot,
   onAddIdea,
   onDeleteSlot,
@@ -188,6 +190,8 @@ export default function IdeaSlotComponent({
                     key={card.id}
                     card={card}
                     isRTL={isRTL}
+                    bankId={bankId}
+                    canEdit={canEdit}
                     voteCount={voteData.count}
                     totalVotes={voteData.total}
                     userVoted={userVotesByCard[card.id] || false}
@@ -244,6 +248,7 @@ export default function IdeaSlotComponent({
                       canVote={canVote}
                       canFinalize={canFinalize}
                       canManagePolls={canManagePolls}
+                      bankId={bankId}
                       onAddChildSlot={() => {}}
                       onAddIdea={onAddIdea}
                       onDeleteSlot={onDeleteSlot}

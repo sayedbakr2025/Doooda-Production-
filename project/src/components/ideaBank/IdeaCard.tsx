@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Star, Trash2, ThumbsUp } from 'lucide-react';
-import type { IdeaCard } from '../../types';
+import type { IdeaCard as IdeaCardType, IdeaComment as IdeaCommentType } from '../../types';
+import { getIdeaCardComments } from '../../services/api';
+import IdeaCommentSection from './IdeaCommentSection';
 
 interface IdeaCardProps {
-  card: IdeaCard;
+  card: IdeaCardType;
   isRTL: boolean;
+  bankId: string;
+  canEdit: boolean;
   voteCount?: number;
   totalVotes?: number;
   userVoted?: boolean;
   pollOpen?: boolean;
-  onUpdate: (updates: Partial<IdeaCard>) => void;
+  onUpdate: (updates: Partial<IdeaCardType>) => void;
   onDelete: () => void;
   onFinalize: () => void;
   onUnfinalize: () => void;
@@ -20,6 +24,8 @@ interface IdeaCardProps {
 export default function IdeaCardComponent({
   card,
   isRTL,
+  bankId,
+  canEdit,
   voteCount = 0,
   totalVotes = 0,
   userVoted = false,
@@ -33,6 +39,16 @@ export default function IdeaCardComponent({
 }: IdeaCardProps) {
   const [editing, setEditing] = useState(false);
   const [titleValue, setTitleValue] = useState(card.title);
+  const [comments, setComments] = useState<IdeaCommentType[]>([]);
+
+const refreshComments = useCallback(async () => {
+    try {
+      const data = await getIdeaCardComments(card.id);
+      setComments(data);
+    } catch (err) {
+      console.error('Failed to refresh comments:', err);
+    }
+  }, [card.id]);
 
   const votePercentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
 
@@ -164,6 +180,14 @@ export default function IdeaCardComponent({
           <Trash2 className="w-3 h-3" />
         </button>
       </div>
+
+      <IdeaCommentSection
+        bankId={bankId}
+        cardId={card.id}
+        comments={comments}
+        canEdit={canEdit}
+        onRefresh={refreshComments}
+      />
     </div>
   );
 }

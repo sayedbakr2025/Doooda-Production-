@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation, IdeaPoll, IdeaVote, IdeaBankRole, IdeaBankCollaborator, IdeaBankImportResult } from '../types';
+import type { User, Project, Chapter, Scene, Task, ProjectType, ProjectTypeSetting, Genre, Tone, ActivityLog, ActivityAction, ActivityEntityType, Comment, InlineComment, InlineCommentReply, SupportTicket, SupportMessage, TicketStatus, IdeaBank, IdeaSlot, IdeaCard, IdeaSlotValidation, IdeaPoll, IdeaVote, IdeaBankRole, IdeaBankCollaborator, IdeaBankImportResult, IdeaComment } from '../types';
 
 export { supabase };
 
@@ -3181,4 +3181,125 @@ export async function importIdeaBankToPlot(bankId: string, projectId: string): P
     scenesCreated: data.scenes_created ?? 0,
     error: data.error ?? undefined,
   };
+}
+
+// ============================================================
+// Idea Bank Comments API (Phase 7)
+// ============================================================
+
+export async function getIdeaCardComments(cardId: string): Promise<IdeaComment[]> {
+  const { data, error } = await supabase
+    .from('idea_comments')
+    .select('*')
+    .eq('idea_card_id', cardId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  const all = (data || []) as any[];
+
+  if (all.length === 0) return [];
+
+  const userIds = [...new Set(all.map((c: any) => c.user_id))];
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, pen_name, first_name, email')
+    .in('id', userIds);
+
+  const userMap: Record<string, any> = {};
+  (users || []).forEach((u: any) => { userMap[u.id] = u; });
+
+  const enriched = all.map((c: any) => ({
+    ...c,
+    ideaBankId: c.idea_bank_id,
+    ideaCardId: c.idea_card_id,
+    userId: c.user_id,
+    parentId: c.parent_id,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+    deletedAt: c.deleted_at,
+    userDisplayName: userMap[c.user_id]?.pen_name || userMap[c.user_id]?.first_name || userMap[c.user_id]?.email?.split('@')[0] || 'User',
+    replies: [] as IdeaComment[],
+  }));
+
+  const roots: IdeaComment[] = [];
+  const map: Record<string, IdeaComment> = {};
+  enriched.forEach((c: IdeaComment) => { map[c.id] = c; });
+  enriched.forEach((c: IdeaComment) => {
+    if (c.parentId && map[c.parentId]) {
+      map[c.parentId].replies!.push(c);
+    } else {
+      roots.push(c);
+    }
+  });
+
+  return roots;
+}
+
+export async function addIdeaComment(
+  bankId: string,
+  cardId: string,
+  content: string,
+  parentId?: string | null
+): Promise<IdeaComment> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('idea_comments')
+    .insert({
+      idea_bank_id: bankId,
+      idea_card_id: cardId,
+      user_id: user.id,
+      content,
+      parent_id: parentId || null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id, pen_name, first_name, email')
+    .eq('id', user.id)
+    .single();
+
+  return {
+    ...data,
+    ideaBankId: data.idea_bank_id,
+    ideaCardId: data.idea_card_id,
+    userId: data.user_id,
+    parentId: data.parent_id,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    deletedAt: data.deleted_at,
+    userDisplayName: userData?.pen_name || userData?.first_name || userData?.email?.split('@')[0] || 'User',
+    replies: [],
+  };
+}
+
+export async function resolveIdeaComment(commentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('idea_comments')
+    .update({ status: 'resolved' })
+    .eq('id', commentId);
+  if (error) throw error;
+}
+
+export async function reopenIdeaComment(commentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('idea_comments')
+    .update({ status: 'open' })
+    .eq('id', commentId);
+  if (error) throw error;
+}
+
+export async function deleteIdeaComment(commentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('idea_comments')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', commentId);
+  if (error) throw error;
 }

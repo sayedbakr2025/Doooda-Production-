@@ -402,6 +402,7 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
                     canVote={canVote}
                     canFinalize={canFinalize}
                     canManagePolls={canManagePolls}
+                    bankId={ideaBank!.id}
                     onAddChildSlot={(parentId) => handleAddSlot(parentId, 2)}
                     onAddIdea={handleAddIdea}
                     onDeleteSlot={handleDeleteSlot}
