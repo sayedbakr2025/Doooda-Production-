@@ -8,6 +8,7 @@ interface RealtimeCallbacks {
   onVoteChange: (pollId: string) => void;
   onPollChange: (poll: IdeaPoll) => void;
   onPollDelete: (slotId: string) => void;
+  onCommentChange: (cardId: string) => void;
 }
 
 export function useIdeaBankRealtime(bankId: string | undefined, callbacks: RealtimeCallbacks) {
@@ -85,12 +86,14 @@ export function useIdeaBankRealtime(bankId: string | undefined, callbacks: Realt
           {
             event: '*',
             schema: 'public',
-            table: 'idea_slots',
+            table: 'idea_comments',
             filter: `idea_bank_id=eq.${bankId}`,
           },
-          () => {
-            // Slot changes require a full reload since structure changed
-            // The parent component handles this via a refresh trigger
+          (payload: any) => {
+            const cardId = payload.new?.idea_card_id || payload.old?.idea_card_id;
+            if (cardId) {
+              callbacksRef.current.onCommentChange(cardId);
+            }
           }
         )
         .subscribe((status: string) => {

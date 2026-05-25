@@ -11,7 +11,6 @@ import {
   getIdeaSlots,
   createIdeaSlot,
   deleteIdeaSlot,
-  getIdeaCards,
   createIdeaCard,
   updateIdeaSlot,
   updateIdeaCard,
@@ -28,6 +27,7 @@ import {
   voteOnIdea,
   reorderIdeaSlots,
   reorderIdeaCards,
+  loadIdeaBankBulk,
 } from '../../services/api';
 import { supabase } from '../../lib/supabaseClient';
 import IdeaSlotComponent from './IdeaSlot';
@@ -65,38 +65,12 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
     try {
       const bank = await getOrCreateIdeaBank(projectId);
       setIdeaBank(bank);
-      const slotsData = await getIdeaSlots(bank.id);
-      setSlots(slotsData);
-      const cardsMap: Record<string, IdeaCard[]> = {};
-      const pollsMap: Record<string, IdeaPoll> = {};
-      const voteCountsMap: Record<string, { count: number; total: number }> = {};
-      const userVotesMap: Record<string, boolean> = {};
-
-      await Promise.all(
-        slotsData.map(async (slot) => {
-          const cards = await getIdeaCards(slot.id);
-          cardsMap[slot.id] = cards;
-
-          const poll = await getPollForSlot(slot.id);
-          if (poll) {
-            pollsMap[slot.id] = poll;
-            const results = await getPollResults(poll.id);
-            const totalVotes = Object.values(results).reduce((sum, c) => sum + c, 0);
-            for (const card of cards) {
-              voteCountsMap[card.id] = { count: results[card.id] || 0, total: totalVotes };
-            }
-            const userVoteId = await getUserVote(poll.id);
-            for (const card of cards) {
-              userVotesMap[card.id] = card.id === userVoteId;
-            }
-          }
-        })
-      );
-
-      setCardsBySlot(cardsMap);
-      setPollsBySlot(pollsMap);
-      setVoteCountsByCard(voteCountsMap);
-      setUserVotesByCard(userVotesMap);
+      const data = await loadIdeaBankBulk(bank.id);
+      setSlots(data.slots);
+      setCardsBySlot(data.cardsBySlot);
+      setPollsBySlot(data.pollsBySlot);
+      setVoteCountsByCard(data.voteCountsByCard);
+      setUserVotesByCard(data.userVotesByCard);
       slotsLoadedRef.current = true;
     } catch (err) {
       console.error('[IdeaBank] Failed to load:', err);
@@ -168,6 +142,9 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
         return next;
       });
     },
+    onCommentChange: (_cardId: string) => {
+      // Comment counts are lazy-loaded per card; no full refresh needed
+    },
   });
 
   // Reload slots when slot structure changes (via realtime idea_slots channel)
@@ -183,99 +160,154 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
     return () => { supabase.removeChannel(channel); };
   }, [ideaBank?.id]);
 
-  const handleAddSlot = async (parentSlotId?: string, level?: number) => {
+const handleAddSlot = async (parentSlotId?: string, level?: number) => {
     if (!ideaBank) return;
     const slotLevel = level ?? 1;
     const siblingSlots = slots.filter(s =>
       slotLevel === 1 ? !s.parentSlotId : s.parentSlotId === parentSlotId
     );
     const position = siblingSlots.length > 0 ? Math.max(...siblingSlots.map(s => s.position)) + 1 : 0;
-    const newSlot = await createIdeaSlot(ideaBank.id, {
-      title: undefined,
-      parentSlotId,
-      level: slotLevel,
-      position,
-    });
-    setSlots(prev => [...prev, newSlot]);
-    setCardsBySlot(prev => ({ ...prev, [newSlot.id]: [] }));
+    try {
+      const newSlot = await createIdeaSlot(ideaBank.id, {
+        title: undefined,
+        parentSlotId,
+        level: slotLevel,
+        position,
+      });
+      setSlots(prev => [...prev, newSlot]);
+      setCardsBySlot(prev => ({ ...prev, [newSlot.id]: [] }));
+    } catch (err) {
+      console.error('[IdeaBank] Failed to add slot:', err);
+    }
   };
 
   const handleAddIdea = async (slotId: string) => {
     const existingCards = cardsBySlot[slotId] || [];
     const position = existingCards.length > 0 ? Math.max(...existingCards.map(c => c.position)) + 1 : 0;
-    const newCard = await createIdeaCard(slotId, {
-      title: isRTL ? 'فكرة جديدة' : 'New Idea',
-      position,
-    });
-    setCardsBySlot(prev => ({ ...prev, [slotId]: [...(prev[slotId] || []), newCard] }));
+    try {
+      const newCard = await createIdeaCard(slotId, {
+        title: `Idea ${existingCards.length + 1}`,
+        position,
+      });
+      setCardsBySlot(prev => ({ ...prev, [slotId]: [...(prev[slotId] || []), newCard] }));
+    } catch (err) {
+      console.error('[IdeaBank] Failed to add idea:', err);
+    }
   };
 
   const handleDeleteSlot = async (slotId: string) => {
-    await deleteIdeaSlot(slotId);
-    setSlots(prev => prev.filter(s => s.id !== slotId));
-    setCardsBySlot(prev => { const next = { ...prev }; delete next[slotId]; return next; });
+    const prev = slots;
+    setSlots(s => s.filter(sl => sl.id !== slotId));
+    try {
+      await deleteIdeaSlot(slotId);
+    } catch {
+      setSlots(prev);
+    }
   };
 
   const handleUpdateSlot = async (slotId: string, updates: Partial<IdeaSlot>) => {
-    const updated = await updateIdeaSlot(slotId, updates);
-    setSlots(prev => prev.map(s => s.id === slotId ? updated : s));
+    const prev = slots;
+    setSlots(s => s.map(sl => sl.id === slotId ? { ...sl, ...updates } : sl));
+    try {
+      await updateIdeaSlot(slotId, updates);
+    } catch {
+      setSlots(prev);
+    }
   };
 
   const handleUpdateCard = async (cardId: string, slotId: string, updates: Partial<IdeaCard>) => {
-    const updated = await updateIdeaCard(cardId, updates);
-    setCardsBySlot(prev => ({
-      ...prev,
-      [slotId]: (prev[slotId] || []).map(c => c.id === cardId ? updated : c),
+    const prev = cardsBySlot;
+    setCardsBySlot(p => ({
+      ...p,
+      [slotId]: (p[slotId] || []).map(c => c.id === cardId ? { ...c, ...updates } : c),
     }));
+    try {
+      await updateIdeaCard(cardId, updates);
+    } catch {
+      setCardsBySlot(prev);
+    }
   };
 
   const handleDeleteCard = async (cardId: string, slotId: string) => {
-    await deleteIdeaCard(cardId);
-    setCardsBySlot(prev => ({
-      ...prev,
-      [slotId]: (prev[slotId] || []).filter(c => c.id !== cardId),
+    const prev = cardsBySlot;
+    setCardsBySlot(p => ({
+      ...p,
+      [slotId]: (p[slotId] || []).filter(c => c.id !== cardId),
     }));
+    try {
+      await deleteIdeaCard(cardId);
+    } catch {
+      setCardsBySlot(prev);
+    }
   };
 
   const handleFinalizeCard = async (cardId: string, slotId: string) => {
-    await finalizeIdeaCard(cardId);
-    const freshCards = await getIdeaCards(slotId);
-    setCardsBySlot(prev => ({ ...prev, [slotId]: freshCards }));
+    const prev = cardsBySlot;
+    setCardsBySlot(p => ({
+      ...p,
+      [slotId]: (p[slotId] || []).map(c =>
+        c.id === cardId ? { ...c, status: 'finalized' as const } : { ...c, status: 'dimmed' as const }
+      ),
+    }));
+    try {
+      await finalizeIdeaCard(cardId);
+    } catch {
+      setCardsBySlot(prev);
+    }
   };
 
   const handleUnfinalizeCard = async (cardId: string, slotId: string) => {
-    await unfinalizeIdeaCard(cardId);
-    const freshCards = await getIdeaCards(slotId);
-    setCardsBySlot(prev => ({ ...prev, [slotId]: freshCards }));
+    const prev = cardsBySlot;
+    setCardsBySlot(p => ({
+      ...p,
+      [slotId]: (p[slotId] || []).map(c =>
+        c.id === cardId ? { ...c, status: 'active' as const } : c.status === 'dimmed' ? { ...c, status: 'active' as const } : c
+      ),
+    }));
+    try {
+      await unfinalizeIdeaCard(cardId);
+    } catch {
+      setCardsBySlot(prev);
+    }
   };
 
   const handleCreatePoll = async (slotId: string) => {
-    const poll = await createPoll(slotId);
-    setPollsBySlot(prev => ({ ...prev, [slotId]: poll }));
+    try {
+      const poll = await createPoll(slotId);
+      setPollsBySlot(prev => ({ ...prev, [slotId]: poll }));
+    } catch (err) {
+      console.error('[IdeaBank] Failed to create poll:', err);
+    }
   };
 
   const handleClosePoll = async (pollId: string) => {
-    const updated = await closePoll(pollId);
-    const slotId = updated.slotId;
-    setPollsBySlot(prev => ({ ...prev, [slotId]: updated }));
+    const prev = pollsBySlot;
+    try {
+      const updated = await closePoll(pollId);
+      setPollsBySlot(p => ({ ...p, [updated.slotId]: updated }));
+    } catch {
+      setPollsBySlot(prev);
+    }
   };
 
   const handleReopenPoll = async (pollId: string) => {
-    const updated = await reopenPoll(pollId);
-    const slotId = updated.slotId;
-    setPollsBySlot(prev => ({ ...prev, [slotId]: updated }));
+    const prev = pollsBySlot;
+    try {
+      const updated = await reopenPoll(pollId);
+      setPollsBySlot(p => ({ ...p, [updated.slotId]: updated }));
+    } catch {
+      setPollsBySlot(prev);
+    }
   };
 
   const handleDeletePoll = async (pollId: string) => {
     const poll = Object.values(pollsBySlot).find(p => p.id === pollId);
     if (!poll) return;
-    await deletePollApi(pollId);
+    const prevPolls = pollsBySlot;
+    const prevCounts = voteCountsByCard;
+    const prevVotes = userVotesByCard;
     const slotId = poll.slotId;
-    setPollsBySlot(prev => {
-      const next = { ...prev };
-      delete next[slotId];
-      return next;
-    });
+    setPollsBySlot(p => { const n = { ...p }; delete n[slotId]; return n; });
     const cards = cardsBySlot[slotId] || [];
     const clearedCounts: Record<string, { count: number; total: number }> = {};
     const clearedVotes: Record<string, boolean> = {};
@@ -283,28 +315,72 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
       clearedCounts[card.id] = { count: 0, total: 0 };
       clearedVotes[card.id] = false;
     }
-    setVoteCountsByCard(prev => ({ ...prev, ...clearedCounts }));
-    setUserVotesByCard(prev => ({ ...prev, ...clearedVotes }));
+    setVoteCountsByCard(p => ({ ...p, ...clearedCounts }));
+    setUserVotesByCard(p => ({ ...p, ...clearedVotes }));
+    try {
+      await deletePollApi(pollId);
+    } catch {
+      setPollsBySlot(prevPolls);
+      setVoteCountsByCard(prevCounts);
+      setUserVotesByCard(prevVotes);
+    }
   };
 
   const handleVote = async (pollId: string, ideaCardId: string) => {
-    await voteOnIdea(pollId, ideaCardId);
+    const prevCounts = voteCountsByCard;
+    const prevVotes = userVotesByCard;
     const slotId = Object.entries(pollsBySlot).find(([, p]) => p.id === pollId)?.[0];
     if (slotId) {
-      await refreshVoteData(slotId);
+      const cards = cardsBySlot[slotId] || [];
+      const oldVoteId = cards.find(c => userVotesByCard[c.id])?.id;
+      setVoteCountsByCard(p => {
+        const next = { ...p };
+        if (oldVoteId && next[oldVoteId]) {
+          next[oldVoteId] = { ...next[oldVoteId], count: next[oldVoteId].count - 1 };
+        }
+        if (next[ideaCardId]) {
+          next[ideaCardId] = { ...next[ideaCardId], count: next[ideaCardId].count + 1 };
+        }
+        return next;
+      });
+      setUserVotesByCard(p => {
+        const next = { ...p };
+        if (oldVoteId) next[oldVoteId] = false;
+        next[ideaCardId] = true;
+        return next;
+      });
+    }
+    try {
+      await voteOnIdea(pollId, ideaCardId);
+    } catch {
+      setVoteCountsByCard(prevCounts);
+      setUserVotesByCard(prevVotes);
     }
   };
 
   const handleReorderCards = async (slotId: string, cardIds: string[]) => {
-    await reorderIdeaCards(slotId, cardIds.map((id, index) => ({ id, position: index })));
-    const freshSlots = await getIdeaSlots(ideaBank!.id);
-    setSlots(freshSlots);
+    const prev = cardsBySlot;
+    const slotCards = prev[slotId] || [];
+    const idToCard = new Map(slotCards.map(c => [c.id, c]));
+    const reordered = cardIds.map((id, i) => ({ ...(idToCard.get(id) || slotCards[i]), position: i }));
+    setCardsBySlot(p => ({ ...p, [slotId]: reordered }));
+    try {
+      await reorderIdeaCards(slotId, cardIds.map((id, index) => ({ id, position: index })));
+    } catch {
+      setCardsBySlot(prev);
+    }
   };
 
   const handleReorderSlots = async (parentSlotId: string | null, slotIds: string[]) => {
-    await reorderIdeaSlots(ideaBank!.id, slotIds.map((id, index) => ({ id, position: index, parentSlotId })));
-    const freshSlots = await getIdeaSlots(ideaBank!.id);
-    setSlots(freshSlots);
+    const prev = slots;
+    const idToSlot = new Map(slots.map(s => [s.id, s]));
+    const reordered = slotIds.map((id, i) => ({ ...(idToSlot.get(id) || slots[i]), position: i }));
+    setSlots(reordered);
+    try {
+      await reorderIdeaSlots(ideaBank!.id, slotIds.map((id, index) => ({ id, position: index, parentSlotId })));
+    } catch {
+      setSlots(prev);
+    }
   };
 
   const handleSlotDragStart = (slotId: string) => {
@@ -450,7 +526,10 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
                     canFinalize={canFinalize}
                     canManagePolls={canManagePolls}
                     bankId={ideaBank!.id}
-                    onAddChildSlot={(parentId) => handleAddSlot(parentId, 2)}
+                    onAddChildSlot={(parentId) => {
+                    const parent = slots.find(s => s.id === parentId);
+                    handleAddSlot(parentId, parent ? parent.level + 1 : 2);
+                  }}
                     onAddIdea={handleAddIdea}
                     onDeleteSlot={handleDeleteSlot}
                     onUpdateSlot={handleUpdateSlot}

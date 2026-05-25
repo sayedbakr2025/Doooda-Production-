@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, Check, RotateCcw, Trash2, ChevronDown, ChevronUp, Send } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { IdeaComment as IdeaCommentType } from '../../types';
 import { addIdeaComment, resolveIdeaComment, reopenIdeaComment, deleteIdeaComment } from '../../services/api';
+import { supabase } from '../../lib/supabaseClient';
 
 interface IdeaCommentSectionProps {
   bankId: string;
@@ -18,10 +19,11 @@ const IdeaCommentItem: React.FC<{
   bankId: string;
   canEdit: boolean;
   isOwn: boolean;
+  currentUserId: string | null;
   onRefresh: () => void;
   language: 'ar' | 'en';
   isDark: boolean;
-}> = ({ comment, bankId, canEdit, isOwn, onRefresh, language, isDark }) => {
+}> = ({ comment, bankId, canEdit, isOwn, currentUserId, onRefresh, language, isDark }) => {
   const [replyText, setReplyText] = useState('');
   const [showReply, setShowReply] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -122,7 +124,8 @@ const IdeaCommentItem: React.FC<{
               comment={reply}
               bankId={bankId}
               canEdit={canEdit}
-              isOwn={false}
+              isOwn={currentUserId === reply.userId}
+              currentUserId={currentUserId}
               onRefresh={onRefresh}
               language={language}
               isDark={isDark}
@@ -147,6 +150,13 @@ const IdeaCommentSection: React.FC<IdeaCommentSectionProps> = ({
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setCurrentUserId(data.user.id);
+    });
+  }, []);
 
   const handleSubmit = async () => {
     if (!newComment.trim()) return;
@@ -204,7 +214,8 @@ const IdeaCommentSection: React.FC<IdeaCommentSectionProps> = ({
               comment={comment}
               bankId={bankId}
               canEdit={canEdit}
-              isOwn={false}
+              isOwn={currentUserId === comment.userId}
+              currentUserId={currentUserId}
               onRefresh={onRefresh}
               language={language}
               isDark={isDark}

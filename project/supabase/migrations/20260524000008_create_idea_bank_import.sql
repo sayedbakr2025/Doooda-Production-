@@ -60,6 +60,7 @@ DECLARE
   v_chapter_id UUID;
   v_unresolved_count INTEGER;
   v_highest_level INTEGER;
+  v_project_type TEXT;
 BEGIN
   -- Validate ownership
   IF NOT EXISTS (
@@ -121,10 +122,13 @@ BEGIN
   -- Delete existing plot chapters (cascades to plot_scenes)
   DELETE FROM public.plot_chapters WHERE plot_project_id = v_plot_project_id;
 
-  -- Determine hierarchy: get highest level
+  -- Determine hierarchy: get highest level and project type
   SELECT MAX(level) INTO v_highest_level
   FROM public.idea_slots
   WHERE idea_bank_id = p_idea_bank_id;
+
+  SELECT project_type INTO v_project_type
+  FROM public.projects WHERE id = p_project_id;
 
   -- Handle single-level hierarchy (e.g., film_script, short_story)
   -- Level-1 slots become plot_scenes directly (no chapters)
@@ -149,13 +153,14 @@ BEGIN
 
       v_chapters_created := v_chapters_created + 1;
 
-      INSERT INTO public.plot_scenes (chapter_id, order_index, title, summary, hook)
+      INSERT INTO public.plot_scenes (chapter_id, order_index, title, summary, hook, page_type)
       VALUES (
         v_chapter_id,
         1,
         COALESCE(v_level1_slots.idea_title, v_level1_slots.slot_title, 'Untitled'),
         COALESCE(v_level1_slots.idea_summary, v_level1_slots.idea_content, ''),
-        ''
+        '',
+        CASE WHEN v_project_type = 'children_story' THEN 'single' ELSE NULL END
       );
 
       v_scenes_created := v_scenes_created + 1;

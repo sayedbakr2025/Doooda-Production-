@@ -3303,3 +3303,125 @@ export async function deleteIdeaComment(commentId: string): Promise<void> {
     .eq('id', commentId);
   if (error) throw error;
 }
+
+// ============================================================
+// Bulk Loading (Stabilization — replaces N+1 queries)
+// ============================================================
+
+export interface IdeaBankBulkData {
+  slots: IdeaSlot[];
+  cardsBySlot: Record<string, IdeaCard[]>;
+  pollsBySlot: Record<string, IdeaPoll>;
+  voteCountsByCard: Record<string, { count: number; total: number }>;
+  userVotesByCard: Record<string, boolean>;
+}
+
+export async function loadIdeaBankBulk(bankId: string): Promise<IdeaBankBulkData> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const [slotsRes, cardsRes, pollsRes] = await Promise.all([
+    supabase.from('idea_slots').select('*').eq('idea_bank_id', bankId).order('position', { ascending: true }),
+    supabase.from('idea_cards').select('*, idea_slots!inner(idea_bank_id)').eq('idea_slots.idea_bank_id', bankId).is('deleted_at', null).order('position', { ascending: true }),
+    supabase.from('idea_polls').select('*, idea_slots!inner(idea_bank_id)').eq('idea_slots.idea_bank_id', bankId),
+  ]);
+
+  if (slotsRes.error) throw slotsRes.error;
+  if (cardsRes.error) throw cardsRes.error;
+  if (pollsRes.error) throw pollsRes.error;
+
+  const slots: IdeaSlot[] = (slotsRes.data || []).map((row: any) => ({
+    id: row.id,
+    ideaBankId: row.idea_bank_id,
+    parentSlotId: row.parent_slot_id,
+    level: row.level,
+    position: row.position,
+    title: row.title,
+    summary: row.summary,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+  const cardsBySlot: Record<string, IdeaCard[]> = {};
+  for (const row of (cardsRes.data || [])) {
+    const slotId = (row as any).slot_id;
+    if (!cardsBySlot[slotId]) cardsBySlot[slotId] = [];
+    cardsBySlot[slotId].push({
+      id: (row as any).id,
+      slotId: (row as any).slot_id,
+      title: (row as any).title,
+      summary: (row as any).summary,
+      content: (row as any).content,
+      status: (row as any).status,
+      position: (row as any).position,
+      createdBy: (row as any).created_by,
+      createdAt: (row as any).created_at,
+      updatedAt: (row as any).updated_at,
+      deletedAt: (row as any).deleted_at,
+    });
+  }
+  for (const slot of slots) {
+    if (!cardsBySlot[slot.id]) cardsBySlot[slot.id] = [];
+  }
+
+  const pollsBySlot: Record<string, IdeaPoll> = {};
+  for (const row of (pollsRes.data || [])) {
+    const slotId = (row as any).slot_id;
+    pollsBySlot[slotId] = {
+      id: (row as any).id,
+      slotId: (row as any).slot_id,
+      createdBy: (row as any).created_by,
+      isOpen: (row as any).is_open,
+      createdAt: (row as any).created_at,
+      closedAt: (row as any).closed_at,
+    };
+  }
+
+  const pollIds = Object.values(pollsBySlot).map(p => p.id);
+  const voteCountsByCard: Record<string, { count: number; total: number }> = {};
+  const userVotesByCard: Record<string, boolean> = {};
+
+  if (pollIds.length > 0) {
+    const [votesRes, userVoteRes] = await Promise.all([
+      supabase.from('idea_votes').select('poll_id, idea_card_id').in('poll_id', pollIds),
+      user ? supabase.from('idea_votes').select('poll_id, idea_card_id').in('poll_id', pollIds).eq('user_id', user.id) : { data: [], error: null },
+    ]);
+
+    if (votesRes.error) throw votesRes.error;
+
+    const voteCounts: Record<string, Record<string, number>> = {};
+    const pollTotals: Record<string, number> = {};
+
+    for (const v of (votesRes.data || [])) {
+      if (!voteCounts[(v as any).poll_id]) voteCounts[(v as any).poll_id] = {};
+      const pid = (v as any).poll_id;
+      const cid = (v as any).idea_card_id;
+      voteCounts[pid][cid] = (voteCounts[pid][cid] || 0) + 1;
+      pollTotals[pid] = (pollTotals[pid] || 0) + 1;
+    }
+
+    for (const [slotId, poll] of Object.entries(pollsBySlot)) {
+      const slotCards = cardsBySlot[slotId] || [];
+      const counts = voteCounts[poll.id] || {};
+      const total = pollTotals[poll.id] || 0;
+      for (const card of slotCards) {
+        voteCountsByCard[card.id] = { count: counts[card.id] || 0, total };
+      }
+    }
+
+    if (userVoteRes.data && userVoteRes.data.length > 0) {
+      const userVoteMap: Record<string, string> = {};
+      for (const v of userVoteRes.data) {
+        userVoteMap[(v as any).poll_id] = (v as any).idea_card_id;
+      }
+      for (const [slotId, poll] of Object.entries(pollsBySlot)) {
+        const userVotedCardId = userVoteMap[poll.id];
+        const slotCards = cardsBySlot[slotId] || [];
+        for (const card of slotCards) {
+          userVotesByCard[card.id] = card.id === userVotedCardId;
+        }
+      }
+    }
+  }
+
+  return { slots, cardsBySlot, pollsBySlot, voteCountsByCard, userVotesByCard };
+}
