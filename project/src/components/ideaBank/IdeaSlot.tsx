@@ -13,6 +13,7 @@ interface IdeaSlotProps {
   voteCountsByCard: Record<string, { count: number; total: number }>;
   commentCountsByCard: Record<string, number>;
   userVotesByCard: Record<string, boolean>;
+  votersByCard: Record<string, string[]>;
   levels: HierarchyLevel[];
   maxLevel: number;
   isRTL: boolean;
@@ -47,6 +48,7 @@ export default function IdeaSlotComponent({
   voteCountsByCard,
   commentCountsByCard,
   userVotesByCard,
+  votersByCard,
   levels,
   maxLevel,
   isRTL,
@@ -201,6 +203,7 @@ export default function IdeaSlotComponent({
                     voteCount={voteData.count}
                     totalVotes={voteData.total}
                     userVoted={userVotesByCard[card.id] || false}
+                    voters={votersByCard[card.id] || []}
                     commentCount={commentCountsByCard[card.id] || 0}
                     pollOpen={poll?.isOpen || false}
                     onUpdate={(updates) => onUpdateCard(card.id, slot.id, updates)}
@@ -239,14 +242,24 @@ export default function IdeaSlotComponent({
               }}
             >
               <Plus className="w-4 h-4" />
-              {isRTL ? 'فكرة بديلة' : 'Alternative'}
+              {cards.filter(c => c.status !== 'archived').length === 0
+                ? (isRTL ? `إضافة فكرة ${label || ''}` : `Add ${label || ''} Idea`)
+                : (isRTL ? 'فكرة بديلة' : 'Alternative')}
             </button>
             )}
           </div>
 
           {/* Child Slots (nested) */}
           {hasChildren && childSlots.length > 0 && (
-            <div className="mt-2 space-y-2">
+            <div
+              className="mt-2 space-y-2"
+              style={{
+                paddingLeft: isRTL ? 0 : '24px',
+                paddingRight: isRTL ? '24px' : 0,
+                borderLeft: isRTL ? 'none' : '2px solid var(--color-border)',
+                borderRight: isRTL ? '2px solid var(--color-border)' : 'none',
+              }}
+            >
               {childSlots
                 .sort((a, b) => a.position - b.position)
                 .map(child => {
@@ -259,10 +272,11 @@ export default function IdeaSlotComponent({
                       cards={childCards}
                       childSlots={grandChildSlots}
                       childCardsBySlot={childCardsBySlot}
-pollsBySlot={pollsBySlot}
-                       voteCountsByCard={voteCountsByCard}
-                       commentCountsByCard={commentCountsByCard}
-                       userVotesByCard={userVotesByCard}
+                      pollsBySlot={pollsBySlot}
+                      voteCountsByCard={voteCountsByCard}
+                      commentCountsByCard={commentCountsByCard}
+                      userVotesByCard={userVotesByCard}
+                      votersByCard={votersByCard}
                       levels={levels}
                       maxLevel={maxLevel}
                       isRTL={isRTL}
@@ -296,7 +310,13 @@ pollsBySlot={pollsBySlot}
             <button
               onClick={() => onAddChildSlot(slot.id)}
               className="mt-2 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-80"
-              style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-tertiary)', border: '1px dashed var(--color-border)' }}
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                color: 'var(--color-text-tertiary)',
+                border: '1px dashed var(--color-border)',
+                marginLeft: isRTL ? 0 : '24px',
+                marginRight: isRTL ? '24px' : 0,
+              }}
             >
               <Plus className="w-3.5 h-3.5" />
               {isRTL

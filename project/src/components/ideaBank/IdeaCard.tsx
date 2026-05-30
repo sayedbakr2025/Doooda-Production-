@@ -12,6 +12,7 @@ interface IdeaCardProps {
   voteCount?: number;
   totalVotes?: number;
   userVoted?: boolean;
+  voters?: string[];
   pollOpen?: boolean;
   commentCount?: number;
   onUpdate: (updates: Partial<IdeaCardType>) => void;
@@ -35,6 +36,7 @@ export default React.memo(function IdeaCardComponent({
   voteCount = 0,
   totalVotes = 0,
   userVoted = false,
+  voters = [],
   pollOpen = false,
   onUpdate,
   onDelete,
@@ -151,6 +153,15 @@ const refreshComments = useCallback(async () => {
               style={{ width: `${votePercentage}%`, backgroundColor: 'var(--color-accent)', minWidth: voteCount > 0 ? '4px' : '0' }}
             />
           </div>
+          {voters && voters.length > 0 && (
+            <div
+              className="text-[10px] mt-1 hover:whitespace-normal cursor-help text-ellipsis overflow-hidden whitespace-nowrap"
+              style={{ color: 'var(--color-text-tertiary)' }}
+              title={voters.join(', ')}
+            >
+              {isRTL ? 'المصوتون: ' : 'Voters: '}{voters.join(', ')}
+            </div>
+          )}
         </div>
       )}
 

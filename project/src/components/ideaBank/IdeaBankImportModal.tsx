@@ -10,6 +10,7 @@ interface IdeaBankImportModalProps {
   projectId: string;
   onClose: () => void;
   onImported: () => void;
+  mode?: 'import' | 'export';
 }
 
 const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
@@ -17,6 +18,7 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
   projectId,
   onClose,
   onImported,
+  mode = 'export',
 }) => {
   const { language } = useLanguage();
   const { theme } = useTheme();
@@ -49,10 +51,10 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
       if (res.success) {
         setResult({ chaptersCreated: res.chaptersCreated, scenesCreated: res.scenesCreated });
       } else {
-        setError(res.error || 'Import failed');
+        setError(res.error || (mode === 'import' ? 'Import failed' : 'Export failed'));
       }
     } catch (err: any) {
-      setError(err.message || 'Import failed');
+      setError(err.message || (mode === 'import' ? 'Import failed' : 'Export failed'));
     } finally {
       setImporting(false);
     }
@@ -69,7 +71,9 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
               <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {language === 'ar' ? 'تم الاستيراد بنجاح' : 'Import Successful'}
+              {mode === 'import'
+                ? (language === 'ar' ? 'تم الاستيراد بنجاح' : 'Import Successful')
+                : (language === 'ar' ? 'تم التصدير بنجاح' : 'Export Successful')}
             </h3>
           </div>
           <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -79,7 +83,7 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
           </p>
           <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             {language === 'ar'
-              ? 'يمكنك الآن عرض المخطط في محرر المخطط'
+              ? 'يمكنك الآن عرض الحبكة في محرر الحبكة'
               : 'You can now view the plot in the Plot Editor'}
           </p>
           <button
@@ -104,7 +108,9 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
               <Download className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {language === 'ar' ? 'استيراد إلى المخطط' : 'Import to Plot'}
+              {mode === 'import'
+                ? (language === 'ar' ? 'استيراد من بنك الأفكار' : 'Import from Idea Bank')
+                : (language === 'ar' ? 'تصدير إلى الحبكة' : 'Export to Plot')}
             </h3>
           </div>
           <button
@@ -143,7 +149,7 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
               </div>
               <p className="text-sm">
                 {language === 'ar'
-                  ? 'سيتم استبدال جميع الفصول والمشاهد الحالية في المخطط بأفكار بنك الأفكار المُحددة. هذا الإجراء لا يمكن التراجع عنه.'
+                  ? 'سيتم استبدال جميع الفصول والمشاهد الحالية في الحبكة بأفكار بنك الأفكار المُحددة. هذا الإجراء لا يمكن التراجع عنه.'
                   : 'All existing chapters and scenes in the plot will be replaced with finalized ideas from the Idea Bank. This cannot be undone.'}
               </p>
             </div>
@@ -153,7 +159,9 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
                 isDark ? 'bg-red-900 text-red-200' : 'bg-red-50 text-red-800'
               }`}>
                 <p className="font-semibold mb-2">
-                  {language === 'ar' ? 'لا يمكن الاستيراد' : 'Cannot Import'}
+                  {mode === 'import'
+                    ? (language === 'ar' ? 'لا يمكن الاستيراد' : 'Cannot Import')
+                    : (language === 'ar' ? 'لا يمكن التصدير' : 'Cannot Export')}
                 </p>
                 <p className="text-sm mb-2">
                   {language === 'ar'
@@ -169,18 +177,26 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
                   ))}
                 </ul>
                 <p className="text-sm mt-2">
-                  {language === 'ar'
-                    ? 'يرجى تحديد فكرة واحدة في كل فتحة قبل الاستيراد.'
-                    : 'Please finalize one idea in each slot before importing.'}
+                  {mode === 'import'
+                    ? (language === 'ar'
+                      ? 'يرجى تحديد فكرة واحدة في كل فتحة قبل الاستيراد.'
+                      : 'Please finalize one idea in each slot before importing.')
+                    : (language === 'ar'
+                      ? 'يرجى تحديد فكرة واحدة في كل فتحة قبل التصدير.'
+                      : 'Please finalize one idea in each slot before exporting.')}
                 </p>
               </div>
             )}
 
             {validation.canImport && (
               <p className={`mb-4 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                {language === 'ar'
-                  ? 'جميع الفتحات لديها فكرة مُحددة. يمكنك الآن الاستيراد.'
-                  : 'All slots have a finalized idea. You can proceed with the import.'}
+                {mode === 'import'
+                  ? (language === 'ar'
+                    ? 'جميع الفتحات لديها فكرة مُحددة. يمكنك الآن الاستيراد.'
+                    : 'All slots have a finalized idea. You can proceed with the import.')
+                  : (language === 'ar'
+                    ? 'جميع الفتحات لديها فكرة مُحددة. يمكنك الآن التصدير.'
+                    : 'All slots have a finalized idea. You can proceed with the export.')}
               </p>
             )}
 
@@ -207,8 +223,12 @@ const IdeaBankImportModal: React.FC<IdeaBankImportModalProps> = ({
                   }`}
                 >
                   {importing
-                    ? (language === 'ar' ? 'جاري الاستيراد...' : 'Importing...')
-                    : (language === 'ar' ? 'موافق، استيراد الآن' : 'OK, Import Now')}
+                    ? (mode === 'import'
+                      ? (language === 'ar' ? 'جاري الاستيراد...' : 'Importing...')
+                      : (language === 'ar' ? 'جاري التصدير...' : 'Exporting...'))
+                    : (mode === 'import'
+                      ? (language === 'ar' ? 'موافق، استيراد الآن' : 'OK, Import Now')
+                      : (language === 'ar' ? 'موافق، تصدير الآن' : 'OK, Export Now'))}
                 </button>
               )}
             </div>

@@ -17,17 +17,14 @@ CREATE TABLE IF NOT EXISTS idea_banks (
 -- Enable RLS
 ALTER TABLE idea_banks ENABLE ROW LEVEL SECURITY;
 
--- Idea Banks: visible to project owner + collaborators + idea bank collaborators
+-- Idea Banks: visible to project owner + project collaborators
+-- idea_bank_collaborators will be added in migration 00006
 CREATE POLICY "idea_banks_select" ON idea_banks
   FOR SELECT USING (
     project_id IN (SELECT id FROM projects WHERE user_id = auth.uid() AND deleted_at IS NULL)
     OR project_id IN (
       SELECT pc.project_id FROM project_collaborators pc
       WHERE pc.user_id = auth.uid() AND pc.status = 'active'
-    )
-    OR id IN (
-      SELECT ibc.idea_bank_id FROM idea_bank_collaborators ibc
-      WHERE ibc.user_id = auth.uid() AND ibc.status = 'active'
     )
   );
 
@@ -75,6 +72,8 @@ CREATE TABLE IF NOT EXISTS idea_slots (
 
 ALTER TABLE idea_slots ENABLE ROW LEVEL SECURITY;
 
+-- idea_slots: visible to project owner + project collaborators
+-- idea_bank_collaborators will be added in migration 00006
 CREATE POLICY "idea_slots_select" ON idea_slots
   FOR SELECT USING (
     idea_bank_id IN (SELECT id FROM idea_banks WHERE
@@ -82,10 +81,6 @@ CREATE POLICY "idea_slots_select" ON idea_slots
       OR project_id IN (
         SELECT pc.project_id FROM project_collaborators pc
         WHERE pc.user_id = auth.uid() AND pc.status = 'active'
-      )
-      OR id IN (
-        SELECT ibc.idea_bank_id FROM idea_bank_collaborators ibc
-        WHERE ibc.user_id = auth.uid() AND ibc.status = 'active'
       )
     )
   );
@@ -145,6 +140,8 @@ CREATE TABLE IF NOT EXISTS idea_cards (
 
 ALTER TABLE idea_cards ENABLE ROW LEVEL SECURITY;
 
+-- idea_cards: visible to project owner + project collaborators
+-- idea_bank_collaborators will be added in migration 00006
 CREATE POLICY "idea_cards_select" ON idea_cards
   FOR SELECT USING (
     slot_id IN (
@@ -155,10 +152,6 @@ CREATE POLICY "idea_cards_select" ON idea_cards
         OR ib.project_id IN (
           SELECT pc.project_id FROM project_collaborators pc
           WHERE pc.user_id = auth.uid() AND pc.status = 'active'
-        )
-        OR ib.id IN (
-          SELECT ibc.idea_bank_id FROM idea_bank_collaborators ibc
-          WHERE ibc.user_id = auth.uid() AND ibc.status = 'active'
         )
     )
   );

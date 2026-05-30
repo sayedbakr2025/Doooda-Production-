@@ -190,7 +190,7 @@ export default function IdeaBankShareModal({ bankId, isOpen, onClose, onRefresh 
                   <div key={collab.id} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {collab.penName || collab.email || collab.userId.slice(0, 8)}
+                        {collab.displayName || collab.penName || collab.email || collab.userId.slice(0, 8)}
                       </span>
                       <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-tertiary)' }}>
                         {collab.status}

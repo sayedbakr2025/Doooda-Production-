@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase, invokeWithAuth } from '../lib/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Save, Plus, Brain, LayoutTemplate as BookTemplate } from 'lucide-react';
+import { Save, Plus, Brain, LayoutTemplate as BookTemplate, Download } from 'lucide-react';
 import PlotCanvas from '../components/plot/PlotCanvas';
 import PlotAnalysisView from '../components/plot/PlotAnalysisView';
 import ExecutePlotModal from '../components/plot/ExecutePlotModal';
 import PlotTemplateModal from '../components/PlotTemplateModal';
+import IdeaBankImportModal from '../components/ideaBank/IdeaBankImportModal';
 import Button from '../components/Button';
 import ThemeToggle from '../components/ThemeToggle';
-import { applyPlotTemplate, api, getProjectGenres, getProjectTone } from '../services/api';
+import { applyPlotTemplate, api, getProjectGenres, getProjectTone, getOrCreateIdeaBank } from '../services/api';
 import { getProjectTypeConfig } from '../utils/projectTypeConfig';
 import type { Project, Genre, Tone } from '../types';
 
@@ -82,6 +83,8 @@ const PlotEditor: React.FC = () => {
   const [mainProject, setMainProject] = useState<Project | null>(null);
   const [mainProjectGenres, setMainProjectGenres] = useState<Genre[]>([]);
   const [mainProjectTone, setMainProjectTone] = useState<Tone | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [ideaBankId, setIdeaBankId] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlotData();
@@ -90,6 +93,9 @@ const PlotEditor: React.FC = () => {
       api.getProject(projectId).then(setMainProject).catch(() => {});
       getProjectGenres(projectId).then(setMainProjectGenres).catch(() => {});
       getProjectTone(projectId).then(setMainProjectTone).catch(() => {});
+      getOrCreateIdeaBank(projectId)
+        .then(bank => setIdeaBankId(bank.id))
+        .catch(err => console.error('Failed to get or create idea bank:', err));
     }
   }, [projectId]);
 
@@ -607,6 +613,31 @@ const PlotEditor: React.FC = () => {
     }
   };
 
+  const handleOpenImportModal = async () => {
+    if (!projectId) return;
+    if (ideaBankId) {
+      setShowImportModal(true);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const bank = await getOrCreateIdeaBank(projectId);
+      setIdeaBankId(bank.id);
+      setShowImportModal(true);
+    } catch (err) {
+      console.error(err);
+      alert(language === 'ar' ? 'فشل تحميل بنك الأفكار' : 'Failed to load Idea Bank');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImported = async () => {
+    await loadPlotData();
+    setHasChanges(false);
+  };
+
   const handleSave = async () => {
     if (!plotProject) return;
 
@@ -778,6 +809,15 @@ const PlotEditor: React.FC = () => {
             )}
 
             <Button
+              onClick={handleOpenImportModal}
+              variant="secondary"
+              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            >
+              <Download className="w-4 h-4" />
+              {language === 'ar' ? 'استيراد من بنك الأفكار' : 'Import from Idea Bank'}
+            </Button>
+
+            <Button
               onClick={() => setShowTemplateModal(true)}
               variant="secondary"
               className="flex items-center gap-2"
@@ -887,6 +927,17 @@ const PlotEditor: React.FC = () => {
           onClose={() => setShowTemplateModal(false)}
           projectId={projectId}
           onApply={handleApplyTemplate}
+        />
+      )}
+
+      {/* Idea Bank Import Modal */}
+      {showImportModal && ideaBankId && projectId && (
+        <IdeaBankImportModal
+          bankId={ideaBankId}
+          projectId={projectId}
+          mode="import"
+          onClose={() => setShowImportModal(false)}
+          onImported={handleImported}
         />
       )}
     </div>

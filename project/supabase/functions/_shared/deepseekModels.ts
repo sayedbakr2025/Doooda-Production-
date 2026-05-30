@@ -1,7 +1,7 @@
 export const DEEPSEEK_MODELS = {
   fallback: "deepseek-chat",
-  askDoooda: "deepseek-v4-flash",
-  critic: "deepseek-v4-pro",
+  askDoooda: "deepseek-chat",
+  critic: "deepseek-chat",
 } as const;
 
 export type DeepSeekFeature = "ask_doooda" | "critic";

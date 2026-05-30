@@ -25,9 +25,11 @@ import {
   reopenPoll,
   deletePoll as deletePollApi,
   voteOnIdea,
+  removeVote,
   reorderIdeaSlots,
   reorderIdeaCards,
   loadIdeaBankBulk,
+  getIdeaBankEligibleVotersCount,
 } from '../../services/api';
 import { supabase } from '../../lib/supabaseClient';
 import IdeaSlotComponent from './IdeaSlot';
@@ -50,12 +52,33 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
   const [voteCountsByCard, setVoteCountsByCard] = useState<Record<string, { count: number; total: number }>>({});
   const [userVotesByCard, setUserVotesByCard] = useState<Record<string, boolean>>({});
   const [commentCountsByCard, setCommentCountsByCard] = useState<Record<string, number>>({});
+  const [votersByCard, setVotersByCard] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
   const { canEdit, canVote, canManageCollaborators, canCreateIdeas, canFinalize, canManagePolls } = useIdeaBankPermissions(ideaBank?.id, projectId);
+  const currentUserIdRef = useRef<string | null>(null);
+  const lastMyVoteTimeRef = useRef<Record<string, number>>({});
+  const [myDisplayName, setMyDisplayName] = useState<string>('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
+      currentUserIdRef.current = data.user?.id || null;
+      if (data.user?.id) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('pen_name, first_name, email')
+          .eq('id', data.user.id)
+          .maybeSingle();
+        if (userData) {
+          const name = userData.pen_name || userData.first_name || userData.email?.split('@')[0] || 'User';
+          setMyDisplayName(name);
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     loadIdeaBank();
@@ -65,6 +88,7 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
     setLoading(true);
     try {
       const bank = await getOrCreateIdeaBank(projectId);
+      console.log('[IdeaBank] Bank loaded:', bank?.id);
       setIdeaBank(bank);
       const data = await loadIdeaBankBulk(bank.id);
       setSlots(data.slots);
@@ -73,9 +97,12 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
       setVoteCountsByCard(data.voteCountsByCard);
       setUserVotesByCard(data.userVotesByCard);
       setCommentCountsByCard(data.commentCountsByCard);
+      setVotersByCard(data.votersByCard || {});
       slotsLoadedRef.current = true;
     } catch (err) {
       console.error('[IdeaBank] Failed to load:', err);
+      const msg = err instanceof Error ? err.message : (typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err));
+      alert((isRTL ? 'فشل تحميل بنك الأفكار: ' : 'Failed to load Idea Bank: ') + msg);
     } finally {
       setLoading(false);
     }
@@ -85,24 +112,62 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
   const maxLevel = getMaxLevel(projectType);
   const level1 = levels.find(l => l.level === 1);
 
-  const refreshVoteData = useCallback(async (slotId: string) => {
+  const refreshVoteData = useCallback(async (slotId: string, skipUserVoteRefresh = false) => {
     const poll = await getPollForSlot(slotId);
     if (poll) {
       setPollsBySlot(prev => ({ ...prev, [slotId]: poll }));
       const results = await getPollResults(poll.id);
       const cards = cardsBySlot[slotId] || [];
-      const totalVotes = Object.values(results).reduce((sum, c) => sum + c, 0);
+      
+      const [eligibleCount, votesWithVoters, userVoteId] = await Promise.all([
+        getIdeaBankEligibleVotersCount(ideaBank!.id).catch(() => 1),
+        supabase.rpc('get_idea_bank_votes_with_voters', { p_poll_ids: [poll.id] }),
+        skipUserVoteRefresh ? Promise.resolve(null) : getUserVote(poll.id).catch(() => null),
+      ]);
+      
       const newCounts: Record<string, { count: number; total: number }> = {};
       const newVotes: Record<string, boolean> = {};
-      const userVoteId = await getUserVote(poll.id);
+      const newVoters: Record<string, string[]> = {};
+      
       for (const card of cards) {
-        newCounts[card.id] = { count: results[card.id] || 0, total: totalVotes };
-        newVotes[card.id] = card.id === userVoteId;
+        newVoters[card.id] = [];
       }
+      
+      if (votesWithVoters.data) {
+        for (const v of votesWithVoters.data) {
+          if (!newVoters[v.idea_card_id]) newVoters[v.idea_card_id] = [];
+          newVoters[v.idea_card_id].push(v.voter_name);
+        }
+      }
+      
+      for (const card of cards) {
+        newCounts[card.id] = { count: results[card.id] || 0, total: eligibleCount };
+        if (!skipUserVoteRefresh) {
+          newVotes[card.id] = card.id === userVoteId;
+        }
+      }
+      
       setVoteCountsByCard(prev => ({ ...prev, ...newCounts }));
-      setUserVotesByCard(prev => ({ ...prev, ...newVotes }));
+      if (!skipUserVoteRefresh) {
+        setUserVotesByCard(prev => ({ ...prev, ...newVotes }));
+      }
+      setVotersByCard(prev => ({ ...prev, ...newVoters }));
     }
-  }, [cardsBySlot]);
+  }, [cardsBySlot, ideaBank]);
+
+  const refreshAllVoteData = useCallback(async (skipUserVoteRefresh = false) => {
+    if (!ideaBank) return;
+    try {
+      const data = await loadIdeaBankBulk(ideaBank.id);
+      setVoteCountsByCard(data.voteCountsByCard);
+      if (!skipUserVoteRefresh) {
+        setUserVotesByCard(data.userVotesByCard);
+      }
+      setVotersByCard(data.votersByCard);
+    } catch (err) {
+      console.error('Failed to refresh all vote data:', err);
+    }
+  }, [ideaBank]);
 
   // Realtime: subscribe to changes after initial load
   const slotsLoadedRef = useRef(false);
@@ -128,11 +193,17 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
         return prev;
       });
     },
-    onVoteChange: (pollId: string) => {
-      const slotEntry = Object.entries(pollsBySlot).find(([, p]) => p.id === pollId);
-      if (slotEntry) {
-        refreshVoteData(slotEntry[0]);
+    onVoteChange: (pollId: string | undefined, userId?: string) => {
+      const recentMyVote = pollId && lastMyVoteTimeRef.current[pollId] && (Date.now() - lastMyVoteTimeRef.current[pollId] < 3000);
+      const isMyVote = recentMyVote || (userId && currentUserIdRef.current && userId === currentUserIdRef.current);
+      if (pollId) {
+        const slotEntry = Object.entries(pollsBySlot).find(([, p]) => p.id === pollId);
+        if (slotEntry) {
+          refreshVoteData(slotEntry[0], !!isMyVote);
+          return;
+        }
       }
+      refreshAllVoteData(!!isMyVote);
     },
     onPollChange: (poll: IdeaPoll) => {
       setPollsBySlot(prev => ({ ...prev, [poll.slotId]: poll }));
@@ -163,7 +234,10 @@ export default function IdeaBankTab({ projectId, projectType }: IdeaBankTabProps
   }, [ideaBank?.id]);
 
 const handleAddSlot = async (parentSlotId?: string, level?: number) => {
-    if (!ideaBank) return;
+    if (!ideaBank) {
+      alert(isRTL ? 'بنك الأفكار غير محمل بعد، جدد الصفحة' : 'Idea Bank not loaded yet, please refresh');
+      return;
+    }
     const slotLevel = level ?? 1;
     const siblingSlots = slots.filter(s =>
       slotLevel === 1 ? !s.parentSlotId : s.parentSlotId === parentSlotId
@@ -180,6 +254,7 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
       setCardsBySlot(prev => ({ ...prev, [newSlot.id]: [] }));
     } catch (err) {
       console.error('[IdeaBank] Failed to add slot:', err);
+      alert(isRTL ? 'فشل في إضافة الفكرة. يرجى المحاولة مرة أخرى.' : 'Failed to add idea. Please try again.');
     }
   };
 
@@ -244,32 +319,66 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
   };
 
   const handleFinalizeCard = async (cardId: string, slotId: string) => {
-    const prev = cardsBySlot;
+    const prevCards = cardsBySlot;
+    const prevPolls = pollsBySlot;
+    
+    // Optimistically finalize card
     setCardsBySlot(p => ({
       ...p,
       [slotId]: (p[slotId] || []).map(c =>
         c.id === cardId ? { ...c, status: 'finalized' as const } : { ...c, status: 'dimmed' as const }
       ),
     }));
+
+    // Optimistically close the poll if open
+    const poll = pollsBySlot[slotId];
+    if (poll && poll.isOpen) {
+      setPollsBySlot(p => ({
+        ...p,
+        [slotId]: { ...poll, isOpen: false, closedAt: new Date().toISOString() }
+      }));
+    }
+
     try {
       await finalizeIdeaCard(cardId);
+      if (poll && poll.isOpen) {
+        await closePoll(poll.id);
+      }
     } catch {
-      setCardsBySlot(prev);
+      setCardsBySlot(prevCards);
+      setPollsBySlot(prevPolls);
     }
   };
 
   const handleUnfinalizeCard = async (cardId: string, slotId: string) => {
-    const prev = cardsBySlot;
+    const prevCards = cardsBySlot;
+    const prevPolls = pollsBySlot;
+
+    // Optimistically unfinalize card
     setCardsBySlot(p => ({
       ...p,
       [slotId]: (p[slotId] || []).map(c =>
         c.id === cardId ? { ...c, status: 'active' as const } : c.status === 'dimmed' ? { ...c, status: 'active' as const } : c
       ),
     }));
+
+    // Optimistically reopen the poll if closed
+    const poll = pollsBySlot[slotId];
+    if (poll && !poll.isOpen) {
+      setPollsBySlot(p => ({
+        ...p,
+        [slotId]: { ...poll, isOpen: true, closedAt: null }
+      }));
+    }
+
     try {
       await unfinalizeIdeaCard(cardId);
+      if (poll && !poll.isOpen) {
+        await reopenPoll(poll.id);
+      }
     } catch {
-      setCardsBySlot(prev);
+      setCardsBySlot(prevCards);
+      setPollsBySlot(prevPolls);
     }
   };
 
@@ -331,32 +440,68 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
   const handleVote = async (pollId: string, ideaCardId: string) => {
     const prevCounts = voteCountsByCard;
     const prevVotes = userVotesByCard;
+    const prevVoters = votersByCard;
+    
+    // Track our vote time to prevent race conditions in realtime events
+    lastMyVoteTimeRef.current[pollId] = Date.now();
+    
+    // Find slot and old voted card
     const slotId = Object.entries(pollsBySlot).find(([, p]) => p.id === pollId)?.[0];
     if (slotId) {
       const cards = cardsBySlot[slotId] || [];
-      const oldVoteId = cards.find(c => userVotesByCard[c.id])?.id;
+      const oldVoteCard = cards.find(c => userVotesByCard[c.id]);
+      const oldVoteId = oldVoteCard?.id;
+      
+      const isRemoving = oldVoteId === ideaCardId;
+      
+      // Optimistic update
       setVoteCountsByCard(p => {
         const next = { ...p };
         if (oldVoteId && next[oldVoteId]) {
-          next[oldVoteId] = { ...next[oldVoteId], count: next[oldVoteId].count - 1 };
+          next[oldVoteId] = { ...next[oldVoteId], count: Math.max(0, next[oldVoteId].count - 1) };
         }
-        if (next[ideaCardId]) {
+        if (!isRemoving && next[ideaCardId]) {
           next[ideaCardId] = { ...next[ideaCardId], count: next[ideaCardId].count + 1 };
         }
         return next;
       });
+      
       setUserVotesByCard(p => {
         const next = { ...p };
         if (oldVoteId) next[oldVoteId] = false;
-        next[ideaCardId] = true;
+        if (!isRemoving) next[ideaCardId] = true;
         return next;
       });
-    }
-    try {
-      await voteOnIdea(pollId, ideaCardId);
-    } catch {
-      setVoteCountsByCard(prevCounts);
-      setUserVotesByCard(prevVotes);
+
+      setVotersByCard(p => {
+        const next = { ...p };
+        if (myDisplayName) {
+          // Remove from old card
+          if (oldVoteId && next[oldVoteId]) {
+            next[oldVoteId] = next[oldVoteId].filter(name => name !== myDisplayName);
+          }
+          // Add to new card
+          if (!isRemoving && next[ideaCardId]) {
+            if (!next[ideaCardId].includes(myDisplayName)) {
+              next[ideaCardId] = [...next[ideaCardId], myDisplayName];
+            }
+          }
+        }
+        return next;
+      });
+      
+      try {
+        if (isRemoving) {
+          await removeVote(pollId);
+        } else {
+          await voteOnIdea(pollId, ideaCardId);
+        }
+      } catch (err) {
+        console.error('Failed to vote:', err);
+        setVoteCountsByCard(prevCounts);
+        setUserVotesByCard(prevVotes);
+        setVotersByCard(prevVoters);
+      }
     }
   };
 
@@ -478,16 +623,16 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
             style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
           >
             <Download className="w-4 h-4" />
-            {isRTL ? 'استيراد إلى المخطط' : 'Import to Plot'}
+            {isRTL ? 'تصدير إلى الحبكة' : 'Export to Plot'}
           </button>
-          {canCreateIdeas && (
+          {canCreateIdeas !== false && (
             <button
               onClick={() => handleAddSlot(undefined, 1)}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90"
               style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
             >
               <Plus className="w-4 h-4" />
-              {isRTL ? `إضافة ${level1?.singularAr || ''}` : `Add ${level1?.singular || 'Section'}`}
+              {isRTL ? `فكرة ${level1?.singularAr || ''} جديدة` : `New ${level1?.singular || 'Section'} Idea`}
             </button>
           )}
         </div>
@@ -504,7 +649,7 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
               style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
             >
               <Plus className="w-4 h-4" />
-              {isRTL ? `إضافة ${level1?.singularAr || ''} أول` : `Add First ${level1?.singular || 'Section'}`}
+              {isRTL ? `فكرة ${level1?.singularAr || ''} جديدة` : `New ${level1?.singular || 'Section'} Idea`}
             </button>
           </div>
         ) : (
@@ -529,11 +674,12 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
                     cards={slotCards}
                     childSlots={childSlots}
                     childCardsBySlot={cardsBySlot}
-                    pollsBySlot={pollsBySlot}
-                    voteCountsByCard={voteCountsByCard}
-                    commentCountsByCard={commentCountsByCard}
-                    userVotesByCard={userVotesByCard}
-                    levels={levels}
+                     pollsBySlot={pollsBySlot}
+                     voteCountsByCard={voteCountsByCard}
+                     commentCountsByCard={commentCountsByCard}
+                     userVotesByCard={userVotesByCard}
+                     votersByCard={votersByCard}
+                     levels={levels}
                     maxLevel={maxLevel}
                     isRTL={isRTL}
                     isOwner={canManageCollaborators}
@@ -573,7 +719,7 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
           bankId={ideaBank.id}
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
-          onRefresh={() => {}}
+          onRefresh={loadIdeaBank}
         />
       )}
 
@@ -581,6 +727,7 @@ const handleAddSlot = async (parentSlotId?: string, level?: number) => {
         <IdeaBankImportModal
           bankId={ideaBank.id}
           projectId={projectId}
+          mode="export"
           onClose={() => setShowImportModal(false)}
           onImported={() => { setShowImportModal(false); }}
         />

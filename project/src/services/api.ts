@@ -2568,18 +2568,33 @@ export async function getIdeaBank(projectId: string): Promise<IdeaBank | null> {
     .select('*')
     .eq('project_id', projectId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    console.error('[getIdeaBank] Supabase error:', JSON.stringify(error, null, 2));
+    throw new Error(`getIdeaBank failed: code=${error.code} message=${error.message} details=${error.details}`);
+  }
   return data ? { id: data.id, projectId: data.project_id, createdAt: data.created_at, updatedAt: data.updated_at } : null;
 }
 
 export async function createIdeaBank(projectId: string): Promise<IdeaBank> {
-  const { data, error } = await supabase
+  // INSERT without .select() to avoid RETURNING * being evaluated by SELECT policy.
+  // PostgREST reports RETURNING filtered by SELECT policy as 42501,
+  // even when INSERT WITH CHECK passes. Splitting into two calls fixes this.
+  const { error } = await supabase
     .from('idea_banks')
-    .insert({ project_id: projectId })
-    .select()
-    .single();
-  if (error) throw error;
-  return { id: data.id, projectId: data.project_id, createdAt: data.created_at, updatedAt: data.updated_at };
+    .insert({ project_id: projectId });
+  if (error) {
+    // Unique constraint: bank already exists (race condition) — just fetch it
+    if (error.code === '23505') {
+      const existing = await getIdeaBank(projectId);
+      if (existing) return existing;
+    }
+    console.error('[createIdeaBank] Supabase error:', JSON.stringify(error, null, 2));
+    throw new Error(`createIdeaBank failed: code=${error.code} message=${error.message} details=${error.details}`);
+  }
+  // Fetch the newly created bank with a separate SELECT
+  const bank = await getIdeaBank(projectId);
+  if (!bank) throw new Error('createIdeaBank: bank not found after insert');
+  return bank;
 }
 
 export async function getOrCreateIdeaBank(projectId: string): Promise<IdeaBank> {
@@ -2960,30 +2975,14 @@ export async function voteOnIdea(pollId: string, ideaCardId: string): Promise<Id
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { data: existingVote } = await supabase
+  // Delete any existing vote for this poll by this user to bypass missing UPDATE policy
+  await supabase
     .from('idea_votes')
-    .select('id')
+    .delete()
     .eq('poll_id', pollId)
-    .eq('user_id', user.id)
-    .maybeSingle();
+    .eq('user_id', user.id);
 
-  if (existingVote) {
-    const { data, error } = await supabase
-      .from('idea_votes')
-      .update({ idea_card_id: ideaCardId })
-      .eq('id', existingVote.id)
-      .select()
-      .single();
-    if (error) throw error;
-    return {
-      id: data.id,
-      pollId: data.poll_id,
-      ideaCardId: data.idea_card_id,
-      userId: data.user_id,
-      createdAt: data.created_at,
-    };
-  }
-
+  // Insert the new vote
   const { data, error } = await supabase
     .from('idea_votes')
     .insert({ poll_id: pollId, idea_card_id: ideaCardId, user_id: user.id })
@@ -3048,15 +3047,37 @@ export async function getIdeaBankCollaborators(bankId: string): Promise<IdeaBank
     .select('id, idea_bank_id, user_id, role, status, invited_by, created_at')
     .eq('idea_bank_id', bankId);
   if (error) throw error;
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    ideaBankId: row.idea_bank_id,
-    userId: row.user_id,
-    role: row.role,
-    status: row.status,
-    invitedBy: row.invited_by,
-    createdAt: row.created_at,
-  }));
+  
+  const all = data || [];
+  if (all.length === 0) return [];
+  
+  const userIds = [...new Set(all.map((c: any) => c.user_id))];
+  const { data: usersData } = await supabase.rpc('get_collaborator_display_names', { user_ids: userIds });
+  
+  const userMap: Record<string, any> = {};
+  (usersData || []).forEach((u: any) => { userMap[u.id] = u; });
+  
+  return all.map((row: any) => {
+    const u = userMap[row.user_id];
+    return {
+      id: row.id,
+      ideaBankId: row.idea_bank_id,
+      userId: row.user_id,
+      role: row.role,
+      status: row.status,
+      invitedBy: row.invited_by,
+      createdAt: row.created_at,
+      displayName: u?.display_name || 'User',
+      penName: u?.display_name || undefined,
+      email: u?.email || undefined,
+    };
+  });
+}
+
+export async function getIdeaBankEligibleVotersCount(bankId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('get_idea_bank_eligible_voters_count', { p_idea_bank_id: bankId });
+  if (error) throw error;
+  return data ?? 1;
 }
 
 export async function addIdeaBankCollaborator(bankId: string, userId: string, role: IdeaBankRole): Promise<IdeaBankCollaborator> {
@@ -3338,16 +3359,19 @@ export interface IdeaBankBulkData {
   voteCountsByCard: Record<string, { count: number; total: number }>;
   userVotesByCard: Record<string, boolean>;
   commentCountsByCard: Record<string, number>;
+  eligibleVotersCount: number;
+  votersByCard: Record<string, string[]>;
 }
 
 export async function loadIdeaBankBulk(bankId: string): Promise<IdeaBankBulkData> {
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [slotsRes, cardsRes, pollsRes, commentsRes] = await Promise.all([
+  const [slotsRes, cardsRes, pollsRes, commentsRes, eligibleVotersCount] = await Promise.all([
     supabase.from('idea_slots').select('*').eq('idea_bank_id', bankId).order('position', { ascending: true }),
     supabase.from('idea_cards').select('*, idea_slots!inner(idea_bank_id)').eq('idea_slots.idea_bank_id', bankId).is('deleted_at', null).order('position', { ascending: true }),
     supabase.from('idea_polls').select('*, idea_slots!inner(idea_bank_id)').eq('idea_slots.idea_bank_id', bankId),
     supabase.from('idea_comments').select('idea_card_id').eq('idea_bank_id', bankId).is('deleted_at', null),
+    getIdeaBankEligibleVotersCount(bankId).catch(() => 1),
   ]);
 
   if (slotsRes.error) throw slotsRes.error;
@@ -3404,32 +3428,41 @@ export async function loadIdeaBankBulk(bankId: string): Promise<IdeaBankBulkData
   const pollIds = Object.values(pollsBySlot).map(p => p.id);
   const voteCountsByCard: Record<string, { count: number; total: number }> = {};
   const userVotesByCard: Record<string, boolean> = {};
+  const votersByCard: Record<string, string[]> = {};
+
+  // Pre-initialize empty arrays for voter names
+  for (const slotCards of Object.values(cardsBySlot)) {
+    for (const card of slotCards) {
+      votersByCard[card.id] = [];
+      voteCountsByCard[card.id] = { count: 0, total: eligibleVotersCount };
+    }
+  }
 
   if (pollIds.length > 0) {
     const [votesRes, userVoteRes] = await Promise.all([
-      supabase.from('idea_votes').select('poll_id, idea_card_id').in('poll_id', pollIds),
+      supabase.rpc('get_idea_bank_votes_with_voters', { p_poll_ids: pollIds }),
       user ? supabase.from('idea_votes').select('poll_id, idea_card_id').in('poll_id', pollIds).eq('user_id', user.id) : { data: [], error: null },
     ]);
 
     if (votesRes.error) throw votesRes.error;
 
     const voteCounts: Record<string, Record<string, number>> = {};
-    const pollTotals: Record<string, number> = {};
 
     for (const v of (votesRes.data || [])) {
       if (!voteCounts[(v as any).poll_id]) voteCounts[(v as any).poll_id] = {};
       const pid = (v as any).poll_id;
       const cid = (v as any).idea_card_id;
       voteCounts[pid][cid] = (voteCounts[pid][cid] || 0) + 1;
-      pollTotals[pid] = (pollTotals[pid] || 0) + 1;
+
+      if (!votersByCard[cid]) votersByCard[cid] = [];
+      votersByCard[cid].push((v as any).voter_name);
     }
 
     for (const [slotId, poll] of Object.entries(pollsBySlot)) {
       const slotCards = cardsBySlot[slotId] || [];
       const counts = voteCounts[poll.id] || {};
-      const total = pollTotals[poll.id] || 0;
       for (const card of slotCards) {
-        voteCountsByCard[card.id] = { count: counts[card.id] || 0, total };
+        voteCountsByCard[card.id] = { count: counts[card.id] || 0, total: eligibleVotersCount };
       }
     }
 
@@ -3454,5 +3487,5 @@ export async function loadIdeaBankBulk(bankId: string): Promise<IdeaBankBulkData
     commentCountsByCard[cardId] = (commentCountsByCard[cardId] || 0) + 1;
   }
 
-  return { slots, cardsBySlot, pollsBySlot, voteCountsByCard, userVotesByCard, commentCountsByCard };
+  return { slots, cardsBySlot, pollsBySlot, voteCountsByCard, userVotesByCard, commentCountsByCard, eligibleVotersCount, votersByCard };
 }

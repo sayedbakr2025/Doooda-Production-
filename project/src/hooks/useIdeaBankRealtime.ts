@@ -5,7 +5,7 @@ import type { IdeaCard, IdeaPoll } from '../types';
 interface RealtimeCallbacks {
   onCardChange: (card: IdeaCard) => void;
   onCardDelete: (cardId: string) => void;
-  onVoteChange: (pollId: string) => void;
+  onVoteChange: (pollId: string | undefined, userId?: string) => void;
   onPollChange: (poll: IdeaPoll) => void;
   onPollDelete: (slotId: string) => void;
   onCommentChange: (cardId: string) => void;
@@ -58,11 +58,9 @@ export function useIdeaBankRealtime(bankId: string | undefined, callbacks: Realt
             table: 'idea_votes',
           },
           (payload: any) => {
-            if (payload.new?.poll_id) {
-              callbacksRef.current.onVoteChange(payload.new.poll_id);
-            } else if (payload.old?.poll_id) {
-              callbacksRef.current.onVoteChange(payload.old.poll_id);
-            }
+            const pollId = payload.new?.poll_id || payload.old?.poll_id;
+            const userId = payload.new?.user_id || payload.old?.user_id;
+            callbacksRef.current.onVoteChange(pollId, userId);
           }
         )
         .on(

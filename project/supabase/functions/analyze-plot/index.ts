@@ -165,7 +165,7 @@ function buildSystemPrompt(type: ProjectType, lang: 'ar' | 'en', genres?: string
 2. كل مشهد يجب أن يحصل على توصية نقدية محددة وقابلة للتنفيذ - ليس مدحاً
 3. cm يجب أن يكون نقداً بناءً أو تحليلاً محدداً - ليس ثناءً عاماً
 4. wt و wp: أعد القيم الأصلية للكاتب كما وردت في المدخلات
-5. التقرير الأكاديمي يجب أن يكون شاملاً ومفصلاً لكل قسم
+5. التقرير الأكاديمي يجب أن يكون شاملاً ومفصلاً لكل قسم. تأكد من أن يكون المخرج عبارة عن JSON صالح تماماً. لا تضع أسطر جديدة حقيقية (literal newlines) داخل قيم النصوص في الـ JSON، بل استخدم الرمز المهروب (\\n) بدلاً منها للسطور الجديدة.
 أخرج JSON فقط. مفاتيح مختصرة:\n${SCENE_SCORES_SCHEMA}`;
   }
   return `doooda critic: specialized dramatic structure analyst. Academic formal tone. No models/providers.
@@ -174,6 +174,7 @@ Strict rules:
 1. Every scene must get a specific actionable critique - NOT praise
 2. cm must be constructive critique or specific analysis - NOT generic compliments
 3. wt and wp: return original writer values as provided in input
+4. Ensure the output is strictly valid JSON. Do not use literal newlines inside JSON string values; escape them as \\n.
 JSON only. Short keys:\n${SCENE_SCORES_SCHEMA}`;
 }
 
@@ -201,7 +202,7 @@ function buildGlobalSystemPrompt(type: ProjectType, lang: 'ar' | 'en', genres?: 
 قواعد صارمة:
 1. OQ يعكس جودة حقيقية بناء على الأوزان - لا تعطِ 65% لكل شيء
 2. التقرير الأكاديمي يجب أن يكون شاملاً ومفصلاً
-3. ارصد نقاط التحول العالمية والبنية الثلاثية والذروة من العناوين والبيانات المقدمة
+3. ارصد نقاط التحول العالمية والبنية الثلاثية والذروة من العناوين والبيانات المقدمة. تأكد من أن يكون المخرج عبارة عن JSON صالح تماماً. لا تضع أسطر جديدة حقيقية (literal newlines) داخل قيم النصوص في الـ JSON، بل استخدم الرمز المهروب (\\n) بدلاً منها للسطور الجديدة.
 أخرج JSON فقط. مفاتيح مختصرة:\n${GLOBAL_SCHEMA}`;
   }
   return `doooda critic: specialized dramatic structure analyst. Academic formal tone. No models/providers.
@@ -210,6 +211,7 @@ Strict rules:
 1. OQ must reflect genuine quality per weights
 2. Academic report must be comprehensive and detailed
 3. Detect global turning points, 3-act structure, and climax from titles and data provided
+4. Ensure the output is strictly valid JSON. Do not use literal newlines inside JSON string values; escape them as \\n.
 JSON only. Short keys:\n${GLOBAL_SCHEMA}`;
 }
 
@@ -374,18 +376,11 @@ tn/p are writer expectations (1-10). Provide ai_tension and ai_pace (0-1). accur
 }
 
 function getMaxOutputTokens(sceneCount: number): number {
-  if (sceneCount <= 5) return 2500;
-  if (sceneCount <= 10) return 3500;
-  if (sceneCount <= 20) return 4500;
-  if (sceneCount <= 35) return 6000;
-  if (sceneCount <= 50) return 7000;
   return 8192;
 }
 
 function getChunkOutputTokens(chunkSize: number): number {
-  if (chunkSize <= 20) return 4000;
-  if (chunkSize <= 35) return 5500;
-  return 7000;
+  return 8192;
 }
 
 async function callDeepSeek(apiKey: string, systemPrompt: string, userPrompt: string, maxTokens: number): Promise<{ content: string; usage: { prompt_tokens: number; completion_tokens: number }; modelUsed: string }> {
@@ -403,32 +398,97 @@ async function callDeepSeek(apiKey: string, systemPrompt: string, userPrompt: st
   });
 
   const data = await response.json();
+  if (!data.choices || data.choices.length === 0 || !data.choices[0].message || !data.choices[0].message.content) {
+    throw new Error("DeepSeek API returned empty content. Full response: " + JSON.stringify(data));
+  }
+
   return {
     content: data.choices[0].message.content,
-    usage: data.usage,
+    usage: data.usage || { prompt_tokens: 0, completion_tokens: 0 },
     modelUsed,
   };
 }
 
-function parseJSON(text: string): Record<string, unknown> {
-  try {
-    return JSON.parse(text);
-  } catch (_) {
-    const stripped = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
-    try {
-      return JSON.parse(stripped);
-    } catch (_2) {
-      const m = stripped.match(/\{[\s\S]*/);
-      if (m) {
-        let depth = 0; let end = 0;
-        for (let i = 0; i < m[0].length; i++) {
-          if (m[0][i] === '{') depth++;
-          else if (m[0][i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
-        }
-        if (end > 0) return JSON.parse(m[0].substring(0, end));
-      }
-      throw new Error("Invalid analysis format");
+function sanitizeJSONString(text: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '"' && !escaped) {
+      inString = !inString;
     }
+    
+    if (inString) {
+      if (char === '\n') {
+        result += "\\n";
+      } else if (char === '\r') {
+        if (text[i + 1] === '\n') {
+          result += "\\n";
+          i++;
+        } else {
+          result += "\\n";
+        }
+      } else if (char === '\t') {
+        result += "\\t";
+      } else {
+        result += char;
+      }
+    } else {
+      result += char;
+    }
+    
+    if (char === '\\') {
+      escaped = !escaped;
+    } else {
+      escaped = false;
+    }
+  }
+  return result;
+}
+
+function parseJSON(text: string): Record<string, unknown> {
+  // 1. Extract content from code block if present
+  let cleanText = text.trim();
+  const codeBlockMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    cleanText = codeBlockMatch[1].trim();
+  }
+  
+  // 2. Sanitize control characters inside JSON strings (literal newlines, carriage returns, tabs)
+  cleanText = sanitizeJSONString(cleanText);
+
+  try {
+    return JSON.parse(cleanText);
+  } catch (err) {
+    // 3. Fallback: Try to find the first '{' and matching '}'
+    const firstBraceIndex = cleanText.indexOf('{');
+    if (firstBraceIndex !== -1) {
+      let depth = 0;
+      let lastBraceIndex = -1;
+      for (let i = firstBraceIndex; i < cleanText.length; i++) {
+        if (cleanText[i] === '{') {
+          depth++;
+        } else if (cleanText[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            lastBraceIndex = i;
+            break;
+          }
+        }
+      }
+      if (lastBraceIndex !== -1) {
+        const jsonSubstring = cleanText.substring(firstBraceIndex, lastBraceIndex + 1);
+        try {
+          return JSON.parse(jsonSubstring);
+        } catch (subErr) {
+          console.error("[parseJSON] Failed to parse extracted substring:", subErr);
+        }
+      }
+    }
+    
+    console.error("[parseJSON] Failed to parse JSON. Error:", err, "| Content:", text);
+    throw new Error(`Invalid analysis format: ${err instanceof Error ? err.message : String(err)} | Content was: ${text}`);
   }
 }
 
