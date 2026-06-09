@@ -2,20 +2,17 @@
  * useInboxSound
  *
  * Plays a soft notification chime when new unread inbox messages arrive.
- *
- * Autoplay strategy (two-phase):
- *   Phase 1 — Immediate attempt:
- *     Create AudioContext + call resume(). If the user already made a gesture
- *     (e.g. clicked Login), ctx.state becomes 'running' and we play right away.
- *   Phase 2 — Gesture fallback:
- *     If ctx stays 'suspended' (fresh page load, no prior gesture), arm
- *     capture-phase listeners (click / keydown / touchstart). First gesture
- *     triggers playback.
+ * Plays ONCE per new-message batch. If AudioContext is already unlocked
+ * (user made a prior gesture) it plays immediately. Otherwise it waits for
+ * the next user gesture and plays exactly once.
  *
  * Deduplication:
- *   All state is in-memory (useRef). Resets on every page load — correct
- *   behavior. Between rerenders/polls within the same load, a Set prevents
- *   duplicate scheduling.
+ *   - notifiedIdsRef: tracks IDs already chimed so re-renders/polls don't
+ *     re-trigger the sound.
+ *   - cooldownRef: enforces a 3-second gap between consecutive plays so rapid
+ *     Supabase events can't cause a burst.
+ *   - Phase1 returns a resolved promise; Phase2 is armed ONLY when Phase1
+ *     cannot confirm playback, preventing the double-play bug.
  */
 
 import { useRef, useCallback, useEffect } from 'react';
@@ -50,22 +47,23 @@ function buildAndPlay(ctx: AudioContext, volume: number): void {
   setTimeout(() => { ctx.close().catch(() => {}); }, 500);
 }
 
-function tryPlayNow(volume: number): boolean {
+/** Returns a promise that resolves to true if sound was actually played. */
+async function tryPlayNow(volume: number): Promise<boolean> {
   try {
     const ctx = new AudioContext();
     if (ctx.state === 'running') {
       buildAndPlay(ctx, volume);
-      return true; // played immediately
+      return true;
     }
-    // Try resume — succeeds if a gesture already happened this page session
-    ctx.resume().then(() => {
-      if (ctx.state === 'running') {
-        buildAndPlay(ctx, volume);
-      } else {
-        ctx.close().catch(() => {});
-      }
-    }).catch(() => { ctx.close().catch(() => {}); });
-    // Return false: we don't know yet if resume will succeed
+    // Try resume — may succeed if a user gesture already happened this session
+    await ctx.resume();
+    // After resume, check state via casting to handle TS strict types
+    const state = (ctx as any).state as string;
+    if (state === 'running') {
+      buildAndPlay(ctx, volume);
+      return true;
+    }
+    ctx.close().catch(() => {});
     return false;
   } catch {
     return false;
@@ -75,11 +73,12 @@ function tryPlayNow(volume: number): boolean {
 // ─── Hook ──────────────────────────────────────────────────────────────────
 
 export function useInboxSound() {
-  const notifiedIdsRef   = useRef<Set<string>>(new Set());
-  const pendingPlayRef   = useRef(false);
-  const armedRef         = useRef(false);
-  const volumeRef        = useRef(0.07);
-  const handlerRef       = useRef<(() => void) | null>(null);
+  const notifiedIdsRef = useRef<Set<string>>(new Set());
+  const pendingPlayRef = useRef(false);
+  const armedRef       = useRef(false);
+  const volumeRef      = useRef(0.07);
+  const handlerRef     = useRef<(() => void) | null>(null);
+  const cooldownRef    = useRef(false); // prevents burst plays within 3 s
 
   const disarm = useCallback(() => {
     if (!handlerRef.current) return;
@@ -96,9 +95,12 @@ export function useInboxSound() {
 
     const handler = () => {
       disarm();
-      if (pendingPlayRef.current) {
+      if (pendingPlayRef.current && !cooldownRef.current) {
         pendingPlayRef.current = false;
-        tryPlayNow(volumeRef.current);
+        cooldownRef.current = true;
+        tryPlayNow(volumeRef.current).finally(() => {
+          setTimeout(() => { cooldownRef.current = false; }, 3000);
+        });
       }
     };
 
@@ -114,14 +116,18 @@ export function useInboxSound() {
    * Call every time the notifications array updates.
    * Safe to call on every rerender / poll / WS event.
    */
-  const checkAndPlay = useCallback((notifications: Notification[]) => {
+  const checkAndPlay = useCallback(async (notifications: Notification[]) => {
     const unread = notifications.filter(n => !n.read);
     if (unread.length === 0) return;
 
     const newUnread = unread.filter(n => !notifiedIdsRef.current.has(n.id));
     if (newUnread.length === 0) return;
 
+    // Mark all new IDs immediately to prevent re-entry from rapid events
     newUnread.forEach(n => notifiedIdsRef.current.add(n.id));
+
+    // Cooldown guard – skip if a chime played in the last 3 s
+    if (cooldownRef.current) return;
 
     // Slightly quieter on first call (initial page hydration)
     const isFirst = notifiedIdsRef.current.size === newUnread.length;
@@ -129,18 +135,23 @@ export function useInboxSound() {
 
     pendingPlayRef.current = true;
 
-    // Phase 1: try to play immediately (works after login click or any prior gesture)
-    tryPlayNow(volumeRef.current);
+    // Phase 1: try to play immediately
+    const played = await tryPlayNow(volumeRef.current);
 
-    // Phase 2: arm gesture listener as fallback
-    // (catches the case where ctx.resume() above didn't unlock in time)
-    arm();
-
-    // Auto-disarm after 30 s if no gesture happens (avoid stale listeners)
-    setTimeout(() => {
+    if (played) {
+      // Successfully played — start cooldown, do NOT arm gesture listener
       pendingPlayRef.current = false;
-      disarm();
-    }, 30_000);
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
+    } else {
+      // Phase 2: arm gesture listener as fallback (only if Phase 1 failed)
+      arm();
+      // Auto-disarm after 30 s if no gesture happens
+      setTimeout(() => {
+        pendingPlayRef.current = false;
+        disarm();
+      }, 30_000);
+    }
   }, [arm, disarm]);
 
   return { checkAndPlay };

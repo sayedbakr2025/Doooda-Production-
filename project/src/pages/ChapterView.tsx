@@ -597,14 +597,14 @@ export default function ChapterView() {
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 group">
+                <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
                     {getContainerLabel()} {chapter.chapter_number}: {chapter.title}
                   </h1>
                   {scopeCheck.isOwner || (!scopeCheck.loading && scopeCheck.allowed) ? (
                     <button
                       onClick={startEditChapterTitle}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all"
+                      className="p-1.5 rounded-lg transition-all hover:bg-[var(--color-muted)]"
                       style={{ color: 'var(--color-text-tertiary)' }}
                       title={language === 'ar' ? `تعديل عنوان ${getContainerLabel()}` : `Edit ${getContainerLabel()} title`}
                     >
@@ -927,12 +927,12 @@ export default function ChapterView() {
                               </button>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 group/scene">
+                            <div className="flex items-center gap-1">
                               <h4 className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{scene.title}</h4>
                               {(scopeCheck.isOwner || (!scopeCheck.loading && scopeCheck.allowed)) && (
                                 <button
                                   onClick={(e) => startEditSceneTitle(e, scene)}
-                                  className="opacity-0 group-hover/scene:opacity-100 p-1 rounded-lg transition-all"
+                                  className="p-1 rounded-lg transition-all hover:bg-[var(--color-muted)]"
                                   style={{ color: 'var(--color-text-tertiary)' }}
                                   title={language === 'ar' ? `تعديل عنوان ${getSceneLabel()}` : `Edit ${getSceneLabel()} title`}
                                 >
