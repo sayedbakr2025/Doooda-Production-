@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import { api, getChapter, getScenes, createScene, createDoublePage, updateSceneOrder, createTask, deleteScene, toggleChapterActive, toggleSceneActive, toggleSceneCompleted, getMyCollaboratorRoleForProject, requestItemDeletion } from '../services/api';
+import { api, getChapter, getScenes, createScene, createDoublePage, updateSceneOrder, createTask, deleteScene, toggleChapterActive, toggleSceneActive, toggleSceneCompleted, getMyCollaboratorRoleForProject, requestItemDeletion, updateChapter, updateScene } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { Project, Chapter, Scene } from '../types';
 import { getProjectTypeConfig, formatSceneHeader } from '../utils/projectTypeConfig';
@@ -55,6 +55,14 @@ export default function ChapterView() {
   const [showShareModal, setShowShareModal] = useState(false);
   const chapterBrainRef = useRef<HTMLButtonElement>(null);
   const sceneBrainRefs = useRef<Record<number, HTMLButtonElement | null>>({});
+
+  // ── Inline title editing ──
+  const [editingChapterTitle, setEditingChapterTitle] = useState(false);
+  const [chapterTitleDraft, setChapterTitleDraft] = useState('');
+  const [savingChapterTitle, setSavingChapterTitle] = useState(false);
+  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const [sceneTitleDraft, setSceneTitleDraft] = useState('');
+  const [savingSceneTitle, setSavingSceneTitle] = useState(false);
 
   const isOwner = project ? project.user_id === user?.id : false;
   const isManager = collaboratorRole === 'manager';
@@ -391,6 +399,60 @@ export default function ChapterView() {
     }
   };
 
+  const startEditChapterTitle = () => {
+    if (!chapter) return;
+    setChapterTitleDraft(chapter.title);
+    setEditingChapterTitle(true);
+  };
+
+  const cancelEditChapterTitle = () => {
+    setEditingChapterTitle(false);
+    setChapterTitleDraft('');
+  };
+
+  const saveChapterTitle = async () => {
+    if (!chapterId || !chapterTitleDraft.trim()) return;
+    try {
+      setSavingChapterTitle(true);
+      await updateChapter(chapterId, { title: chapterTitleDraft.trim() });
+      await loadChapter();
+      setEditingChapterTitle(false);
+    } catch (err) {
+      console.error('Failed to update chapter title:', err);
+      alert(language === 'ar' ? 'فشل حفظ العنوان. حاول مرة أخرى.' : 'Failed to save title. Please try again.');
+    } finally {
+      setSavingChapterTitle(false);
+    }
+  };
+
+  const startEditSceneTitle = (e: React.MouseEvent, scene: Scene) => {
+    e.stopPropagation();
+    setSceneTitleDraft(scene.title);
+    setEditingSceneId(scene.id);
+  };
+
+  const cancelEditSceneTitle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingSceneId(null);
+    setSceneTitleDraft('');
+  };
+
+  const saveSceneTitle = async (e: React.MouseEvent, sceneId: string) => {
+    e.stopPropagation();
+    if (!sceneTitleDraft.trim()) return;
+    try {
+      setSavingSceneTitle(true);
+      await updateScene(sceneId, { title: sceneTitleDraft.trim() });
+      await loadScenes();
+      setEditingSceneId(null);
+    } catch (err) {
+      console.error('Failed to update scene title:', err);
+      alert(language === 'ar' ? 'فشل حفظ العنوان. حاول مرة أخرى.' : 'Failed to save title. Please try again.');
+    } finally {
+      setSavingSceneTitle(false);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -492,9 +554,67 @@ export default function ChapterView() {
                 </span>
               </button>
               <div className="h-6 w-px" style={{ backgroundColor: 'var(--color-border)' }}></div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                {getContainerLabel()} {chapter.chapter_number}: {chapter.title}
-              </h1>
+              {editingChapterTitle ? (
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={chapterTitleDraft}
+                    onChange={(e) => setChapterTitleDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveChapterTitle(); if (e.key === 'Escape') cancelEditChapterTitle(); }}
+                    className="text-xl font-bold px-3 py-1 rounded-lg border-2 focus:outline-none"
+                    style={{
+                      color: 'var(--color-text-primary)',
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-accent)',
+                      minWidth: '200px'
+                    }}
+                  />
+                  <button
+                    onClick={saveChapterTitle}
+                    disabled={savingChapterTitle || !chapterTitleDraft.trim()}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50"
+                    style={{ backgroundColor: 'var(--color-accent)' }}
+                  >
+                    {savingChapterTitle ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {language === 'ar' ? 'حفظ' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cancelEditChapterTitle}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                    style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    {getContainerLabel()} {chapter.chapter_number}: {chapter.title}
+                  </h1>
+                  {scopeCheck.isOwner || (!scopeCheck.loading && scopeCheck.allowed) ? (
+                    <button
+                      onClick={startEditChapterTitle}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all"
+                      style={{ color: 'var(--color-text-tertiary)' }}
+                      title={language === 'ar' ? `تعديل عنوان ${getContainerLabel()}` : `Edit ${getContainerLabel()} title`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </div>
+              )}
               {!chapter.is_active && (
                 <span
                   className="px-3 py-1 text-sm font-medium rounded-full"
@@ -761,7 +881,68 @@ export default function ChapterView() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{scene.title}</h4>
+                          {editingSceneId === scene.id ? (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                autoFocus
+                                type="text"
+                                value={sceneTitleDraft}
+                                onChange={(e) => setSceneTitleDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveSceneTitle(e as any, scene.id);
+                                  if (e.key === 'Escape') cancelEditSceneTitle(e as any);
+                                }}
+                                className="font-semibold px-2 py-1 rounded-lg border-2 focus:outline-none text-sm"
+                                style={{
+                                  color: 'var(--color-text-primary)',
+                                  backgroundColor: 'var(--color-bg-secondary)',
+                                  borderColor: 'var(--color-accent)',
+                                  minWidth: '160px'
+                                }}
+                              />
+                              <button
+                                onClick={(e) => saveSceneTitle(e, scene.id)}
+                                disabled={savingSceneTitle || !sceneTitleDraft.trim()}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-white transition-opacity disabled:opacity-50"
+                                style={{ backgroundColor: 'var(--color-accent)' }}
+                              >
+                                {savingSceneTitle ? (
+                                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                                {language === 'ar' ? 'حفظ' : 'Save'}
+                              </button>
+                              <button
+                                onClick={cancelEditSceneTitle}
+                                className="px-2 py-1 rounded-lg text-xs font-medium transition-colors"
+                                style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                              >
+                                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/scene">
+                              <h4 className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{scene.title}</h4>
+                              {(scopeCheck.isOwner || (!scopeCheck.loading && scopeCheck.allowed)) && (
+                                <button
+                                  onClick={(e) => startEditSceneTitle(e, scene)}
+                                  className="opacity-0 group-hover/scene:opacity-100 p-1 rounded-lg transition-all"
+                                  style={{ color: 'var(--color-text-tertiary)' }}
+                                  title={language === 'ar' ? `تعديل عنوان ${getSceneLabel()}` : `Edit ${getSceneLabel()} title`}
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          )}
                           {scene.page_type === 'double' && (
                             <span className="px-2 py-0.5 text-xs font-medium rounded" style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
                               {language === 'ar' ? 'صفحة مزدوجة' : 'Double Page'}

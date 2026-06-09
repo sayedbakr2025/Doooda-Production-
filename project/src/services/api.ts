@@ -751,6 +751,14 @@ export async function getChapter(chapterId: string): Promise<Chapter> {
   return data;
 }
 
+export async function updateChapter(chapterId: string, updates: { title?: string; summary?: string }): Promise<void> {
+  const { error } = await supabase
+    .from('chapters')
+    .update(updates)
+    .eq('id', chapterId);
+  if (error) throw error;
+}
+
 export async function getScenes(chapterId: string): Promise<Scene[]> {
   const { data, error } = await supabase
     .from('scenes')

@@ -56,7 +56,7 @@ export default function SceneModal({
   projectType = 'novel',
 }: SceneModalProps) {
   const typeConfig = getProjectTypeConfig(projectType);
-  const showChildrenFields = true; // Force show for testing
+  const showChildrenFields = typeConfig.hasChildrenFields;
   
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
@@ -213,11 +213,6 @@ export default function SceneModal({
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* TEST: Force show children fields section */}
-          <div style={{background: 'red', color: 'white', padding: '10px', textAlign: 'center'}}>
-            TEST: showChildrenFields = {String(showChildrenFields)}
-          </div>
-          
           {error && (
             <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-error) 10%, transparent)', border: '1px solid var(--color-error)', color: 'var(--color-error)' }}>
               {error}
