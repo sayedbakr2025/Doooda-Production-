@@ -1882,14 +1882,15 @@ export async function getProjectActivityLogs(
   const userIds = [...new Set(logs.map((l) => l.user_id))];
   const { data: users } = await supabase
     .from('users')
-    .select('id, email, raw_user_meta_data')
+    .select('id, email, pen_name, first_name, last_name')
     .in('id', userIds);
 
   const nameMap: Record<string, string> = {};
   (users || []).forEach((u: any) => {
     nameMap[u.id] =
-      u.raw_user_meta_data?.pen_name ||
-      u.raw_user_meta_data?.first_name ||
+      u.pen_name ||
+      (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}`.trim() : null) ||
+      u.first_name ||
       (u.email ? u.email.split('@')[0] : u.id);
   });
 
