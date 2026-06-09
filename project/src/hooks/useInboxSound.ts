@@ -73,12 +73,13 @@ async function tryPlayNow(volume: number): Promise<boolean> {
 // ─── Hook ──────────────────────────────────────────────────────────────────
 
 export function useInboxSound() {
-  const notifiedIdsRef = useRef<Set<string>>(new Set());
-  const pendingPlayRef = useRef(false);
-  const armedRef       = useRef(false);
-  const volumeRef      = useRef(0.07);
-  const handlerRef     = useRef<(() => void) | null>(null);
-  const cooldownRef    = useRef(false); // prevents burst plays within 3 s
+  const notifiedIdsRef  = useRef<Set<string>>(new Set());
+  const initializedRef  = useRef(false);  // true after first call — skips sound on page load
+  const pendingPlayRef  = useRef(false);
+  const armedRef        = useRef(false);
+  const volumeRef       = useRef(0.07);
+  const handlerRef      = useRef<(() => void) | null>(null);
+  const cooldownRef     = useRef(false); // prevents burst plays within 3 s
 
   const disarm = useCallback(() => {
     if (!handlerRef.current) return;
@@ -115,9 +116,23 @@ export function useInboxSound() {
   /**
    * Call every time the notifications array updates.
    * Safe to call on every rerender / poll / WS event.
+   *
+   * FIRST CALL (page load): silently marks all existing unread IDs as seen.
+   *   → No sound played. This prevents the refresh-triggers-sound bug.
+   *
+   * SUBSEQUENT CALLS: only new IDs (not seen before) trigger the chime.
    */
   const checkAndPlay = useCallback(async (notifications: Notification[]) => {
     const unread = notifications.filter(n => !n.read);
+
+    // ── First call: just populate the set silently, no sound ──
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      unread.forEach(n => notifiedIdsRef.current.add(n.id));
+      return;
+    }
+
+    // ── Subsequent calls: only react to genuinely new IDs ──
     if (unread.length === 0) return;
 
     const newUnread = unread.filter(n => !notifiedIdsRef.current.has(n.id));
@@ -129,10 +144,7 @@ export function useInboxSound() {
     // Cooldown guard – skip if a chime played in the last 3 s
     if (cooldownRef.current) return;
 
-    // Slightly quieter on first call (initial page hydration)
-    const isFirst = notifiedIdsRef.current.size === newUnread.length;
-    volumeRef.current = isFirst ? 0.05 : 0.07;
-
+    volumeRef.current = 0.07;
     pendingPlayRef.current = true;
 
     // Phase 1: try to play immediately
