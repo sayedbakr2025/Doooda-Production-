@@ -1235,75 +1235,96 @@ const handleContextMenu = (e: React.MouseEvent) => {
       if (!editor) return;
 
       const sel = window.getSelection();
-      if (!sel || !sel.rangeCount) {
-        document.execCommand('insertParagraph', false);
-        setContent(editor.innerHTML);
-        return;
-      }
+      if (!sel || !sel.rangeCount) { setContent(editor.innerHTML); return; }
 
       const range = sel.getRangeAt(0);
-
-      // Delete any selected text first
       if (!range.collapsed) range.deleteContents();
 
-      // Find the nearest block-level ancestor (div / p) inside the editor
+      // Helper: place cursor at the very start of an element
+      const placeCursor = (el: HTMLElement) => {
+        const nr = document.createRange();
+        const fc = el.firstChild;
+        if (fc && fc.nodeType === Node.TEXT_NODE) nr.setStart(fc, 0);
+        else nr.setStart(el, 0);
+        nr.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(nr);
+      };
+
+      // Helper: ensure an element is not visually empty
+      const ensureContent = (el: HTMLElement) => {
+        if (!el.textContent && !el.querySelector('br, img')) el.innerHTML = '<br>';
+      };
+
+      // Find the nearest block-level ancestor (div/p) inside the editor
       let block: HTMLElement | null = null;
       let cur: Node | null = range.startContainer;
       while (cur && cur !== editor) {
         if (cur.nodeType === Node.ELEMENT_NODE) {
           const tag = (cur as HTMLElement).tagName;
-          if (tag === 'DIV' || tag === 'P') {
-            block = cur as HTMLElement;
-            break;
-          }
+          if (tag === 'DIV' || tag === 'P') { block = cur as HTMLElement; break; }
         }
         cur = cur.parentNode;
       }
 
       if (block) {
-        // Build a range from cursor to the very end of the block
+        // ── Case 1: cursor is inside a block element — split it ──
         const tailRange = document.createRange();
         tailRange.setStart(range.startContainer, range.startOffset);
         tailRange.setEnd(block, block.childNodes.length);
-
-        // Extract everything after the cursor into a document fragment
         const tail = tailRange.extractContents();
 
-        // Create the new block that will hold the extracted tail
         const newBlock = document.createElement('div');
         newBlock.appendChild(tail);
+        ensureContent(newBlock);
+        ensureContent(block);
 
-        // If the new block is empty, add a BR so the line is interactive
-        if (!newBlock.textContent && !newBlock.querySelector('br, img')) {
-          newBlock.innerHTML = '<br>';
-        }
-
-        // If the original block is now empty, keep a BR placeholder
-        if (!block.textContent && !block.querySelector('br, img')) {
-          block.innerHTML = '<br>';
-        }
-
-        // Insert the new block immediately after the current one
         block.insertAdjacentElement('afterend', newBlock);
-
-        // Move cursor to the beginning of the new block
-        const newRange = document.createRange();
-        const firstNode = newBlock.firstChild;
-        if (firstNode) {
-          if (firstNode.nodeType === Node.TEXT_NODE) {
-            newRange.setStart(firstNode, 0);
-          } else {
-            newRange.setStart(newBlock, 0);
-          }
-        } else {
-          newRange.setStart(newBlock, 0);
-        }
-        newRange.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(newRange);
+        placeCursor(newBlock);
       } else {
-        // Cursor is directly in the editor root (no block wrapper)
-        document.execCommand('insertParagraph', false);
+        // ── Case 2: cursor is directly in the editor root (no block wrapper) ──
+        // Find the immediate child of editor that contains the cursor
+        let directChild: Node | null = range.startContainer;
+        while (directChild && directChild.parentNode !== editor) {
+          directChild = directChild.parentNode;
+        }
+
+        if (!directChild) { setContent(editor.innerHTML); return; }
+
+        // Extract content from cursor to end of directChild
+        const inlineTailRange = document.createRange();
+        inlineTailRange.setStart(range.startContainer, range.startOffset);
+        if (directChild.nodeType === Node.TEXT_NODE) {
+          inlineTailRange.setEnd(directChild, (directChild as Text).length);
+        } else {
+          inlineTailRange.setEnd(directChild, (directChild as Element).childNodes.length);
+        }
+        const inlineTail = inlineTailRange.extractContents();
+
+        // Collect any inline siblings after directChild (until a block element)
+        const inlineSiblings: Node[] = [];
+        let sib: Node | null = directChild.nextSibling;
+        while (
+          sib &&
+          !(sib.nodeType === Node.ELEMENT_NODE &&
+            ['DIV', 'P'].includes((sib as Element).tagName))
+        ) {
+          inlineSiblings.push(sib);
+          sib = sib.nextSibling;
+        }
+        // Remove them from the editor (they'll move to the new block)
+        inlineSiblings.forEach(n => editor.removeChild(n));
+
+        // Build the new block: tail + collected inline siblings
+        const newBlock = document.createElement('div');
+        newBlock.appendChild(inlineTail);
+        inlineSiblings.forEach(n => newBlock.appendChild(n));
+        ensureContent(newBlock);
+
+        // Insert before the first following block element (or at end)
+        editor.insertBefore(newBlock, sib);
+
+        placeCursor(newBlock);
       }
 
       setContent(editor.innerHTML);
