@@ -289,3 +289,11 @@
   100% { box-shadow: none; border-color: var(--color-border) !important; }
 }
 
+/* ── Highlighted text: always black in dark mode ── */
+/* execCommand('hiliteColor') wraps selected text in <span style="background-color:...">
+   In dark mode the inherited text colour is white which is unreadable on light backgrounds.
+   Force black on any inline-background span inside the editor. */
+[data-theme="dark"] [contenteditable] span[style*="background-color"],
+[data-theme="dark"] [contenteditable] font[style*="background-color"] {
+  color: #111827 !important;
+}
