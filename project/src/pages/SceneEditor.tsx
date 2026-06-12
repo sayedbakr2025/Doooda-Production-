@@ -73,6 +73,7 @@ export default function SceneEditor() {
   const [isDiacritizing, setIsDiacritizing] = useState(false);
   const [activeArabicTaskLabel, setActiveArabicTaskLabel] = useState<string | null>(null);
   const [showArabicToolsMenu, setShowArabicToolsMenu] = useState(false);
+  const [showHighlightMenu, setShowHighlightMenu] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [commentTab, setCommentTab] = useState<'general' | 'inline'>('inline');
@@ -186,11 +187,14 @@ onContentChange: (html) => setContent(html),
       if (showArabicToolsMenu && !target.closest('.arabic-tools-menu-container')) {
         setShowArabicToolsMenu(false);
       }
+      if (showHighlightMenu && !target.closest('.highlight-menu-container')) {
+        setShowHighlightMenu(false);
+      }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [showArabicToolsMenu]);
+  }, [showArabicToolsMenu, showHighlightMenu]);
 
   useEffect(() => {
     if (sceneId) {
@@ -1091,6 +1095,49 @@ const handleContextMenu = (e: React.MouseEvent) => {
     editorRef.current?.focus();
   };
 
+  // ── Highlight colours ──
+  const HIGHLIGHT_COLORS = [
+    { label: language === 'ar' ? 'أصفر فاتح' : 'Light Yellow',  value: '#FFF9C4', name: 'yellow-light' },
+    { label: language === 'ar' ? 'أصفر غامق'  : 'Dark Yellow',   value: '#F9A825', name: 'yellow-dark'  },
+    { label: language === 'ar' ? 'أحمر فاتح'  : 'Light Red',     value: '#FFCDD2', name: 'red-light'    },
+    { label: language === 'ar' ? 'أحمر غامق'  : 'Dark Red',      value: '#E53935', name: 'red-dark'     },
+    { label: language === 'ar' ? 'أزرق فاتح'  : 'Light Blue',    value: '#BBDEFB', name: 'blue-light'   },
+    { label: language === 'ar' ? 'أزرق غامق'  : 'Dark Blue',     value: '#1565C0', name: 'blue-dark'    },
+    { label: language === 'ar' ? 'أخضر فاتح'  : 'Light Green',   value: '#C8E6C9', name: 'green-light'  },
+    { label: language === 'ar' ? 'أخضر غامق'  : 'Dark Green',    value: '#2E7D32', name: 'green-dark'   },
+  ];
+
+  const applyHighlight = (color: string) => {
+    editorRef.current?.focus();
+    document.execCommand('hiliteColor', false, color);
+    const newContent = editorRef.current?.innerHTML || '';
+    setContent(newContent);
+    setShowHighlightMenu(false);
+  };
+
+  const removeHighlight = () => {
+    editorRef.current?.focus();
+    document.execCommand('hiliteColor', false, 'transparent');
+    // Fallback: also try removeFormat for highlight
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      // Walk through all spans in selection and remove background
+      const spans = editorRef.current?.querySelectorAll('[style*="background"]');
+      spans?.forEach(span => {
+        const el = span as HTMLElement;
+        if (sel.containsNode(el, true)) {
+          el.style.backgroundColor = '';
+          el.style.background = '';
+        }
+      });
+      void range;
+    }
+    const newContent = editorRef.current?.innerHTML || '';
+    setContent(newContent);
+    setShowHighlightMenu(false);
+  };
+
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
     const newContent = e.currentTarget.innerHTML;
     contentRef.current = newContent;
@@ -1526,6 +1573,102 @@ const handleContextMenu = (e: React.MouseEvent) => {
 
             <div className="flex items-center gap-1 pr-2" style={{ borderRight: `1px solid var(--editor-toolbar-border)` }}>
               <VoiceToTextButton editorRef={editorRef} onContentChange={handleInput} />
+            </div>
+
+            {/* ── Highlight button ── */}
+            <div className="relative highlight-menu-container">
+              <button
+                onClick={() => setShowHighlightMenu(prev => !prev)}
+                className="p-2 rounded flex items-center gap-1.5 text-sm font-medium"
+                style={{
+                  backgroundColor: showHighlightMenu ? 'var(--editor-toolbar-active)' : 'transparent',
+                  color: 'var(--editor-toolbar-text)',
+                }}
+                onMouseEnter={(e) => { if (!showHighlightMenu) e.currentTarget.style.backgroundColor = 'var(--editor-toolbar-hover)'; }}
+                onMouseLeave={(e) => { if (!showHighlightMenu) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                title={language === 'ar' ? 'تظليل النص' : 'Highlight Text'}
+              >
+                {/* Highlighter pen icon */}
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  <rect x="3" y="19" width="18" height="2.5" rx="1" fill="#F9A825" stroke="none" />
+                </svg>
+                <span className="hidden sm:inline">{language === 'ar' ? 'تظليل' : 'Highlight'}</span>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showHighlightMenu && (
+                <div
+                  className="absolute top-full mt-1 rounded-xl shadow-xl border z-50 p-3"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border-light)',
+                    minWidth: '220px',
+                    right: language === 'ar' ? 'auto' : '0',
+                    left: language === 'ar' ? '0' : 'auto',
+                  }}
+                  dir={language === 'ar' ? 'rtl' : 'ltr'}
+                >
+                  <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {language === 'ar' ? 'اختر لون التظليل' : 'Choose highlight color'}
+                  </p>
+
+                  {/* Color pairs: light + dark side by side */}
+                  {[0, 2, 4, 6].map(i => (
+                    <div key={i} className="flex gap-2 mb-2">
+                      {[HIGHLIGHT_COLORS[i], HIGHLIGHT_COLORS[i + 1]].map(color => (
+                        <button
+                          key={color.value}
+                          onClick={() => applyHighlight(color.value)}
+                          className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                          style={{
+                            backgroundColor: color.value,
+                            color: ['#F9A825','#E53935','#1565C0','#2E7D32'].includes(color.value) ? '#fff' : '#1a1a1a',
+                            border: '1.5px solid rgba(0,0,0,0.12)',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                          }}
+                          title={color.label}
+                        >
+                          <span
+                            style={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              backgroundColor: color.value,
+                              border: '1.5px solid rgba(0,0,0,0.18)',
+                              display: 'inline-block',
+                              flexShrink: 0,
+                            }}
+                          />
+                          {color.label}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+
+                  {/* Remove highlight */}
+                  <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={removeHighlight}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      style={{
+                        color: 'var(--color-text-secondary)',
+                        backgroundColor: 'transparent',
+                        border: '1.5px dashed var(--color-border-light)',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--editor-toolbar-hover)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      {language === 'ar' ? 'إزالة التظليل' : 'Remove Highlight'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {language === 'ar' && (
