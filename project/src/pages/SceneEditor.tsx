@@ -1230,104 +1230,10 @@ const handleContextMenu = (e: React.MouseEvent) => {
     }
 
     if (e.key === 'Enter') {
-      e.preventDefault();
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      const sel = window.getSelection();
-      if (!sel || !sel.rangeCount) { setContent(editor.innerHTML); return; }
-
-      const range = sel.getRangeAt(0);
-      if (!range.collapsed) range.deleteContents();
-
-      // Helper: place cursor at the very start of an element
-      const placeCursor = (el: HTMLElement) => {
-        const nr = document.createRange();
-        const fc = el.firstChild;
-        if (fc && fc.nodeType === Node.TEXT_NODE) nr.setStart(fc, 0);
-        else nr.setStart(el, 0);
-        nr.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(nr);
-      };
-
-      // Helper: ensure an element is not visually empty
-      const ensureContent = (el: HTMLElement) => {
-        if (!el.textContent && !el.querySelector('br, img')) el.innerHTML = '<br>';
-      };
-
-      // Find the nearest block-level ancestor (div/p) inside the editor
-      let block: HTMLElement | null = null;
-      let cur: Node | null = range.startContainer;
-      while (cur && cur !== editor) {
-        if (cur.nodeType === Node.ELEMENT_NODE) {
-          const tag = (cur as HTMLElement).tagName;
-          if (tag === 'DIV' || tag === 'P') { block = cur as HTMLElement; break; }
-        }
-        cur = cur.parentNode;
-      }
-
-      if (block) {
-        // ── Case 1: cursor is inside a block element — split it ──
-        const tailRange = document.createRange();
-        tailRange.setStart(range.startContainer, range.startOffset);
-        tailRange.setEnd(block, block.childNodes.length);
-        const tail = tailRange.extractContents();
-
-        const newBlock = document.createElement('div');
-        newBlock.appendChild(tail);
-        ensureContent(newBlock);
-        ensureContent(block);
-
-        block.insertAdjacentElement('afterend', newBlock);
-        placeCursor(newBlock);
-      } else {
-        // ── Case 2: cursor is directly in the editor root (no block wrapper) ──
-        // Find the immediate child of editor that contains the cursor
-        let directChild: Node | null = range.startContainer;
-        while (directChild && directChild.parentNode !== editor) {
-          directChild = directChild.parentNode;
-        }
-
-        if (!directChild) { setContent(editor.innerHTML); return; }
-
-        // Extract content from cursor to end of directChild
-        const inlineTailRange = document.createRange();
-        inlineTailRange.setStart(range.startContainer, range.startOffset);
-        if (directChild.nodeType === Node.TEXT_NODE) {
-          inlineTailRange.setEnd(directChild, (directChild as Text).length);
-        } else {
-          inlineTailRange.setEnd(directChild, (directChild as Element).childNodes.length);
-        }
-        const inlineTail = inlineTailRange.extractContents();
-
-        // Collect any inline siblings after directChild (until a block element)
-        const inlineSiblings: Node[] = [];
-        let sib: Node | null = directChild.nextSibling;
-        while (
-          sib &&
-          !(sib.nodeType === Node.ELEMENT_NODE &&
-            ['DIV', 'P'].includes((sib as Element).tagName))
-        ) {
-          inlineSiblings.push(sib);
-          sib = sib.nextSibling;
-        }
-        // Remove them from the editor (they'll move to the new block)
-        inlineSiblings.forEach(n => editor.removeChild(n));
-
-        // Build the new block: tail + collected inline siblings
-        const newBlock = document.createElement('div');
-        newBlock.appendChild(inlineTail);
-        inlineSiblings.forEach(n => newBlock.appendChild(n));
-        ensureContent(newBlock);
-
-        // Insert before the first following block element (or at end)
-        editor.insertBefore(newBlock, sib);
-
-        placeCursor(newBlock);
-      }
-
-      setContent(editor.innerHTML);
+      // Let the browser split text at cursor natively — far more reliable than manual DOM surgery.
+      // defaultParagraphSeparator ensures consistent <div> usage across browsers.
+      // The onInput handler fires automatically and syncs state.
+      document.execCommand('defaultParagraphSeparator', false, 'div');
     }
   };
 
