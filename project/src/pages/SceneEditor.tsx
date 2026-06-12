@@ -1234,7 +1234,78 @@ const handleContextMenu = (e: React.MouseEvent) => {
       const editor = editorRef.current;
       if (!editor) return;
 
-      document.execCommand('insertParagraph', false);
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) {
+        document.execCommand('insertParagraph', false);
+        setContent(editor.innerHTML);
+        return;
+      }
+
+      const range = sel.getRangeAt(0);
+
+      // Delete any selected text first
+      if (!range.collapsed) range.deleteContents();
+
+      // Find the nearest block-level ancestor (div / p) inside the editor
+      let block: HTMLElement | null = null;
+      let cur: Node | null = range.startContainer;
+      while (cur && cur !== editor) {
+        if (cur.nodeType === Node.ELEMENT_NODE) {
+          const tag = (cur as HTMLElement).tagName;
+          if (tag === 'DIV' || tag === 'P') {
+            block = cur as HTMLElement;
+            break;
+          }
+        }
+        cur = cur.parentNode;
+      }
+
+      if (block) {
+        // Build a range from cursor to the very end of the block
+        const tailRange = document.createRange();
+        tailRange.setStart(range.startContainer, range.startOffset);
+        tailRange.setEnd(block, block.childNodes.length);
+
+        // Extract everything after the cursor into a document fragment
+        const tail = tailRange.extractContents();
+
+        // Create the new block that will hold the extracted tail
+        const newBlock = document.createElement('div');
+        newBlock.appendChild(tail);
+
+        // If the new block is empty, add a BR so the line is interactive
+        if (!newBlock.textContent && !newBlock.querySelector('br, img')) {
+          newBlock.innerHTML = '<br>';
+        }
+
+        // If the original block is now empty, keep a BR placeholder
+        if (!block.textContent && !block.querySelector('br, img')) {
+          block.innerHTML = '<br>';
+        }
+
+        // Insert the new block immediately after the current one
+        block.insertAdjacentElement('afterend', newBlock);
+
+        // Move cursor to the beginning of the new block
+        const newRange = document.createRange();
+        const firstNode = newBlock.firstChild;
+        if (firstNode) {
+          if (firstNode.nodeType === Node.TEXT_NODE) {
+            newRange.setStart(firstNode, 0);
+          } else {
+            newRange.setStart(newBlock, 0);
+          }
+        } else {
+          newRange.setStart(newBlock, 0);
+        }
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      } else {
+        // Cursor is directly in the editor root (no block wrapper)
+        document.execCommand('insertParagraph', false);
+      }
+
       setContent(editor.innerHTML);
     }
   };
