@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -1208,9 +1208,34 @@ const handleContextMenu = (e: React.MouseEvent) => {
       const editor = editorRef.current;
       if (!editor) return;
 
-      const newDiv = document.createElement('div');
-      newDiv.innerHTML = '\u200B';
+      const range = selection.getRangeAt(0);
 
+      // Find the dialogue text span that holds the editable content
+      const dlgTextSpan = dialogueBlock.querySelector('.character-dialogue-text') as HTMLElement | null;
+
+      // Build a new div that will hold the content AFTER the cursor
+      const newDiv = document.createElement('div');
+
+      if (dlgTextSpan) {
+        // Extract everything from cursor position to the end of the dialogue text span
+        const tailRange = document.createRange();
+        tailRange.setStart(range.startContainer, range.startOffset);
+        tailRange.setEnd(dlgTextSpan, dlgTextSpan.childNodes.length);
+        const tail = tailRange.extractContents();
+
+        // Put the extracted tail into the new div
+        newDiv.appendChild(tail);
+
+        // If nothing was after the cursor, keep the div interactive with a zero-width space
+        if (!newDiv.textContent && !newDiv.querySelector('br, img')) {
+          newDiv.innerHTML = '\u200B';
+        }
+      } else {
+        // Fallback: cursor not inside dialogue text span → empty new line
+        newDiv.innerHTML = '\u200B';
+      }
+
+      // Insert the new div right after the dialogue block (skip any trailing BR)
       const br = dialogueBlock.nextSibling;
       if (br && br.nodeName === 'BR') {
         dialogueBlock.parentNode?.insertBefore(newDiv, br.nextSibling);
@@ -1218,9 +1243,14 @@ const handleContextMenu = (e: React.MouseEvent) => {
         dialogueBlock.parentNode?.insertBefore(newDiv, dialogueBlock.nextSibling);
       }
 
+      // Move cursor to the very start of the new div
       const newRange = document.createRange();
-      const textNode = newDiv.firstChild || newDiv;
-      newRange.setStart(textNode, 1);
+      const firstNode = newDiv.firstChild;
+      if (firstNode && firstNode.nodeType === Node.TEXT_NODE) {
+        newRange.setStart(firstNode, 0);
+      } else {
+        newRange.setStart(newDiv, 0);
+      }
       newRange.collapse(true);
       selection.removeAllRanges();
       selection.addRange(newRange);
@@ -1228,6 +1258,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
       setContent(editor.innerHTML);
       return;
     }
+
 
     if (e.key === 'Enter') {
       // Let the browser split text at cursor natively — far more reliable than manual DOM surgery.
