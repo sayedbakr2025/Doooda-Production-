@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -1575,7 +1575,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
               <VoiceToTextButton editorRef={editorRef} onContentChange={handleInput} />
             </div>
 
-            {/* ── Highlight button ── */}
+            {/* -- Highlight button -- */}
             <div className="relative highlight-menu-container">
               <button
                 onClick={() => setShowHighlightMenu(prev => !prev)}
@@ -1588,7 +1588,6 @@ const handleContextMenu = (e: React.MouseEvent) => {
                 onMouseLeave={(e) => { if (!showHighlightMenu) e.currentTarget.style.backgroundColor = 'transparent'; }}
                 title={language === 'ar' ? 'تظليل النص' : 'Highlight Text'}
               >
-                {/* Highlighter pen icon */}
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   <rect x="3" y="19" width="18" height="2.5" rx="1" fill="#F9A825" stroke="none" />
@@ -1605,51 +1604,36 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   style={{
                     backgroundColor: 'var(--color-bg-primary)',
                     borderColor: 'var(--color-border-light)',
-                    minWidth: '220px',
+                    minWidth: '180px',
                     right: language === 'ar' ? 'auto' : '0',
                     left: language === 'ar' ? '0' : 'auto',
                   }}
                   dir={language === 'ar' ? 'rtl' : 'ltr'}
                 >
-                  <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  <p className="text-xs font-semibold mb-3 px-1" style={{ color: 'var(--color-text-secondary)' }}>
                     {language === 'ar' ? 'اختر لون التظليل' : 'Choose highlight color'}
                   </p>
-
-                  {/* Color pairs: light + dark side by side */}
-                  {[0, 2, 4, 6].map(i => (
-                    <div key={i} className="flex gap-2 mb-2">
-                      {[HIGHLIGHT_COLORS[i], HIGHLIGHT_COLORS[i + 1]].map(color => (
-                        <button
-                          key={color.value}
-                          onClick={() => applyHighlight(color.value)}
-                          className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                          style={{
-                            backgroundColor: color.value,
-                            color: ['#F9A825','#E53935','#1565C0','#2E7D32'].includes(color.value) ? '#fff' : '#1a1a1a',
-                            border: '1.5px solid rgba(0,0,0,0.12)',
-                            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
-                          }}
-                          title={color.label}
-                        >
-                          <span
-                            style={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: '50%',
-                              backgroundColor: color.value,
-                              border: '1.5px solid rgba(0,0,0,0.18)',
-                              display: 'inline-block',
-                              flexShrink: 0,
-                            }}
-                          />
-                          {color.label}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-
-                  {/* Remove highlight */}
-                  <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: '8px', marginTop: '4px' }}>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {HIGHLIGHT_COLORS.map(color => (
+                      <button
+                        key={color.value}
+                        onClick={() => applyHighlight(color.value)}
+                        className="transition-all hover:scale-110 active:scale-95"
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          backgroundColor: color.value,
+                          border: '2px solid rgba(0,0,0,0.15)',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        title={color.label}
+                      />
+                    ))}
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: '8px' }}>
                     <button
                       onClick={removeHighlight}
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
@@ -1670,7 +1654,6 @@ const handleContextMenu = (e: React.MouseEvent) => {
                 </div>
               )}
             </div>
-
             {language === 'ar' && (
               <div className="relative arabic-tools-menu-container">
                 <button
