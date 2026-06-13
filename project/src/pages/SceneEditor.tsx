@@ -331,8 +331,26 @@ onContentChange: (html) => setContent(html),
       wordCountRef.current = initialWords;
       setWordCount(initialWords);
       setTimeout(() => rehydrateImages(), 0);
+
+      // Strip any inline `color` from highlighted spans so the CSS
+      // [data-theme="dark"] rule fully controls text colour.
+      // This fixes content saved before this fix was deployed.
+      setTimeout(() => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        const spans = editor.querySelectorAll<HTMLElement>(
+          'span[style*="background-color"], font[style*="background-color"]'
+        );
+        spans.forEach(span => {
+          const bg = span.style.backgroundColor;
+          if (bg && bg !== 'transparent' && bg !== '') {
+            span.style.removeProperty('color');
+          }
+        });
+      }, 0);
     }
   }, [scene]);
+
 
   useEffect(() => {
     contentRef.current = content;
@@ -1111,18 +1129,18 @@ const handleContextMenu = (e: React.MouseEvent) => {
     editorRef.current?.focus();
     document.execCommand('hiliteColor', false, color);
 
-    // After browser applies background-color, force black text inline
-    // on every highlighted span so it stays readable in dark mode.
-    // (execCommand may itself write a white/inherited color inline)
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    if (isDark && editorRef.current) {
+    // Remove any inline `color` that the browser may have injected onto the
+    // highlighted spans so that our CSS rule (`[data-theme="dark"] … { color: #111827 }`)
+    // is the single source of truth for text colour in dark mode.
+    if (editorRef.current) {
       const spans = editorRef.current.querySelectorAll<HTMLElement>(
         'span[style*="background-color"], font[style*="background-color"]'
       );
       spans.forEach(span => {
         const bg = span.style.backgroundColor;
         if (bg && bg !== 'transparent' && bg !== '') {
-          span.style.color = '#111827';
+          // Strip any inline color so CSS can take over
+          span.style.removeProperty('color');
         }
       });
     }
@@ -1135,7 +1153,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
   const removeHighlight = () => {
     editorRef.current?.focus();
     document.execCommand('hiliteColor', false, 'transparent');
-    // Walk through all spans in selection and remove background + forced color
+    // Walk through all spans in selection and remove background + any forced color
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
@@ -1144,8 +1162,8 @@ const handleContextMenu = (e: React.MouseEvent) => {
         if (sel.containsNode(span, true)) {
           span.style.backgroundColor = '';
           span.style.background = '';
-          // Remove the forced black color so theme color takes over
-          span.style.color = '';
+          // Remove forced color so theme color takes over naturally
+          span.style.removeProperty('color');
         }
       });
       void range;
@@ -1154,6 +1172,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
     setContent(newContent);
     setShowHighlightMenu(false);
   };
+
 
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
     const newContent = e.currentTarget.innerHTML;
