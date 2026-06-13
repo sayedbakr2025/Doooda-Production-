@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useUserPlan } from '../hooks/useUserPlan';
 import { getScene, updateScene, createCharacter, createTask, api, logActivity, getInlineComments, stripCommentAnchors } from '../services/api';
 import type { Scene, Project } from '../types';
@@ -57,6 +58,7 @@ export default function SceneEditor() {
   const { language } = useLanguage();
   const { user } = useAuth();
   const { isFree } = useUserPlan();
+  const { theme } = useTheme();
   const [scene, setScene] = useState<Scene | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [content, setContent] = useState('');
@@ -352,10 +354,33 @@ onContentChange: (html) => setContent(html),
   }, [scene]);
 
 
+  // ── Sync highlighted-span text colour with the active theme ──────────────
+  // CSS `!important` can be beaten by browser-injected inline `color` from
+  // execCommand. We therefore manage the colour ourselves via JS.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const spans = editor.querySelectorAll<HTMLElement>(
+      'span[style*="background-color"], font[style*="background-color"]'
+    );
+    spans.forEach(span => {
+      const bg = span.style.backgroundColor;
+      if (!bg || bg === 'transparent' || bg === '') return;
+      if (theme === 'dark') {
+        span.style.setProperty('color', '#111827', 'important');
+      } else {
+        // In light mode let the text keep its natural/inherited colour
+        span.style.removeProperty('color');
+      }
+    });
+  }, [theme]);
+
   useEffect(() => {
     contentRef.current = content;
     calculateWordCount(content);
   }, [content]);
+
 
   async function loadScene() {
     try {
@@ -1129,17 +1154,20 @@ const handleContextMenu = (e: React.MouseEvent) => {
     editorRef.current?.focus();
     document.execCommand('hiliteColor', false, color);
 
-    // Remove any inline `color` that the browser may have injected onto the
-    // highlighted spans so that our CSS rule (`[data-theme="dark"] … { color: #111827 }`)
-    // is the single source of truth for text colour in dark mode.
+    // After execCommand, immediately enforce correct text colour on ALL
+    // highlighted spans in the editor (browser may inject a colour we don't want).
     if (editorRef.current) {
       const spans = editorRef.current.querySelectorAll<HTMLElement>(
         'span[style*="background-color"], font[style*="background-color"]'
       );
       spans.forEach(span => {
         const bg = span.style.backgroundColor;
-        if (bg && bg !== 'transparent' && bg !== '') {
-          // Strip any inline color so CSS can take over
+        if (!bg || bg === 'transparent' || bg === '') return;
+        if (theme === 'dark') {
+          // Force black so text is readable on any light highlight colour
+          span.style.setProperty('color', '#111827', 'important');
+        } else {
+          // Light mode: remove any forced colour, let theme inherit naturally
           span.style.removeProperty('color');
         }
       });
@@ -1153,7 +1181,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
   const removeHighlight = () => {
     editorRef.current?.focus();
     document.execCommand('hiliteColor', false, 'transparent');
-    // Walk through all spans in selection and remove background + any forced color
+    // Walk through all spans in selection and remove background + forced colour
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
@@ -1162,7 +1190,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
         if (sel.containsNode(span, true)) {
           span.style.backgroundColor = '';
           span.style.background = '';
-          // Remove forced color so theme color takes over naturally
+          // Remove the forced colour so the theme colour takes over naturally
           span.style.removeProperty('color');
         }
       });
@@ -1172,6 +1200,7 @@ const handleContextMenu = (e: React.MouseEvent) => {
     setContent(newContent);
     setShowHighlightMenu(false);
   };
+
 
 
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
