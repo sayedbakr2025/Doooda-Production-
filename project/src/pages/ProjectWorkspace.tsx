@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import { api, createChapter, createCharacter, updateCharacter, getCharacters, updateChapterOrder, createTask, deleteCharacter, createReference, getReferences, updateReference, deleteReference, deleteChapter, toggleChapterActive, getScenes, getProjectGenres, getProjectTone, getMyCollaboratorRole, getMyCollaboratorRoleForProject, requestItemDeletion, logActivity } from '../services/api';
+import { api, createChapter, createCharacter, updateCharacter, getCharacters, updateChapterOrder, createTask, deleteCharacter, createReference, getReferences, updateReference, deleteReference, deleteChapter, toggleChapterActive, getScenes, getProjectGenres, getProjectTone, getMyCollaboratorRole, getMyCollaboratorRoleForProject, requestItemDeletion, logActivity, replaceCharacterNameInProject } from '../services/api';
 import type { Project, Chapter, ProjectCharacter, Genre, Tone } from '../types';
 import { t } from '../utils/translations';
 import { getProjectTypeConfig } from '../utils/projectTypeConfig';
@@ -46,6 +46,7 @@ export default function ProjectWorkspace() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [characters, setCharacters] = useState<ProjectCharacter[]>([]);
   const [references, setReferences] = useState<any[]>([]);
+  const [nameReplaceResult, setNameReplaceResult] = useState<{ scenesUpdated: number; loglineUpdated: boolean } | null>(null);
   const [activeTab, setActiveTab] = useState<'ideabank' | 'plot' | 'logline' | 'chapters' | 'characters' | 'notes' | 'collaborators' | 'activity'>('plot');
   const [showShareModal, setShowShareModal] = useState(false);
   const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
@@ -267,8 +268,22 @@ const handleContextMenu = (e: React.MouseEvent, contextType: 'logline' | 'chapte
     if (!id || !canEdit) return;
     try {
       if (editingCharacter) {
+        const oldName = editingCharacter.name;
+        const newName = characterData.name;
         await updateCharacter(editingCharacter.id, characterData);
         logActivity(id, 'update', 'character', characterData.name, editingCharacter.id);
+
+        // If name changed, offer to replace in all text
+        if (oldName !== newName && oldName.trim()) {
+          const confirmMsg = language === 'ar'
+            ? `تم تغيير اسم الشخصية من "${oldName}" إلى "${newName}".\nهل تريد استبدال الاسم القديم تلقائياً في جميع النصوص والمشاهد؟`
+            : `Character name changed from "${oldName}" to "${newName}".\nDo you want to automatically replace the old name in all scenes and text?`;
+          if (window.confirm(confirmMsg)) {
+            const result = await replaceCharacterNameInProject(id, oldName, newName);
+            setNameReplaceResult(result);
+            setTimeout(() => setNameReplaceResult(null), 5000);
+          }
+        }
       } else {
         await createCharacter(id, characterData);
         logActivity(id, 'create', 'character', characterData.name);
@@ -507,6 +522,20 @@ const handleContextMenu = (e: React.MouseEvent, contextType: 'logline' | 'chapte
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
           style={{ backgroundColor: 'var(--color-accent)' }}>
           {language === 'ar' ? 'تم إرسال طلب الحذف إلى صاحب المشروع' : 'Deletion request sent to project owner'}
+        </div>
+      )}
+      {nameReplaceResult && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white flex items-center gap-2"
+          style={{ backgroundColor: '#16a34a' }}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {language === 'ar'
+            ? `تم استبدال الاسم في ${nameReplaceResult.scenesUpdated} مشهد${nameReplaceResult.loglineUpdated ? ' والخط الدرامي' : ''}`
+            : `Name replaced in ${nameReplaceResult.scenesUpdated} scene(s)${nameReplaceResult.loglineUpdated ? ' and logline' : ''}`
+          }
         </div>
       )}
       <GlobalHeader />

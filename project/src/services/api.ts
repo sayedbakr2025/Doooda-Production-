@@ -739,6 +739,97 @@ export async function deleteCharacter(characterId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Replaces all occurrences of a character's old name with the new name
+ * across all scenes and the project logline (idea field).
+ * Handles HTML content safely by replacing text nodes only.
+ */
+export async function replaceCharacterNameInProject(
+  projectId: string,
+  oldName: string,
+  newName: string
+): Promise<{ scenesUpdated: number; loglineUpdated: boolean }> {
+  if (!oldName || !newName || oldName === newName) {
+    return { scenesUpdated: 0, loglineUpdated: false };
+  }
+
+  const escapedOldName = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nameRegex = new RegExp(escapedOldName, 'g');
+
+  let scenesUpdated = 0;
+  let loglineUpdated = false;
+
+  // 1. Get all chapters in the project
+  const { data: chapters, error: chaptersError } = await supabase
+    .from('chapters')
+    .select('id')
+    .eq('project_id', projectId)
+    .is('deleted_at', null);
+
+  if (chaptersError) throw chaptersError;
+
+  if (chapters && chapters.length > 0) {
+    const chapterIds = chapters.map((c: any) => c.id);
+
+    // 2. Get all scenes across those chapters
+    const { data: scenes, error: scenesError } = await supabase
+      .from('scenes')
+      .select('id, content')
+      .in('chapter_id', chapterIds)
+      .is('deleted_at', null);
+
+    if (scenesError) throw scenesError;
+
+    if (scenes && scenes.length > 0) {
+      const updates = scenes
+        .filter((scene: any) => scene.content && nameRegex.test(scene.content))
+        .map((scene: any) => ({
+          id: scene.id,
+          newContent: scene.content.replace(nameRegex, newName),
+        }));
+
+      // Reset regex lastIndex
+      nameRegex.lastIndex = 0;
+
+      for (const update of updates) {
+        const { error: updateError } = await supabase
+          .from('scenes')
+          .update({ content: update.newContent })
+          .eq('id', update.id);
+
+        if (!updateError) {
+          scenesUpdated++;
+        }
+      }
+    }
+  }
+
+  // 3. Update the project logline (idea field)
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('idea')
+    .eq('id', projectId)
+    .single();
+
+  if (!projectError && project?.idea) {
+    // Reset regex
+    const loglineRegex = new RegExp(escapedOldName, 'g');
+    if (loglineRegex.test(project.idea)) {
+      const newIdea = project.idea.replace(new RegExp(escapedOldName, 'g'), newName);
+      const { error: ideaUpdateError } = await supabase
+        .from('projects')
+        .update({ idea: newIdea })
+        .eq('id', projectId);
+
+      if (!ideaUpdateError) {
+        loglineUpdated = true;
+      }
+    }
+  }
+
+  return { scenesUpdated, loglineUpdated };
+}
+
 export async function getChapter(chapterId: string): Promise<Chapter> {
   const { data, error } = await supabase
     .from('chapters')
