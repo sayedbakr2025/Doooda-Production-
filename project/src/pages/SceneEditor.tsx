@@ -1110,6 +1110,23 @@ const handleContextMenu = (e: React.MouseEvent) => {
   const applyHighlight = (color: string) => {
     editorRef.current?.focus();
     document.execCommand('hiliteColor', false, color);
+
+    // After browser applies background-color, force black text inline
+    // on every highlighted span so it stays readable in dark mode.
+    // (execCommand may itself write a white/inherited color inline)
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark && editorRef.current) {
+      const spans = editorRef.current.querySelectorAll<HTMLElement>(
+        'span[style*="background-color"], font[style*="background-color"]'
+      );
+      spans.forEach(span => {
+        const bg = span.style.backgroundColor;
+        if (bg && bg !== 'transparent' && bg !== '') {
+          span.style.color = '#111827';
+        }
+      });
+    }
+
     const newContent = editorRef.current?.innerHTML || '';
     setContent(newContent);
     setShowHighlightMenu(false);
@@ -1118,17 +1135,17 @@ const handleContextMenu = (e: React.MouseEvent) => {
   const removeHighlight = () => {
     editorRef.current?.focus();
     document.execCommand('hiliteColor', false, 'transparent');
-    // Fallback: also try removeFormat for highlight
+    // Walk through all spans in selection and remove background + forced color
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
-      // Walk through all spans in selection and remove background
-      const spans = editorRef.current?.querySelectorAll('[style*="background"]');
+      const spans = editorRef.current?.querySelectorAll<HTMLElement>('[style*="background"]');
       spans?.forEach(span => {
-        const el = span as HTMLElement;
-        if (sel.containsNode(el, true)) {
-          el.style.backgroundColor = '';
-          el.style.background = '';
+        if (sel.containsNode(span, true)) {
+          span.style.backgroundColor = '';
+          span.style.background = '';
+          // Remove the forced black color so theme color takes over
+          span.style.color = '';
         }
       });
       void range;
