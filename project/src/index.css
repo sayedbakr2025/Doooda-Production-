@@ -289,10 +289,10 @@
   100% { box-shadow: none; border-color: var(--color-border) !important; }
 }
 
-/* ── Highlighted text fallback: black in dark mode (CSS layer) ── */
-/* JS in SceneEditor sets color via setProperty('important') which beats inline styles.
-   This CSS rule is a fallback for static renders (e.g. read-only preview). */
-[data-theme="dark"] span[style*="background-color"],
-[data-theme="dark"] font[style*="background-color"] {
+/* ── Highlighted text in dark mode: force dark text for readability ── */
+/* Only applies to spans that actually have a visible background colour.  */
+/* Spans with background-color:transparent are intentionally excluded.    */
+[data-theme="dark"] span[style*="background-color"]:not([style*="background-color: transparent"]):not([style*="background-color:transparent"]),
+[data-theme="dark"] font[style*="background-color"]:not([style*="background-color: transparent"]):not([style*="background-color:transparent"]) {
   color: #111827 !important;
 }

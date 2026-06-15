@@ -334,18 +334,25 @@ onContentChange: (html) => setContent(html),
       setWordCount(initialWords);
       setTimeout(() => rehydrateImages(), 0);
 
-      // Strip any inline `color` from highlighted spans so the CSS
-      // [data-theme="dark"] rule fully controls text colour.
-      // This fixes content saved before this fix was deployed.
+      // After loading, enforce correct text colour on highlighted spans
+      // so the theme is respected regardless of what was saved to the DB.
       setTimeout(() => {
         const editor = editorRef.current;
         if (!editor) return;
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         const spans = editor.querySelectorAll<HTMLElement>(
           'span[style*="background-color"], font[style*="background-color"]'
         );
         spans.forEach(span => {
           const bg = span.style.backgroundColor;
           if (bg && bg !== 'transparent' && bg !== '') {
+            if (isDark) {
+              span.style.setProperty('color', '#111827', 'important');
+            } else {
+              span.style.removeProperty('color');
+            }
+          } else {
+            // No real background — remove any leftover forced colour
             span.style.removeProperty('color');
           }
         });
@@ -1136,6 +1143,20 @@ const handleContextMenu = (e: React.MouseEvent) => {
   const applyFormatting = (command: string, value?: string) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
+    // After removing all formatting, sweep the editor for any leftover
+    // inline colour properties that would break dark/light mode.
+    if (command === 'removeFormat' && editorRef.current) {
+      const allSpans = editorRef.current.querySelectorAll<HTMLElement>('span, font');
+      allSpans.forEach(span => {
+        const bg = span.style.backgroundColor;
+        const hasRealBg = bg && bg !== 'transparent' && bg !== '';
+        if (!hasRealBg) {
+          span.style.removeProperty('color');
+        }
+      });
+      const newContent = editorRef.current.innerHTML || '';
+      setContent(newContent);
+    }
   };
 
   // ── Highlight colours ──
@@ -1181,21 +1202,22 @@ const handleContextMenu = (e: React.MouseEvent) => {
   const removeHighlight = () => {
     editorRef.current?.focus();
     document.execCommand('hiliteColor', false, 'transparent');
-    // Walk through all spans in selection and remove background + forced colour
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0);
-      const spans = editorRef.current?.querySelectorAll<HTMLElement>('[style*="background"]');
-      spans?.forEach(span => {
-        if (sel.containsNode(span, true)) {
-          span.style.backgroundColor = '';
-          span.style.background = '';
-          // Remove the forced colour so the theme colour takes over naturally
+
+    // Walk through ALL spans in the editor and clean up any that no longer
+    // have a real background colour but still carry a forced inline colour.
+    if (editorRef.current) {
+      const allSpans = editorRef.current.querySelectorAll<HTMLElement>('span, font');
+      allSpans.forEach(span => {
+        const bg = span.style.backgroundColor;
+        const hasRealBg = bg && bg !== 'transparent' && bg !== '';
+        if (!hasRealBg) {
           span.style.removeProperty('color');
+          span.style.removeProperty('background-color');
+          span.style.removeProperty('background');
         }
       });
-      void range;
     }
+
     const newContent = editorRef.current?.innerHTML || '';
     setContent(newContent);
     setShowHighlightMenu(false);
