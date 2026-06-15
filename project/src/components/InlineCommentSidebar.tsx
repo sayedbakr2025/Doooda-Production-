@@ -16,7 +16,6 @@ interface InlineCommentSidebarProps {
   pendingSelection?: { start: number; end: number; text: string } | null;
   onClearPending?: () => void;
   onCommentsChanged?: () => void;
-  getEditorText?: () => string;
 }
 
 export default function InlineCommentSidebar({
@@ -29,7 +28,6 @@ export default function InlineCommentSidebar({
   pendingSelection,
   onClearPending,
   onCommentsChanged,
-  getEditorText,
 }: InlineCommentSidebarProps) {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
