@@ -334,26 +334,38 @@ onContentChange: (html) => setContent(html),
       setWordCount(initialWords);
       setTimeout(() => rehydrateImages(), 0);
 
-      // After loading, enforce correct text colour on highlighted spans
-      // so the theme is respected regardless of what was saved to the DB.
+      // After loading, enforce correct text colour on ALL spans/fonts.
+      // This handles:
+      //   1. Spans with a real background  → apply theme-correct colour
+      //   2. Spans with no/transparent bg  → strip any forced colour that
+      //      was saved to the DB from a previous highlight-then-remove action
+      //      (those appear as faded gray text in dark mode).
       setTimeout(() => {
         const editor = editorRef.current;
         if (!editor) return;
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        const spans = editor.querySelectorAll<HTMLElement>(
-          'span[style*="background-color"], font[style*="background-color"]'
-        );
-        spans.forEach(span => {
-          const bg = span.style.backgroundColor;
-          if (bg && bg !== 'transparent' && bg !== '') {
+
+        // The forced dark-mode colour saved by earlier code
+        const FORCED_DARK = ['rgb(17, 24, 39)', '#111827'];
+
+        editor.querySelectorAll<HTMLElement>('span, font').forEach(span => {
+          const bg  = span.style.backgroundColor;
+          const col = span.style.color;
+          const hasRealBg = bg && bg !== 'transparent' && bg !== '';
+
+          if (hasRealBg) {
+            // Span has a real highlight background → keep colour theme-correct
             if (isDark) {
               span.style.setProperty('color', '#111827', 'important');
             } else {
               span.style.removeProperty('color');
             }
           } else {
-            // No real background — remove any leftover forced colour
-            span.style.removeProperty('color');
+            // No real background — remove any leftover forced colour so the
+            // inherited theme colour (white/dark) applies naturally.
+            if (col && (FORCED_DARK.includes(col) || span.style.getPropertyPriority('color') === 'important')) {
+              span.style.removeProperty('color');
+            }
           }
         });
       }, 0);
