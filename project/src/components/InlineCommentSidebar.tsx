@@ -55,33 +55,30 @@ export default function InlineCommentSidebar({
     if (!originalText || typeof originalText !== 'string' || originalText.length < 2) {
       return false;
     }
-    
+
+    // Grace period: never flag a brand-new comment as deleted
     const commentTime = new Date(comment.created_at).getTime();
-    const now = Date.now();
-    if (now - commentTime < 3000) {
+    if (Date.now() - commentTime < 5000) {
       return false;
     }
-    
+
+    // ── Primary check: look for the selected text anywhere in the editor ──
+    // This is immune to the offset mismatch caused by block-level newlines:
+    // Range.toString() includes '\n' between divs but textContent does not,
+    // making start/end offsets unreliable for cross-paragraph selections.
     const editorText = getEditorText ? getEditorText() : '';
-    if (!editorText || comment.anchor_start == null || comment.anchor_end == null) {
-      return false;
+    if (!editorText) return false;
+
+    // Normalize whitespace so minor spacing differences don't cause false positives
+    const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (editorText.length > 0 && normalize(editorText).includes(normalize(originalText))) {
+      return false; // Text still present → NOT deleted
     }
-    if (comment.anchor_start < 0 || comment.anchor_end <= comment.anchor_start) {
-      return false;
-    }
-    if (comment.anchor_end > editorText.length + 50) {
-      return false;
-    }
-    
-    const textAtAnchor = editorText.slice(comment.anchor_start, comment.anchor_end);
-    const anchorLen = comment.anchor_end - comment.anchor_start;
-    const originalLen = originalText.length;
-    if (Math.abs(anchorLen - originalLen) > 10) {
-      return false;
-    }
-    
-    const deleted = textAtAnchor.toLowerCase() !== originalText.toLowerCase();
-    return deleted;
+
+    // ── Fallback: if editorText is empty (not yet loaded) don't flag as deleted ──
+    if (editorText.length === 0) return false;
+
+    return true; // Text genuinely not found in editor
   };
 
   const loadComments = useCallback(async () => {
