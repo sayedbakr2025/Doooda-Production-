@@ -50,36 +50,6 @@ export default function InlineCommentSidebar({
 
   const canComment = true;
 
-  const isTextDeleted = (comment: InlineComment): boolean => {
-    const originalText = comment.selected_text;
-    if (!originalText || typeof originalText !== 'string' || originalText.length < 2) {
-      return false;
-    }
-
-    // Grace period: never flag a brand-new comment as deleted
-    const commentTime = new Date(comment.created_at).getTime();
-    if (Date.now() - commentTime < 5000) {
-      return false;
-    }
-
-    // ── Primary check: look for the selected text anywhere in the editor ──
-    // This is immune to the offset mismatch caused by block-level newlines:
-    // Range.toString() includes '\n' between divs but textContent does not,
-    // making start/end offsets unreliable for cross-paragraph selections.
-    const editorText = getEditorText ? getEditorText() : '';
-    if (!editorText) return false;
-
-    // Normalize whitespace so minor spacing differences don't cause false positives
-    const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
-    if (editorText.length > 0 && normalize(editorText).includes(normalize(originalText))) {
-      return false; // Text still present → NOT deleted
-    }
-
-    // ── Fallback: if editorText is empty (not yet loaded) don't flag as deleted ──
-    if (editorText.length === 0) return false;
-
-    return true; // Text genuinely not found in editor
-  };
 
   const loadComments = useCallback(async () => {
     try {
