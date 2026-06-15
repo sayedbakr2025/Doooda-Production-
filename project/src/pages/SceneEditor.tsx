@@ -2071,7 +2071,6 @@ const handleContextMenu = (e: React.MouseEvent) => {
                   pendingSelection={pendingSelection}
                   onClearPending={() => setPendingSelection(null)}
                   onCommentsChanged={loadInlineComments}
-                  getEditorText={() => editorRef.current?.textContent || ''}
                 />
               )}
               {commentTab === 'general' || (searchParams.get('comment_type') !== 'inline' && showComments) ? (
